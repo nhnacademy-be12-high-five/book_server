@@ -1,18 +1,12 @@
 spring:
-  application:
-    name: book_server
-  
   profiles:
     active: dev
-  
-  config:
-    import: "configserver:"
-  
+
   cloud:
     config:
       discovery:
         enabled: true
-        service-id: config-server
+        service-id: config-sever
       fail-fast: true
 
 eureka:
