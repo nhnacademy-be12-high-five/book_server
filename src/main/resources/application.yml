@@ -13,16 +13,13 @@ spring:
       discovery:
         enabled: true
         service-id: config-server
-
+      fail-fast: true
       retry:
         initial-interval: 2000  # 2초 간격으로
         max-attempts: 30        # 최대 30번 재시도
 
-      fail-fast: true
-
 eureka:
   client:
-    registry-fetch-interval-seconds: 5
     service-url:
       defaultZone: http://eureka_server:8761/eureka/
   instance:
