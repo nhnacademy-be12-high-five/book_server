@@ -3,7 +3,7 @@ spring:
     name: book_server
   
   profiles:
-    active: dev
+    active: prod
   
   config:
     import: "configserver:"
