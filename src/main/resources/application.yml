@@ -1,24 +1,23 @@
-#spring:
-#  application:
-#    name: book_server
-#
-#  profiles:
-#    active: local
-#
-#  config:
-#    import: "configserver:"
-#
-#  cloud:
-#    config:
-#      discovery:
-#        enabled: false
-#        service-id: config-server
-#      fail-fast: true
-#
-#eureka:
-#  client:
-#    enabled: false
-#    register-with-eureka: false
-#    fetch-registry: false
-##    service-url:
-##      defaultZone: http://localhost:8761/eureka/
+spring:
+  application:
+    name: book_server
+  
+  profiles:
+    active: dev
+  
+  config:
+    import: "configserver:"
+  
+  cloud:
+    config:
+      discovery:
+        enabled: true
+        service-id: config-server
+      fail-fast: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
