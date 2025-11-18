@@ -1,26 +1,15 @@
 spring:
   application:
     name: book_server
-  
-  profiles:
-    active: dev
-  
   config:
-    import: "configserver:"
-  
-  cloud:
-    config:
-      discovery:
-        enabled: true
-        service-id: config-server
-      fail-fast: true
-      retry:
-        initial-interval: 2000  # 2초 간격으로
-        max-attempts: 30        # 최대 30번 재시도
 
-eureka:
-  client:
-    service-url:
-      defaultZone: http://eureka_server:8761/eureka/
-  instance:
-    instance-id: ${spring.application.name}:${spring.application.instance_id:${random.value}}
+    import: "optional:configserver:http://localhost:10482"
+
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: prod,blue,green # 쉼표로 구분
+    import: "configserver:http://config_server:10482"
