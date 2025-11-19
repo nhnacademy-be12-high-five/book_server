@@ -16,3 +16,8 @@ jobs:
       maven-args: "-B -DskipTests"
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_ID: ${{ secrets.SSH_ID }}
+      SSH_PW: ${{ secrets.SSH_PW }}
