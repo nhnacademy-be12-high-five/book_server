@@ -13,11 +13,6 @@ jobs:
       project-key: team5-book-service
       docker-image: fbxogns123/book-server
       container-name: book_server
-      ssh-host: ${{ secrets.SSH_HOST }}
-      ssh-username: ${{ secrets.SSH_USER }}
       maven-args: "-B -DskipTests"
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      SSH_PASSWORD: ${{ secrets.SSH_PW }}
