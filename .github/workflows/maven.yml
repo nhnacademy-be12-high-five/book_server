@@ -10,17 +10,18 @@ jobs:
   ci-deploy:
     uses: nhnacademy-be12-high-five/.github/.github/workflows/shared-workflow.yml@feat/cicd
     with:
-      project-key: team5-book-service           # SonarQube 프로젝트 키
-      docker-image: fbxogns123/book-server      # Docker Hub 이미지 이름
-      container-name: book_server                # docker-compose 서비스명
-      ssh-host: ${{ secrets.SSH_IP }}
-      ssh-username: ${{ secrets.SSH_ID }}
-      maven-args: "-B -DskipTests"               # Maven 배치 모드 + 테스트 건너뛰기
+      project-key: team5-book-service
+      docker-image: fbxogns123/book-server
+      container-name: book_server
+      ssh-host: SSH_IP
+      ssh-username: SSH_ID
+      maven-args: "-B -DskipTests"
       deploy-path: ''
       service-name: ''
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      SONAR_HOST: ${{ secrets.SONAR_HOST }}
-      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      SSH_PASSWORD: ${{ secrets.SSH_PW }}
+      SONAR_HOST: SONAR_HOST
+      DOCKER_USERNAME: DOCKER_USERNAME
+      DOCKER_PASSWORD: DOCKER_PASSWORD
+      SSH_PASSWORD: SSH_PW
+
