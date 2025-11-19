@@ -21,3 +21,4 @@ jobs:
       SSH_IP: ${{ secrets.SSH_IP }}
       SSH_ID: ${{ secrets.SSH_ID }}
       SSH_PW: ${{ secrets.SSH_PW }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
