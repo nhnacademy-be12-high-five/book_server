@@ -16,8 +16,6 @@ jobs:
       ssh-host: SSH_IP
       ssh-username: SSH_ID
       maven-args: "-B -DskipTests"
-      deploy-path: ''
-      service-name: ''
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST: SONAR_HOST
