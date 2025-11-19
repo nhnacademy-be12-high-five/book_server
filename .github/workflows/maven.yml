@@ -1,35 +1,26 @@
-# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-maven
-
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
-name: Java CI with Maven
+name: Book Service CI/CD
 
 on:
   push:
-    branches: [ "main", "dev", "feature/**" ]
+    branches: [ "main", "dev" ]
   pull_request:
-    branches: [ "main", "dev", "feature/**" ]
+    branches: [ "main", "dev" ]
 
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-    - name: Set up JDK 21
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-        cache: maven
-    - name: Build with Maven
-      run: mvn -B package --file pom.xml
-
-    # Optional: Uploads the full dependency graph to GitHub to improve the quality of Dependabot alerts this repository can receive
-    - name: Update dependency graph
-      uses: advanced-security/maven-dependency-submission-action@571e99aab1055c2e71a1e2309b9691de18d6b7d6
+  ci-deploy:
+    uses: nhnacademy-be12-high-five/.github/.github/workflows/shared-workflow.yml@feat/cicd
+    with:
+      project-key: team5-book-service           # SonarQube 프로젝트 키
+      docker-image: fbxogns123/book-server      # Docker Hub 이미지 이름
+      container-name: book_server                # docker-compose 서비스명
+      ssh-host: ${{ secrets.SSH_IP }}
+      ssh-username: ${{ secrets.SSH_ID }}
+      maven-args: "-B -DskipTests"               # Maven 배치 모드 + 테스트 건너뛰기
+      deploy-path: ''
+      service-name: ''
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST: ${{ secrets.SONAR_HOST }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      SSH_PASSWORD: ${{ secrets.SSH_PW }}
