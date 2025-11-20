@@ -3,3 +3,9 @@ spring:
     name: book_server
   config:
     import: "optional:configserver:"
+
+# ▼ [필수 추가] 이 부분이 없으면 Docker가 주는 유레카 주소를 못 받습니다!
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
