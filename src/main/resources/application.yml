@@ -2,6 +2,4 @@ spring:
   application:
     name: book_server
   config:
-
-    import: "optional:configserver:http://localhost:10482"
-
+    import: "optional:configserver:"
