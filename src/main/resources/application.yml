@@ -5,11 +5,3 @@ spring:
 
     import: "optional:configserver:http://localhost:10482"
 
-
----
-
-spring:
-  config:
-    activate:
-      on-profile: prod,blue,green # 쉼표로 구분
-    import: "configserver:http://config_server:10482"
