@@ -1,0 +1,90 @@
+#spring:
+#  application:
+#    name: book_server
+#
+#  profiles:
+#    active: prod
+#
+#  config:
+#    import: "configserver:"
+#
+#  cloud:
+#    config:
+#      discovery:
+#        enabled: true
+#        service-id: config-server
+#      fail-fast: true
+#
+#eureka:
+#  client:
+#    service-url:
+#      defaultZone: http://localhost:8761/eureka/
+
+
+# 1. 공통 설정 (애플리케이션 이름)
+#spring:
+#  application:
+#    name: book_server
+
+---
+# 2. [기본/dev/prod] Config Server 사용 모드
+# 👉 'local' 프로필이 아닐 때(!local)만 이 설정들이 적용됩니다.
+#spring:
+#  config:
+#    activate:
+#      on-profile: "local"
+##    import: "configserver:" # Config Server에서 설정 가져오기
+#  cloud:
+#    config:
+#      discovery:
+#        enabled: false
+#        service-id: config-server
+#      fail-fast: true
+#
+
+#eureka:
+#  client:
+#    service-url:
+#      defaultZone: http://localhost:8761/eureka/
+
+---
+# 3. [local] 독자 실행 모드 (나 혼자 뜰래!)
+# 👉 'local' 프로필일 때만 이 설정들이 적용됩니다.
+
+
+spring:
+  config:
+    activate:
+      on-profile: "local"
+  cloud:
+    config:
+      enabled: false # 🚫 Config Server 끄기 (접속 시도 안 함)
+  datasource:
+    url: jdbc:mysql://220.67.216.14:13306/project_be12_team5?serverTimezone=Asia/Seoul&characterEncoding=UTF-8 # 내 로컬 DB
+    username: project_be12_team5
+    password: KFYUERgqkPF!r6
+
+  # JPA/Hibernate 로그 설정 등 개발 편의 설정 추가
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+eureka:
+  client:
+    enabled: false # 🚫 Eureka 사용 안 함 (등록 안 함)
+    fetch-registry: false
+
+    server:
+      port: 8080 # 로컬에서 띄울 포트
+
+springdoc:
+  version: V.0.0.1
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /api-docs
+
+  default-consumes-media-type: application/json;charset=UTF-8
+  default-produces-media-type: application/json;charset=UTF-8
