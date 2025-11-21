@@ -1,6 +1,6 @@
 spring:
   application:
-    name: book_server
+    name: team5_book_server
   config:
     import: "optional:configserver:"
 
