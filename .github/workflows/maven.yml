@@ -1,32 +1,24 @@
-# This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-java-with-maven
+name: Book Service CI/CD
 
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support and
-# documentation.
-
-# 각 서비스 워크 플로우
-name: Book CI/CD
-
-# 이 레포에 push/pr이 발생하면 실행 테스트 겸
 on:
   push:
-    branches: [ "main", "dev", "feature/**" ]
+    branches: [ "main", "dev" ]
   pull_request:
-    branches: [ "main", "dev", "feature/**" ]
+    branches: [ "main", "dev" ]
 
 jobs:
-  call-reusable-deploy:
-    # 1. .github 레포의 템플릿 파일을 호출
-    # 'YOUR-ORGANIZATION' 부분은 실제 조직 이름으로 변경해야 합니다.
-    uses: nhnacademy-be12-high-five/.github/.github/workflows/shared-workflow.yml@main
-
-    # 2. 템플릿에 필요한 '입력값(inputs)'을 전달
+  ci-deploy:
+    uses: nhnacademy-be12-high-five/.github/.github/workflows/shared-workflow.yml@feat/cicd
     with:
-      service-name: 'book-server'
-      deploy-path: '~/www/nhnbook'
-
-    # 3. 템플릿에 필요한 '시크릿'을 전달
-    # 'secrets: inherit'를 쓰면 이 레포의 시크릿을 모두 넘깁니다.
-    secrets: inherit
+      project-key: team5-book-service
+      docker-image: fbxogns123/book-server
+      container-name: book_server
+      maven-args: "-B -DskipTests"
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      SSH_IP: ${{ secrets.SSH_IP }}
+      SSH_ID: ${{ secrets.SSH_ID }}
+      SSH_PW: ${{ secrets.SSH_PW }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
