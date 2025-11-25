@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 
 @Entity
 @Builder
-@Table(name = "publisher")
+@Table(name = "publishers")
 @Getter
 @RequiredArgsConstructor
 @AllArgsConstructor
@@ -18,6 +18,6 @@ public class Publisher {
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long PublisherId;
 
-  @Column(name = "name", nullable = false, unique = true)
+  @Column(name = "publisher_name", nullable = false, unique = true)
   private String name; // ✅ 출판사 이름
 }

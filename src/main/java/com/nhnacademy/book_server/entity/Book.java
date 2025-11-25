@@ -42,7 +42,7 @@ public class Book{
     private String volumeNumber;
 
     @NotNull
-    @Column(nullable = false)
+    @Column(nullable = false, length = 1000)
     private String title;
     // TITLE_NM : 제목
 
@@ -70,6 +70,7 @@ public class Book{
     private Integer price;
 
     // 이미지 URL : IMAGE_URL
+    @Column(name = "image_url", columnDefinition = "TEXT")
     private String image;
 
 //     BOOK_INTRCN_CN : 도서 소개 내용

@@ -31,22 +31,27 @@ public class DataParsingService {
     private final PublisherRepository publisherRepository;
     private final BookAuthorRepository bookAuthorRepository;
 
+    // 한 번에 처리할 배치 사이즈 (DB 파라미터 제한 회피용)
+    private static final int BATCH_SIZE = 1000;
+
     public void saveAll(List<ParsingDto> records) {
         if (records == null || records.isEmpty()) {
             return;
         }
 
+        log.info("총 {}건의 데이터 파싱 완료. 중복 확인 및 저장 시작...", records.size());
+
         Set<String> allPublisherNames = new HashSet<>();
         Set<String> allAuthorNames = new HashSet<>();
         Set<String> allIsbns = new HashSet<>();
 
+        // 1. 데이터 수집
         for (ParsingDto dto : records) {
             if (StringUtils.hasText(dto.getPublisher())) {
                 allPublisherNames.add(dto.getPublisher().trim());
             }
-            // 작가 이름이 "홍길동, 김철수" 처럼 콤마로 구분되어 있을 수 있으므로 분리해서 수집
             if (StringUtils.hasText(dto.getAuthor())) {
-                String[] splitAuthors = dto.getAuthor().split(",");
+                String[] splitAuthors = dto.getAuthor().split("[,;]");
                 for (String authorName : splitAuthors) {
                     if (StringUtils.hasText(authorName)) {
                         allAuthorNames.add(authorName.trim());
@@ -58,34 +63,33 @@ public class DataParsingService {
             }
         }
 
-        // 2. 출판사 처리 (Map<이름, 객체>)
+        // 2. 출판사 처리 (배치 조회)
         Map<String, Publisher> publisherMap = resolvePublishers(allPublisherNames);
 
-        // 3. 작가 처리 (Map<이름, 객체>)
+        // 3. 작가 처리 (배치 조회)
         Map<String, Author> authorMap = resolveAuthors(allAuthorNames);
 
-        // 4. 이미 존재하는 ISBN 확인 (중복 저장 방지)
-        List<Book> existingBooks = bookRepository.findAllByIsbnIn(allIsbns);
-        Set<String> existingIsbnSet = existingBooks.stream()
-                .map(Book::getIsbn)
-                .collect(Collectors.toSet());
+        // 4. 이미 존재하는 ISBN 확인 (배치 조회)
+        Set<String> existingIsbnSet = new HashSet<>();
+        List<String> isbnList = new ArrayList<>(allIsbns);
+
+        for (int i = 0; i < isbnList.size(); i += BATCH_SIZE) {
+            List<String> batch = isbnList.subList(i, Math.min(isbnList.size(), i + BATCH_SIZE));
+            bookRepository.findAllByIsbnIn(new HashSet<>(batch))
+                    .forEach(book -> existingIsbnSet.add(book.getIsbn()));
+        }
 
         // 5. Book 객체 생성
         List<Book> newBooks = new ArrayList<>();
-        // 나중에 BookAuthor 연결을 위해 Book과 DTO의 인덱스를 맞추거나 Map을 써야 함.
-        // 여기서는 저장 후 처리를 위해 Pair처럼 DTO를 임시 보관할 리스트를 만듭니다.
         List<ParsingDto> booksToSaveDtos = new ArrayList<>();
 
         for (ParsingDto dto : records) {
             String isbn = dto.getIsbn() != null ? dto.getIsbn().trim() : "";
 
-            // ISBN이 없거나 이미 DB에 있으면 스킵
             if (isbn.isEmpty() || existingIsbnSet.contains(isbn)) {
                 continue;
             }
-
-            // 중복된 ISBN이 CSV 내에 여러 개 있을 경우 방지
-            existingIsbnSet.add(isbn);
+            existingIsbnSet.add(isbn); // CSV 내부 중복 방지
 
             Publisher publisher = publisherMap.get(dto.getPublisher().trim());
 
@@ -94,34 +98,49 @@ public class DataParsingService {
                     .title(dto.getTitle())
                     .publisher(publisher)
                     .price(parsePrice(dto.getPrice()))
-                    .content(dto.getDescription()) // Entity 필드명: content
-                    .image(dto.getImageUrl())      // Entity 필드명: image
-                    .publishedDate(parseDate(dto.getPubDate()).toString()) // Entity 타입이 LocalDate인 경우
+                    .content(dto.getDescription())
+                    .image(dto.getImageUrl())
+                    .publishedDate(parseDate(dto.getPubDate()).toString())
                     .build();
 
             newBooks.add(book);
             booksToSaveDtos.add(dto);
         }
 
-        // 6. Book 일괄 저장
+        // 6. Book 일괄 저장 (배치 저장)
         if (!newBooks.isEmpty()) {
-            List<Book> savedBooks = bookRepository.saveAll(newBooks);
-            log.info("새로운 도서 {}권 저장 완료", savedBooks.size());
+            saveBooksInBatch(newBooks, booksToSaveDtos, authorMap);
+        } else {
+            log.info("저장할 새로운 도서가 없습니다.");
+        }
+    }
 
-            // 7. BookAuthor 연결 (책-작가 관계)
+    // 도서와 작가 관계를 배치로 나누어 저장하는 메서드
+    private void saveBooksInBatch(List<Book> books, List<ParsingDto> dtos, Map<String, Author> authorMap) {
+        int total = books.size();
+        log.info("새로운 도서 {}권 저장을 시작합니다.", total);
+
+        for (int i = 0; i < total; i += BATCH_SIZE) {
+            int end = Math.min(total, i + BATCH_SIZE);
+            List<Book> bookBatch = books.subList(i, end);
+            List<ParsingDto> dtoBatch = dtos.subList(i, end);
+
+            // 1) 책 저장
+            bookRepository.saveAll(bookBatch);
+
+            // 2) 책-작가 관계 생성
             List<BookAuthor> bookAuthors = new ArrayList<>();
-
-            for (int i = 0; i < savedBooks.size(); i++) {
-                Book book = savedBooks.get(i);
-                ParsingDto dto = booksToSaveDtos.get(i); // 순서가 동일하므로 매칭 가능
+            for (int j = 0; j < bookBatch.size(); j++) {
+                Book book = bookBatch.get(j);
+                ParsingDto dto = dtoBatch.get(j);
 
                 if (StringUtils.hasText(dto.getAuthor())) {
-                    String[] splitAuthors = dto.getAuthor().split(",");
+                    String[] splitAuthors = dto.getAuthor().split("[,;]");
+                    Set<Author> distinctAuthors = new HashSet<>();
                     for (String rawName : splitAuthors) {
                         String name = rawName.trim();
                         Author author = authorMap.get(name);
-
-                        if (author != null) {
+                        if (author != null && distinctAuthors.add(author)) {
                             bookAuthors.add(BookAuthor.builder()
                                     .book(book)
                                     .author(author)
@@ -131,20 +150,28 @@ public class DataParsingService {
                 }
             }
 
+            // 3) 관계 저장
             if (!bookAuthors.isEmpty()) {
                 bookAuthorRepository.saveAll(bookAuthors);
-                log.info("도서-작가 관계 {}건 연결 완료", bookAuthors.size());
             }
+
+            log.info("진행률: {}/{} 권 저장 완료", end, total);
         }
+        log.info("모든 데이터 저장 완료!");
     }
 
     private Map<String, Publisher> resolvePublishers(Set<String> names) {
         Map<String, Publisher> map = new HashMap<>();
         if (names.isEmpty()) return map;
 
-        // DB 조회
-        List<Publisher> existing = publisherRepository.findAllByNameIn(names);
-        existing.forEach(p -> map.put(p.getName(), p));
+        List<String> nameList = new ArrayList<>(names);
+
+        // 배치 조회 (있는 것 찾기)
+        for (int i = 0; i < nameList.size(); i += BATCH_SIZE) {
+            List<String> batch = nameList.subList(i, Math.min(nameList.size(), i + BATCH_SIZE));
+            publisherRepository.findAllByNameIn(new HashSet<>(batch))
+                    .forEach(p -> map.put(p.getName(), p));
+        }
 
         // 없는 것만 필터링하여 저장
         List<Publisher> toSave = new ArrayList<>();
@@ -155,7 +182,11 @@ public class DataParsingService {
         }
 
         if (!toSave.isEmpty()) {
-            publisherRepository.saveAll(toSave).forEach(p -> map.put(p.getName(), p));
+            // 배치 저장
+            for (int i = 0; i < toSave.size(); i += BATCH_SIZE) {
+                List<Publisher> batch = toSave.subList(i, Math.min(toSave.size(), i + BATCH_SIZE));
+                publisherRepository.saveAll(batch).forEach(p -> map.put(p.getName(), p));
+            }
         }
         return map;
     }
@@ -164,11 +195,16 @@ public class DataParsingService {
         Map<String, Author> map = new HashMap<>();
         if (names.isEmpty()) return map;
 
-        // DB 조회
-        List<Author> existing = authorRepository.findAllByNameIn(names);
-        existing.forEach(a -> map.put(a.getName(), a));
+        List<String> nameList = new ArrayList<>(names);
 
-        // 없는 것만 필터링하여 저장
+        // 배치 조회
+        for (int i = 0; i < nameList.size(); i += BATCH_SIZE) {
+            List<String> batch = nameList.subList(i, Math.min(nameList.size(), i + BATCH_SIZE));
+            authorRepository.findAllByNameIn(new HashSet<>(batch))
+                    .forEach(a -> map.put(a.getName(), a));
+        }
+
+        // 없는 것 저장
         List<Author> toSave = new ArrayList<>();
         for (String name : names) {
             if (!map.containsKey(name)) {
@@ -177,7 +213,11 @@ public class DataParsingService {
         }
 
         if (!toSave.isEmpty()) {
-            authorRepository.saveAll(toSave).forEach(a -> map.put(a.getName(), a));
+            // 배치 저장
+            for (int i = 0; i < toSave.size(); i += BATCH_SIZE) {
+                List<Author> batch = toSave.subList(i, Math.min(toSave.size(), i + BATCH_SIZE));
+                authorRepository.saveAll(batch).forEach(a -> map.put(a.getName(), a));
+            }
         }
         return map;
     }
@@ -194,7 +234,6 @@ public class DataParsingService {
     private LocalDate parseDate(String dateStr) {
         if (!StringUtils.hasText(dateStr)) return LocalDate.now();
         try {
-            // 형식이 yyyy-MM-dd라고 가정
             return LocalDate.parse(dateStr, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         } catch (Exception e) {
             return LocalDate.now();

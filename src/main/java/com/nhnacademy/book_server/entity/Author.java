@@ -6,6 +6,7 @@ import lombok.*;
 
 @Builder
 @Entity
+@Table(name = "authors")
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
@@ -14,8 +15,9 @@ public class Author {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "author_id")
     private Long id;
 
-    @Column(name = "name", nullable = false, unique = true)
+    @Column(name = "author_name", nullable = false, unique = true, length = 500)
     private String name;
 }
