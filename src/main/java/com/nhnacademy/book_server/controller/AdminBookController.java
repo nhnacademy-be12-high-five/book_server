@@ -1,9 +1,15 @@
 package com.nhnacademy.book_server.controller;
 
-import com.nhnacademy.book_server.entity.book;
-import com.nhnacademy.book_server.service.bookService;
+import com.nhnacademy.book_server.controller.swagger.bookSwagger;
+import com.nhnacademy.book_server.entity.Book;
+import com.nhnacademy.book_server.entity.BookUpdateRequest;
+import com.nhnacademy.book_server.parser.ParsingDto;
+import com.nhnacademy.book_server.service.BookService;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,34 +21,32 @@ import java.util.Optional;
 @Tag(name = "도서 API - 관리자", description = "관리자를 위한 도서 API 입니다.")
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
-
 // 관리자 권한 책 컨트롤러
 public class AdminBookController implements bookSwagger{
 
-    private final bookService bookService;
-
+    private final BookService bookService;
 
     // 북 생성
     @PostMapping
-    public ResponseEntity<book> createBook(@RequestBody book book,@RequestHeader("X-User-Id") Long userId){
-        // 권한 인증을 위한 userId
-        checkAdminPermission(userId);
-        book savedBook=bookService.createBook(book);
+    public ResponseEntity<Book> createBook(@RequestBody ParsingDto parsingDto,
+                                           @RequestHeader("X-User-Id") String userId){
+
+        Book savedBook=bookService.createBook(parsingDto);
         return new ResponseEntity<>(savedBook, HttpStatus.CREATED);
     }
 
-    // 도서 전체 조회
+//    // 도서 전체 조회
     @GetMapping
-    public ResponseEntity<List<book>> getAllBooks() {
-        List<book> books = bookService.findAllBooks();
+    public ResponseEntity<List<Book>> getAllBooks(String userId) {
+        List<Book> books = bookService.findAllBooks(userId);
         return ResponseEntity.ok(books); // 200 OK
     }
-
-    // 책 한권 조회
+//
+//    // 책 한권 조회
     @GetMapping("/{id}")
-    public ResponseEntity<List<book>> getAllBooks(@PathVariable int bookId,@RequestHeader("X-User-Id") Long userId) {
+    public ResponseEntity<List<Book>> getAllBooksId(@PathVariable Long bookId,@RequestHeader("X-User-Id") String userId) {
         try {
-            Optional<book> book = bookService.findBookById(bookId);
+            Optional<Book> book = bookService.findBookById(bookId,userId);
 
             if (book.isEmpty()) {
                 return ResponseEntity.notFound().build(); // 404 Not Found
@@ -54,12 +58,12 @@ public class AdminBookController implements bookSwagger{
             return ResponseEntity.notFound().build();
         }
     }
-
+//
     // 책 한권 수정
     @PutMapping("/{id}")
-    public ResponseEntity<book> updateBook(@PathVariable int bookId,@RequestHeader("X-User-Id") Long userId){
+    public ResponseEntity<Book> updateBook(@PathVariable Long bookId, @RequestBody BookUpdateRequest updateDto, @RequestHeader("X-User-Id") String userId){
         try {
-            book updatedBook = bookService.updateBook(bookId);
+            Book updatedBook = bookService.updateBook(bookId,updateDto,userId);
             return ResponseEntity.ok(updatedBook); // 200 OK
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build(); // 404 Not Found (책을 찾을 수 없을 때)
@@ -67,20 +71,12 @@ public class AdminBookController implements bookSwagger{
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteBook(@PathVariable int bookId,@RequestHeader("X-User-Id") Long userId){
+    public ResponseEntity<Void> deleteBook(@PathVariable Long bookId, @RequestHeader("X-User-Id") String userId){
         try {
-            bookService.deleteBook(bookId);
+            bookService.deleteBook(bookId,userId);
             return ResponseEntity.ok().build();
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build(); // 404 Not Found (책을 찾을 수 없을 때)
-        }
-    }
-
-    private void checkAdminPermission(Long userId) {
-        // 💡 userId를 사용하여 관리자 권한이 있는지 확인하는 로직 (bookService나 AuthService에 위임)
-        if (!bookService.isAdmin(userId)) {
-            // 403 Forbidden 응답을 반환하기 위해 예외를 발생시킵니다.
-            throw new AccessDeniedException("관리자 권한이 없습니다.");
         }
     }
 }

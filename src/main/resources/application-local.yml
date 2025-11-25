@@ -60,15 +60,22 @@ spring:
     config:
       enabled: false # 🚫 Config Server 끄기 (접속 시도 안 함)
   datasource:
-    url: jdbc:mysql://220.67.216.14:13306/project_be12_team5?serverTimezone=Asia/Seoul&characterEncoding=UTF-8 # 내 로컬 DB
+    url: jdbc:mysql://s4.java21.net:13306/project_be12_team5
     username: project_be12_team5
     password: KFYUERgqkPF!r6
+    # spring batch를 쓰기 위함 항상 초기화
+  batch:
+    jdbc:
+      initialize-schema: always
 
   # JPA/Hibernate 로그 설정 등 개발 편의 설정 추가
   jpa:
     show-sql: true
     hibernate:
       ddl-auto: update
+      jdbc:
+        batch_size: 100
+        order_inserts: true
 eureka:
   client:
     enabled: false # 🚫 Eureka 사용 안 함 (등록 안 함)
@@ -88,3 +95,9 @@ springdoc:
 
   default-consumes-media-type: application/json;charset=UTF-8
   default-produces-media-type: application/json;charset=UTF-8
+
+logging:
+  level:
+    com.nhnacademy.book_server: DEBUG
+    root: info
+
