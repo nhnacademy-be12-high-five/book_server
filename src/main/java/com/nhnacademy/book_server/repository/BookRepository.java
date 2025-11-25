@@ -5,11 +5,16 @@ import com.nhnacademy.book_server.parser.ParsingDto;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 public interface BookRepository extends JpaRepository<Book, Long> {
 
-    List<Book> findAllByIsbnIn(Set<String> allIsbns);
+    // 이미 등록된 ISBN인지 확인하기 위해 사용
+    boolean existsByIsbn(String isbn);
 
-    List<Book> findAllByBookId(Long bookId);
+    Optional<Book> findByIsbn(String isbn);
+
+    // 파싱 시 중복 데이터를 미리 걸러내기 위해 사용
+    List<Book> findAllByIsbnIn(Set<String> isbns);
 }

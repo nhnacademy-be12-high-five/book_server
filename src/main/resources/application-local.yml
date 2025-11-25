@@ -15,10 +15,8 @@ spring:
       path: /h2-console
 
   datasource:
-    driver-class-name: org.h2.Driver
-    # 👇 (중요) ;MODE=MySQL 추가!
-    # (~/test는 홈디렉토리에 파일생성, 메모리 모드로 더 빠르게 하려면 jdbc:h2:mem:testdb;MODE=MySQL 사용)
-    url: jdbc:h2:~/test;MODE=MySQL
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driverClassName: org.h2.Driver
     username: sa
     password:
 
@@ -27,7 +25,10 @@ spring:
     # H2를 쓰지만 MySQL 문법을 호환해서 쓰겠다는 설정
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: create # 매번 실행 시 테이블 새로 생성
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: true
 
   cloud:
     config:
@@ -41,3 +42,5 @@ eureka:
 springdoc:
   api-docs:
     version: openapi_3_0
+  swagger-ui:
+    path: /swagger-ui.html

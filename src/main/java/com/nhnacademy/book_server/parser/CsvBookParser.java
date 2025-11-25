@@ -44,7 +44,6 @@ public class CsvBookParser implements DataParser {
             for (String[] data : csvReader) {
                 // 수정 1: 실제로 사용하는 마지막 인덱스는 14이므로, 15개 이상이면 통과시킴 (유연성 확보)
                 if (data == null || data.length < 15) {
-                    log.warn("데이터 형식 불일치로 스킵됨: {}", (data != null ? data[0] : "null"));
                     continue;
                 }
 
@@ -52,7 +51,8 @@ public class CsvBookParser implements DataParser {
                     ParsingDto dto = new ParsingDto();
                     dto.setIsbn(data[1]);
                     dto.setTitle(data[3]);
-                    dto.setAuthors(parseAuthors(data[4]));
+                    List<String> authorList = parseAuthors(data[4]);
+                    dto.setAuthor(String.join(",", authorList));
                     dto.setPublisher(data[5]);
 
                     // 수정 2: 가격 파싱 안전하게 처리 (콤마 제거)
@@ -60,19 +60,17 @@ public class CsvBookParser implements DataParser {
                     if (StringUtils.hasText(stringPrice)) {
                         // "15,000" -> "15000" 변환 후 파싱
                         String cleanPrice = stringPrice.replaceAll("[^0-9]", "");
-                        if (StringUtils.hasText(cleanPrice)) {
-                            dto.setPrice(Integer.parseInt(cleanPrice));
-                        }
+                        dto.setPrice(cleanPrice);
                     } else {
-                        dto.setPrice(0); // null 대신 기본값 0 추천 (선택사항)
+                        dto.setPrice("0"); // null 대신 기본값 0 추천 (선택사항)
                     }
 
-                    dto.setImage(data[9]);
-                    dto.setContent(data[10]);
+                    dto.setImageUrl(data[9]);
+                    dto.setDescription(data[10]);
 
                     // 날짜 데이터가 비어있을 경우 대비
                     if(data.length > 14) {
-                        dto.setPublishedDate(data[14]);
+                        dto.setPubDate(data[14]);
                     }
 
                     records.add(dto);

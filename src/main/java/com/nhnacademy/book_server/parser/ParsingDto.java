@@ -1,29 +1,39 @@
 package com.nhnacademy.book_server.parser;
 
-import jakarta.persistence.Entity;
+import com.opencsv.bean.CsvBindByName;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.time.LocalDate;
-import java.util.List;
-
+import lombok.ToString;
 
 @Getter
 @Setter
+@ToString
 public class ParsingDto {
 
-    // 책에 대한 정보를 저장하는 임시 바구니
-    // 계층간 데이터 전달
+    @CsvBindByName(column = "SEQ_NO")
+    private String seqNo;
+
+    @CsvBindByName(column = "ISBN_THIRTEEN_NO")
     private String isbn;
-    String title;
 
+    @CsvBindByName(column = "TITLE_NM")
+    private String title;
+
+    @CsvBindByName(column = "AUTHR_NM")
     private String author;
-    private List<String> authors;
-    private String publisher;
-    private List<String> publishers;
 
-    private Integer price;
-    private String image;
-    private String content;
-    private String publishedDate;
+    @CsvBindByName(column = "PUBLISHER_NM")
+    private String publisher;
+
+    @CsvBindByName(column = "PBLICTE_DE")
+    private String pubDate;
+
+    @CsvBindByName(column = "PRC_VALUE")
+    private String price;
+
+    @CsvBindByName(column = "IMAGE_URL")
+    private String imageUrl;
+
+    @CsvBindByName(column = "BOOK_INTRCN_CN")
+    private String description;
 }

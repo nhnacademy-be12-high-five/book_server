@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class OpenApiconfig {
     @Bean
-    public OpenAPI openAPI(@Value("${springdoc.version}") String springdocVersion) {
+    public OpenAPI openAPI(@Value("${springdoc.version:v1.0}") String springdocVersion) {
         Info info = new Info()
                 .title("제목")
                 .version(springdocVersion)
