@@ -6,7 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Set;
 
-public interface authorRepository extends JpaRepository<Author,Long> {
+public interface AuthorRepository extends JpaRepository<Author,Long> {
 
     List<Author> findAllById(Long id);
     List<Author> findAllByNameIn(Set<String> names);

@@ -6,7 +6,7 @@ import com.nhnacademy.book_server.entity.BookAuthor;
 import org.springframework.stereotype.Service;
 
 @Service
-public class bookAuthorService {
+public class BookAuthorService {
 
     public static BookAuthor save(Book book, Author author) {
 

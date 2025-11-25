@@ -6,15 +6,13 @@ import com.nhnacademy.book_server.entity.BookAuthor;
 import com.nhnacademy.book_server.entity.Publisher;
 import com.nhnacademy.book_server.parser.DataParser;
 import com.nhnacademy.book_server.parser.ParsingDto;
+import com.nhnacademy.book_server.repository.AuthorRepository;
+import com.nhnacademy.book_server.repository.BookAuthorRepository;
 import com.nhnacademy.book_server.repository.BookRepository;
-import com.nhnacademy.book_server.repository.authorRepository;
-import com.nhnacademy.book_server.repository.bookAuthorRepository;
-import com.nhnacademy.book_server.repository.publisherRepository;
+import com.nhnacademy.book_server.repository.PublisherRepository;
 import jakarta.annotation.PostConstruct;
-import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.stereotype.Service;
@@ -23,8 +21,6 @@ import org.springframework.util.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -34,226 +30,219 @@ import java.util.stream.Collectors;
 @Transactional
 public class DataParsingService {
 
-    @Autowired
-    private final BookService bookService;
     private final DataParserResolver dataParserResolver;
-    private final AuthorService authorService;
-    private final authorRepository authorRepository;
-    private final publisherRepository publisherRepository;
+    private final AuthorRepository authorRepository;
+    private final PublisherRepository publisherRepository;
     private final BookRepository bookRepository;
-    private final bookAuthorRepository bookAuthorRepository;
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private final BookAuthorRepository bookAuthorRepository;
 
     @PostConstruct
     public void init() {
         try {
+            // data 폴더 아래의 모든 파일을 읽음
             loadData("classpath:data/*.*");
         } catch (IOException e) {
-            log.error("데이터 로드 실패", e);
+            log.error("초기 데이터 로드 중 심각한 오류 발생", e);
         }
     }
 
     public void loadData(String location) throws IOException {
-        // file, classpath에 위치한 리소스를 제공해주는 Resource 라는 추상화된 인터페이스를 제공해준다.
         PathMatchingResourcePatternResolver resourceResolver = new PathMatchingResourcePatternResolver();
-
-        // 1. 리소스 탐색
         Resource[] resources = resourceResolver.getResources(location);
 
         for (Resource r : resources) {
             String fileName = r.getFilename();
-            if (fileName == null) {
+            if (fileName == null || fileName.startsWith(".")) {
+                // .DS_Store 등 숨김 파일 스킵
                 continue;
             }
 
-            // // 2. 파서 결정 (예: "book.csv" -> CsvDataParser)
+            // 1. 파서 결정
             DataParser parser = dataParserResolver.getDataParser(fileName);
 
             if (parser != null) {
+                log.info("파일 파싱 시작: {} (Parser: {})", fileName, parser.getClass().getSimpleName());
                 File file = r.getFile();
                 List<ParsingDto> records = parser.parsing(file);
-                saveDataBulk(records);
-            } else {
-                log.error("지원하는 parser가 없습니다.");
-            }
-        }
-    }
 
-    private void saveData (List <ParsingDto> records) throws IOException {
-        for (ParsingDto dto : records) {
-            try {
-                Book book;
-                Author author;
-                List<String> authorList = dto.getAuthors();
-
-                book = bookService.createBook(dto);
-
-                for (String name : authorList) {
-                    author = authorService.save(name);
-                    BookAuthor bookAuthor = bookAuthorService.save(book, author);
-                    Publisher publisher = publisherService.save(name);
+                if (!records.isEmpty()) {
+                    saveDataBulk(records);
+                    log.info("파일 파싱 및 저장 완료: {} (총 {}건)", fileName, records.size());
                 }
-            }
-            catch (IllegalArgumentException e) {
-                log.error("데이터를 저장할 수 없습니다.");
-            }
-            catch (Exception e) {
-                log.error("데이터를 저장할 수 없습니다.");
+            } else {
+                // 파서가 없는 파일은 경고 대신 정보 로그로 남김 (불필요한 에러 로그 방지)
+                log.info("스킵됨: 지원하는 파서가 없는 파일입니다. ({})", fileName);
             }
         }
     }
 
     private void saveDataBulk(List<ParsingDto> records) {
-        Set<String> allAuthorNames = new HashSet<>();  // 작가 이름 가져오는 hashset
-        Set<String> allPublisherNames = new HashSet<>();  // 출판사 가져오는 hashset
+        // 중복 제거 및 데이터 정제용 Set
+        // Map Key로 사용할 때는 반드시 '소문자'로 변환하여 대소문자 이슈(Duplicate entry) 방지
+        Set<String> allAuthorNamesRaw = new HashSet<>();
+        Set<String> allPublisherNamesRaw = new HashSet<>();
         Set<String> allIsbns = new HashSet<>();
 
+        // 1. DTO에서 데이터 추출 및 공백 제거
         for (ParsingDto dto : records) {
-            if (dto.getAuthor() != null) {
-                allAuthorNames.addAll(dto.getAuthors());
+            if (dto.getAuthors() != null) {
+                for (String author : dto.getAuthors()) {
+                    if (StringUtils.hasText(author)) {
+                        allAuthorNamesRaw.add(author.trim());
+                    }
+                }
             }
-            if (dto.getPublisher() != null) {
-                allPublisherNames.add(dto.getPublisher());
+            if (StringUtils.hasText(dto.getPublisher())) {
+                allPublisherNamesRaw.add(dto.getPublisher().trim());
             }
-
-            if (dto.getIsbn() != null){
-                allIsbns.add(dto.getIsbn());
+            if (StringUtils.hasText(dto.getIsbn())) {
+                allIsbns.add(dto.getIsbn().trim());
             }
         }
 
-        // // 1-1. Author ID Resolution
+        // ==========================================
+        // 2. Author 저장 및 매핑 (대소문자 구분 없이 처리)
+        // ==========================================
+        Map<String, Author> authorMap = new HashMap<>(); // Key: 소문자 이름
 
-        // 기존의 작가가 존재하는지 find
-        List<Author> existingAuthors = authorRepository.findAllByNameIn(allAuthorNames);
-        Map<String, Author> authorMap = existingAuthors.stream()
-                .collect(Collectors.toMap(Author::getName, a -> a));
+        // 2-1. 기존 DB에 있는 작가 조회
+        List<Author> existingAuthors = authorRepository.findAllByNameIn(allAuthorNamesRaw);
+        for (Author a : existingAuthors) {
+            authorMap.put(a.getName().toLowerCase(), a);
+        }
 
-        // // 💡 Batch Save 1: 새로운 Author를 한 번에 저장 (ID 생성)
-
-        // 새로운 작가 저장
+        // 2-2. 새로운 작가 선별 및 저장
         List<Author> newAuthors = new ArrayList<>();
-        for (String name : allAuthorNames) {
-            if (!authorMap.containsKey(name)) {
-                Author newAuthor = Author.builder().name(name).build();
+        for (String rawName : allAuthorNamesRaw) {
+            String lowerName = rawName.toLowerCase();
+            if (!authorMap.containsKey(lowerName)) {
+                Author newAuthor = Author.builder().name(rawName).build();
                 newAuthors.add(newAuthor);
-                // 나중에 Map에서 꺼내 쓸 수 있게 미리 넣어둠 (ID는 아직 없음)
-                authorMap.put(name, newAuthor);
+                authorMap.put(lowerName, newAuthor); // 중복 방지를 위해 맵에도 즉시 추가
             }
         }
 
-        List<Author> savedNewAuthors = authorRepository.saveAll(newAuthors);
+        if (!newAuthors.isEmpty()) {
+            List<Author> savedAuthors = authorRepository.saveAll(newAuthors);
+            // 저장 후 ID가 생성된 객체로 Map 업데이트
+            for (Author a : savedAuthors) {
+                authorMap.put(a.getName().toLowerCase(), a);
+            }
+        }
 
-        // savedNewAuthors를 authorMap에 다시 넣어 ID가 부여된 객체로 업데이트 (선택적)
-        savedNewAuthors.forEach(a -> authorMap.put(a.getName(), a));
+        // ==========================================
+        // 3. Publisher 저장 및 매핑 (대소문자 구분 없이 처리)
+        // ==========================================
+        Map<String, Publisher> publisherMap = new HashMap<>(); // Key: 소문자 이름
 
-        // // 1-2. Publisher ID Resolution
-        // 기존의 출판사 아이디가 존재하는지 검증
-        List<Publisher> existingPublishers = publisherRepository.findAllByNameIn(allPublisherNames);
-        Map<String, Publisher> publisherMap = existingPublishers.stream()
-                .collect(Collectors.toMap(Publisher::getName, p -> p));
+        List<Publisher> existingPublishers = publisherRepository.findAllByNameIn(allPublisherNamesRaw);
+        for (Publisher p : existingPublishers) {
+            publisherMap.put(p.getName().toLowerCase(), p);
+        }
 
-        // 새로운 출판사
         List<Publisher> newPublishers = new ArrayList<>();
-        for (String name : allPublisherNames) {
-            if (name != null && !publisherMap.containsKey(name)) {
-                Publisher newPub = Publisher.builder().name(name).build();
+        for (String rawName : allPublisherNamesRaw) {
+            String lowerName = rawName.toLowerCase();
+            if (!publisherMap.containsKey(lowerName)) {
+                Publisher newPub = Publisher.builder().name(rawName).build();
                 newPublishers.add(newPub);
-                publisherMap.put(name, newPub);
+                publisherMap.put(lowerName, newPub); // 중복 방지
             }
         }
-        // 새로운 출판사 추가
-        List<Publisher> savedNewPublishers = publisherRepository.saveAll(newPublishers);
-        savedNewPublishers.forEach(p -> publisherMap.put(p.getName(), p)); // ID 업데이트
 
+        if (!newPublishers.isEmpty()) {
+            List<Publisher> savedPublishers = publisherRepository.saveAll(newPublishers);
+            for (Publisher p : savedPublishers) {
+                publisherMap.put(p.getName().toLowerCase(), p);
+            }
+        }
 
-        // 기존의 책과 기존의 isbn이 존재하는지 검증
+        // ==========================================
+        // 4. Book 저장
+        // ==========================================
+        // 이미 존재하는 책 확인 (ISBN 기준)
         List<Book> existingBooks = bookRepository.findAllByIsbnIn(allIsbns);
         Set<String> existingIsbns = existingBooks.stream()
                 .map(Book::getIsbn)
                 .collect(Collectors.toSet());
 
         List<Book> newBooks = new ArrayList<>();
-        // 나중에 BookAuthor 연결을 위해 DTO 인덱스와 매칭할 임시 리스트
-        List<ParsingDto> targetDtos = new ArrayList<>();
+        List<ParsingDto> targetDtos = new ArrayList<>(); // 책과 1:1 매칭될 DTO
 
         for (ParsingDto dto : records) {
-            // 이미 있는 책이면 스킵 (업데이트 로직이 필요하면 여기서 처리)
-            if (existingIsbns.contains(dto.getIsbn())) {
+            String isbn = dto.getIsbn() != null ? dto.getIsbn().trim() : "";
+
+            if (!StringUtils.hasText(isbn) || existingIsbns.contains(isbn)) {
                 continue;
             }
 
-            Publisher publisher = publisherMap.get(dto.getPublisher());
+            // Publisher 찾기 (소문자 키 사용)
+            String pubKey = dto.getPublisher() != null ? dto.getPublisher().trim().toLowerCase() : "";
+            Publisher publisher = publisherMap.get(pubKey);
 
             Book book = Book.builder()
                     .title(dto.getTitle())
-                    .isbn(dto.getIsbn())
+                    .isbn(isbn)
                     .content(dto.getContent())
                     .price(dto.getPrice())
-                    .PublishedDate(dto.getPublishedDate())
+                    .PublishedDate(dto.getPublishedDate()) // 날짜 변환 메서드 사용 (아래 정의)
+                    .image(dto.getImage()) // 이미지 필드 누락되어 추가함
                     .publisher(publisher)
                     .build();
 
             newBooks.add(book);
-            targetDtos.add(dto); // 저장할 책과 짝이 되는 DTO도 순서대로 저장
-
-            for (int i = 0; i < 10; i++) {
-                log.info(newBooks.get(i).getTitle());
-            }
+            targetDtos.add(dto);
+            existingIsbns.add(isbn); // 현재 배치 내 중복 ISBN 방지
         }
 
-        // 4-2. 책 한방에 저장
+        // 4-1. 책 저장
         List<Book> savedBooks = bookRepository.saveAll(newBooks);
 
-        //
-//    // ==========================================
-//    // 5. [책-작가 연결] BookAuthor 저장
-//    // ==========================================
+        // 4-2. 로그 출력 (IndexOutOfBoundsException 수정됨)
+        int logLimit = Math.min(savedBooks.size(), 10);
+        for (int i = 0; i < logLimit; i++) {
+            log.info("Saved Book: {}", savedBooks.get(i).getTitle());
+        }
 
+        // ==========================================
+        // 5. BookAuthor 연결 (책-작가 관계 저장)
+        // ==========================================
         List<BookAuthor> bookAuthors = new ArrayList<>();
+
         for (int i = 0; i < savedBooks.size(); i++) {
-            Book book=savedBooks.get(i);
+            Book book = savedBooks.get(i);
             ParsingDto dto = targetDtos.get(i);
 
-            if (dto.getAuthors() == null){
-                continue;
-            }
+            if (dto.getAuthors() != null) {
+                for (String authorName : dto.getAuthors()) {
+                    if (!StringUtils.hasText(authorName)) continue;
 
-            for (String authorName : dto.getAuthors()) {
-                Author author = authorMap.get(authorName);
+                    // Author 찾기 (소문자 키 사용)
+                    Author author = authorMap.get(authorName.trim().toLowerCase());
 
-                if (author != null) {
-                    bookAuthors.add(BookAuthor.builder()
-                            .book(book)
-                            .author(author)
-                            .build());
+                    if (author != null) {
+                        bookAuthors.add(BookAuthor.builder()
+                                .book(book)
+                                .author(author)
+                                .build());
+                    }
                 }
             }
-
         }
 
         bookAuthorRepository.saveAll(bookAuthors);
     }
 
-    // savedBooks와 targetDtos는 인덱스 순서가 같음
-    private LocalDate parseDateSafe(String pubdate) {
-        try {
-            return StringUtils.hasText(pubdate)
-                    ? LocalDate.parse(pubdate, DATE_FORMATTER)
-                    : LocalDate.of(1900, 1, 1);
-        } catch (Exception e) {
-            return LocalDate.now();
+    // 날짜 파싱 유틸 메서드 (DTO는 String으로 넘어오므로 변환 필요)
+    private java.time.LocalDate parseDateSafe(String dateStr) {
+        if (!StringUtils.hasText(dateStr)) {
+            return java.time.LocalDate.now();
         }
-    }
-
-    private Integer parseIntFromString (String value){
-        if (StringUtils.hasText(value)) {
-            try {
-                return Integer.parseInt(value);
-            } catch (NumberFormatException e) {
-                return 0;
-            }
-        } else {
-            return 0;
+        try {
+            // yyyy-MM-dd 형식을 가정. 포맷이 다르면 DateTimeFormatter 수정 필요
+            return java.time.LocalDate.parse(dateStr);
+        } catch (Exception e) {
+            return java.time.LocalDate.now(); // 파싱 실패 시 현재 날짜 혹은 null
         }
     }
 }

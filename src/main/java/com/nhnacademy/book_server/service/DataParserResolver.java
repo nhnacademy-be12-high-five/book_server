@@ -2,32 +2,49 @@ package com.nhnacademy.book_server.service;
 
 import com.nhnacademy.book_server.parser.DataParser;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j; // 로그 추가
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+@Slf4j // 1. 로그 어노테이션 추가
 @Component
 @RequiredArgsConstructor
 public class DataParserResolver {
 
-    // 💡 모든 DataParser 구현체를 주입받는 필드를 추가했는지 확인
     private final List<DataParser> parsers;
 
     public DataParser getDataParser(String fileName) {
-        // ... (fileName null 체크 및 확장자 추출 로직)
-        int lastDot = fileName.lastIndexOf('.');
-        if (lastDot == -1) {
+        // 2. 파서 리스트가 잘 들어왔는지 확인 (최초 1회 확인용)
+        if (parsers.isEmpty()) {
+            log.error("CRITICAL: 등록된 파서가 하나도 없습니다! @Component 스캔을 확인하세요.");
             return null;
         }
-        String fileType = fileName.substring(lastDot); // 예: ".csv"
 
-        // 💡 주입받은 파서 목록을 순회하며 일치하는 파서를 찾도록 로직을 구현했는지 확인
+        if (fileName == null) {
+            return null;
+        }
+
+        int lastDot = fileName.lastIndexOf('.');
+        if (lastDot == -1) {
+            log.warn("확장자가 없는 파일이 감지됨: {}", fileName);
+            return null;
+        }
+
+        String fileType = fileName.substring(lastDot); // .csv
+
+        // 3. 어떤 파일을 처리 중인지 로그 찍기
+        log.info("파서 찾는 중 - 파일명: {}, 확장자: {}", fileName, fileType);
+
         for (DataParser parser : parsers) {
             if (parser.getFileType().equalsIgnoreCase(fileType)) {
+                log.info("매칭된 파서 발견: {}", parser.getClass().getSimpleName());
                 return parser;
             }
         }
 
-        return null; // 일치하는 파서가 없으면 null 반환
+        // 4. 여기서 어떤 파일 때문에 실패했는지 정확히 알려줌
+        log.warn("지원하지 않는 파일 형식입니다: {} (확장자: {})", fileName, fileType);
+        return null;
     }
 }
