@@ -1,6 +1,6 @@
 package com.nhnacademy.book_server.controller;
 
-import com.nhnacademy.book_server.service.SearchLogService;
+import com.nhnacademy.book_server.service.search.SearchLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 @Service
 @RequiredArgsConstructor
 @RequestMapping("/api/search-logs")
-public class SearchLogController {
+public class SearchLogController{
 
     private final SearchLogService searchLogService;
 
@@ -29,8 +29,5 @@ public class SearchLogController {
         long count = searchLogService.getSearchCount(keyword);
         return ResponseEntity.ok(count);
     }
-
-
-
 
 }

@@ -12,7 +12,8 @@ public enum SearchFieldType {
     ISBN(70),
     PUBLISHER(60), //출판사
     CONTENT(50), //도서 설명
-    REVIEW(40);//리뷰 내용
+    REVIEWCONTENT(40);//리뷰 내용
 
     private final int weight;
+
 }

@@ -6,5 +6,4 @@ import java.util.Optional;
 
 public interface SearchLogRepository extends JpaRepository<SearchLog, Long> {
     Optional<SearchLog> findByKeyword(String keyword);
-
 }

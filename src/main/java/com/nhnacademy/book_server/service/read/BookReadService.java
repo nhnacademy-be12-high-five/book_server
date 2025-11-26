@@ -1,4 +1,4 @@
-package com.nhnacademy.book_server.service;
+package com.nhnacademy.book_server.service.read;
 
 import com.nhnacademy.book_server.dto.BookResponse;
 
