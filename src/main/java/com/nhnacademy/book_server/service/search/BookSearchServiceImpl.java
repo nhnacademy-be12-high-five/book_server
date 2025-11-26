@@ -1,8 +1,9 @@
-package com.nhnacademy.book_server.service;
+package com.nhnacademy.book_server.service.search;
 
 import com.nhnacademy.book_server.dto.BookSortType;
 import com.nhnacademy.book_server.entity.SearchFieldType;
 import com.nhnacademy.book_server.dto.BookResponse;
+import com.nhnacademy.book_server.service.read.BookReadService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -11,51 +12,44 @@ import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
 import java.util.List;
-
-import static com.nhnacademy.book_server.entity.SearchFieldType.REVIEWCONTENT;
+import java.util.Set;
 
 @RequiredArgsConstructor
 @Service
-public class BookSearchServiceImpl implements BookSearchService{
+public class BookSearchServiceImpl implements BookSearchService {
 
     private final BookReadService bookReadService;
     private final SearchLogService searchLogService;
 
     @Override
     public Page<BookResponse> searchBooks(String keyword, BookSortType sort, int page, int size){
-        //전체 도서 조회
+
+        // 1) 동의어 키워드 확장
+        Set<String> expandedKeywords = Dictionary.expand(keyword);
+
+        // 2) 전체 도서 가져오기
         List<BookResponse> allBooks = bookReadService.findAllBooks();
 
-        //null 방지
-        String safeKeyword = (keyword == null)? "":keyword.trim();
-        String lowerKeyword = safeKeyword.toLowerCase();
-
-        //키워드 매칭 + score 계산
+        // 3) score 계산 (확장된 모든 키워드 사용)
         List<ScoredBook> matched = allBooks.stream()
-                .map(book -> new ScoredBook(book, calculateScore(book, lowerKeyword)))
-                .filter(sb -> lowerKeyword.isBlank() || sb.score()>0)
+                .map(book -> new ScoredBook(book, calculateScore(book, expandedKeywords)))
+                .filter(sb -> expandedKeywords.isEmpty() || sb.score() > 0)
                 .toList();
 
-        //정렬기준 적용
-        Comparator<ScoredBook> comparator = resolveComparator(sort); //정렬기준에 따라 정렬규칙(comparator) 만들기
+        // 4) 정렬 기준 적용
+        Comparator<ScoredBook> comparator = resolveComparator(sort);
         matched.sort(comparator);
 
-        //페이징
-        PageRequest pageRequest = PageRequest.of(page,size);
-        int from = pageRequest.getPageNumber() * pageRequest.getPageSize();
-        int to = Math.min(from+pageRequest.getPageSize(), matched.size());
-
-        if(from>=matched.size()){
-            //요청 페이지가 범위 벗어나면 빈 페이지 반환
-            return new PageImpl<>(List.of(), pageRequest, matched.size());
-        }
-
-        List<BookResponse> content = matched.subList(from, to).stream()
+        // 5) 페이징 처리
+        int start = page * size;
+        int end = Math.min(start + size, matched.size());
+        List<BookResponse> content = matched.subList(start, end).stream()
                 .map(ScoredBook::book)
                 .toList();
 
-        return new PageImpl<>(content, pageRequest, matched.size());
+        return new PageImpl<>(content, PageRequest.of(page, size), matched.size());
     }
+
 
     @Override
     public Page<BookResponse> getAllBooks(int page, int size){
@@ -86,49 +80,46 @@ public class BookSearchServiceImpl implements BookSearchService{
     private record ScoredBook(BookResponse book, int score){}
 
     //점수계산 클래스
-    private int calculateScore(BookResponse book, String lowerKeyword){
-        if(lowerKeyword == null || lowerKeyword.isBlank()){
+    private int calculateScore(BookResponse book, Set<String> keywords) {
+        if (keywords == null || keywords.isEmpty()) {
             return 0;
         }
 
         int score = 0;
 
-        // 제목
-        if(book.title() != null && book.title().toLowerCase().contains(lowerKeyword)){
-            score += SearchFieldType.TITLE.getWeight();
-        }
-
-        // 저자
-        if(book.author() != null && book.author().toLowerCase().contains(lowerKeyword)){
-            score += SearchFieldType.AUTHOR.getWeight();
-        }
-        //태그 (아직 도서에 필드 없음)
-
-        // ISBN
-        if(book.isbn() != null && book.isbn().toLowerCase().contains(lowerKeyword)){
-            score += SearchFieldType.ISBN.getWeight();
-        }
-
-        // 출판사
-        if(book.publisher() != null && book.publisher().toLowerCase().contains(lowerKeyword)){
-            score += SearchFieldType.PUBLISHER.getWeight();
-        }
-
-        // 설명(content)
-        if(book.content() != null && book.content().toLowerCase().contains(lowerKeyword)){
-            score += SearchFieldType.CONTENT.getWeight();
-        }
-
-        // 리뷰 수 기반 검색
-        if(book.reviewCount() != null){
-            String reviewCntStr = String.valueOf(book.reviewCount()).toLowerCase();
-            if(reviewCntStr.contains(lowerKeyword)){
-                score += SearchFieldType.REVIEWCONTENT.getWeight(); // or REVIEW_COUNT
+        for (String kw : keywords) {
+            // 제목
+            if (book.title() != null && book.title().toLowerCase().contains(kw)) {
+                score += SearchFieldType.TITLE.getWeight();
             }
+
+            // 저자
+            if (book.author() != null && book.author().toLowerCase().contains(kw)) {
+                score += SearchFieldType.AUTHOR.getWeight();
+            }
+
+            // ISBN
+            if (book.isbn() != null && book.isbn().toLowerCase().contains(kw)) {
+                score += SearchFieldType.ISBN.getWeight();
+            }
+
+            // 출판사
+            if (book.publisher() != null && book.publisher().toLowerCase().contains(kw)) {
+                score += SearchFieldType.PUBLISHER.getWeight();
+            }
+
+
+            // 도서설명(content)
+            if (book.content() != null && book.content().toLowerCase().contains(kw)) {
+                score += SearchFieldType.CONTENT.getWeight();
+            }
+
+            // tag 추가할 경우 여기도 추가
         }
 
         return score;
     }
+
 
     private Comparator<ScoredBook> resolveComparator(BookSortType sort){
         // 기본: 검색 가중치 점수 내림차순

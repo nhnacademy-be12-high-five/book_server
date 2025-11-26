@@ -1,4 +1,4 @@
-package com.nhnacademy.book_server.service;
+package com.nhnacademy.book_server.service.search;
 
 import com.nhnacademy.book_server.entity.SearchLog;
 import com.nhnacademy.book_server.repository.SearchLogRepository;
@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor //final 필드를 매개변수로 받을때 생성자 자동생성
 @Transactional(readOnly = true)
-public class SearchLogServiceImpl implements SearchLogService{
+public class SearchLogServiceImpl implements SearchLogService {
 
     private final SearchLogRepository searchLogRepository;
 

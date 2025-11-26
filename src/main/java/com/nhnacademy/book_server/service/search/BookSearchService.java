@@ -1,4 +1,4 @@
-package com.nhnacademy.book_server.service;
+package com.nhnacademy.book_server.service.search;
 
 import com.nhnacademy.book_server.dto.BookSortType;
 import com.nhnacademy.book_server.dto.BookResponse;

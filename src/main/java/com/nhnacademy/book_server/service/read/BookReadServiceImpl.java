@@ -1,4 +1,4 @@
-package com.nhnacademy.book_server.service;
+package com.nhnacademy.book_server.service.read;
 
 import com.nhnacademy.book_server.dto.BookResponse;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +10,7 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-public class BookReadServiceImpl implements BookReadService{
+public class BookReadServiceImpl implements BookReadService {
 
     //csv파서 준비되면 주입
 
