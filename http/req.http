@@ -1,0 +1,7 @@
+### 도서 전체 조회
+GET http://localhost:8080/api/books
+Content-Type: application/json
+
+### 도서 한권 조회
+GET http://localhost:8080/api/books/1
+Content-Type: application/json

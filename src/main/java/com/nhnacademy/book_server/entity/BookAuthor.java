@@ -1,7 +1,9 @@
 package com.nhnacademy.book_server.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.domain.Persistable;
 
 import java.io.Serializable;
 
@@ -12,7 +14,7 @@ import java.io.Serializable;
 @AllArgsConstructor
 @NoArgsConstructor
 @Table(name = "book_author")
-public class BookAuthor {
+public class BookAuthor implements Persistable<BookAuthor.Pk> {
 
     @EmbeddedId // 이 필드가 복합 키임을 명시
     @Builder.Default
@@ -21,12 +23,18 @@ public class BookAuthor {
     @MapsId("book")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "book_id")
+    @JsonIgnore
     private Book book;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id")
     @MapsId("author")
     private Author author;
+
+    @Override
+    public boolean isNew() {
+        return true;
+    }
 
     @Embeddable
     @NoArgsConstructor

@@ -35,7 +35,8 @@ public class UserBookController implements UserBookSwagger {
     public ResponseEntity<Book> getBookById(@PathVariable("bookId") Long bookId) {
         // 구현 로직 (서비스 호출 등)
         return bookService.findBookById(bookId, null)
-                .map(ResponseEntity::ok)
+                // 🔴 [수정] 찾은 책(book)을 ok() 안에 넣어줘야 함!
+                .map(book -> ResponseEntity.ok(book))
                 .orElse(ResponseEntity.notFound().build());
     }
 
