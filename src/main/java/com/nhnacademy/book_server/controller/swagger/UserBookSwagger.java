@@ -52,7 +52,7 @@ public interface UserBookSwagger {
 //    @GetMapping("/api/books/{bookId}") // 사용자용 API 경로 예시
     ResponseEntity<Book> getBookById(
             @Parameter(description = "조회할 도서의 고유 ID", required = true, example = "1",hidden = true)
-            @PathVariable("bookId") int bookId);
+            @PathVariable("bookId") Long bookId);
 
     // 검색 기능 등을 추가할 수 있습니다. (예: 제목, 저자, ISBN 등으로 검색)
     // @Operation(summary = "도서 검색", description = "키워드와 검색 조건에 따라 도서를 검색합니다.")

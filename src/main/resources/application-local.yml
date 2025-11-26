@@ -25,7 +25,7 @@ spring:
     # H2를 쓰지만 MySQL 문법을 호환해서 쓰겠다는 설정
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: create-drop
+      ddl-auto: create
     properties:
       hibernate:
         format_sql: true
