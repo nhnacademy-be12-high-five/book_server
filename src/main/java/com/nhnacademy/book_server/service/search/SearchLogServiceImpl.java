@@ -25,5 +25,4 @@ public class SearchLogServiceImpl implements SearchLogService{
     public long getSearchCount(String keyword){
         return searchLogRepository.findByKeyword(keyword).map(SearchLog::getSearchCount).orElse(0L);
     }
-
 }
