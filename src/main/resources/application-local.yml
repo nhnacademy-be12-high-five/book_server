@@ -5,11 +5,18 @@ spring:
       enabled: false      # Config Server 접속 안 함
       discovery:
         enabled: false    # Discovery로 Config 찾기 안 함
+
+  h2:
+    console:
+      path: /h2-console
+      enabled: true
+
   datasource:
-    url: jdbc:mysql://localhost:3306/taehunDB # 내 로컬 DB
-    username: root
+    url: "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+    driver-class-name: org.h2.Driver
+    username: sa
     password:
-    driver-class-name: com.mysql.cj.jdbc.Driver
+
   jpa:
     show-sql: true
     hibernate:
@@ -30,9 +37,14 @@ eureka:
     register-with-eureka: false
     fetch-registry: false
 
-# 3. 로컬 DB 설정
+management:
+  health:
+    elasticsearch:
+      enabled: false
 
+# 3. 로컬 DB 설정
 # 4. MinIO 설정 (하드코딩) -> Config Server가 죽었으니 여기서 직접 값을 줘야 함
+
 minio:
   url: "http://storage.java21.net:8000"
   access-key: "iiRcN2oAPop4ezp3ZvmR"
@@ -51,10 +63,12 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
-
 # 5. 서버 포트
 server:
   port: 9003
+
+
+
 logging:
   file:
     name: logs/book-server.log  # 1. 프로젝트 루트의 logs 폴더 안에 파일 생성

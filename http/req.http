@@ -62,4 +62,8 @@ Content-Type: application/json
   "author": "작가 A, 작가 B"
 }
 
+#### 알라딘 책 조회
+GET http://localhost:8080/api/aladin/search
+Content-Type: application/json
+
 

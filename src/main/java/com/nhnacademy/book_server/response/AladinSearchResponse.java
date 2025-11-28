@@ -1,9 +1,11 @@
 package com.nhnacademy.book_server.response;
 
+import com.nhnacademy.book_server.entity.AladinItem;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.util.Date;
+import java.util.List;
 
 @Getter
 @Setter
@@ -31,4 +33,6 @@ public class AladinSearchResponse {
 
     private Integer pricesales; // 판매가
     private Integer pricestandard;  // 정가
+
+    private List<AladinItem> item;
 }
