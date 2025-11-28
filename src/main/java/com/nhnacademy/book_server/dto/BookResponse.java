@@ -1,22 +1,21 @@
 package com.nhnacademy.book_server.dto;
 
-import com.nhnacademy.book_server.entity.Book;
-import com.nhnacademy.book_server.entity.Category;
-import com.nhnacademy.book_server.entity.Review;
+import com.nhnacademy.book_server.entity.*;
 
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public record BookResponse(Long id,
                            String title,
                            String author,
                            String isbn,
-                           Long price,
+                           Integer price,
                            String image,
                            Integer categoryId,
                            String content,
                            String publisher,
-                           Date publishedDate,
+                           String publishedDate,
                            Double avgRating,
                            Long reviewCount
 ) {
@@ -26,21 +25,43 @@ public record BookResponse(Long id,
                                     Category category,
                                     Double avgRating,
                                     Long reviewCount) {
+        // 저자 이름 문자열로 변환 (예: "홍길동, 이몽룡")
+        String authorNames = null;
+        if (book.getBookAuthors() != null && !book.getBookAuthors().isEmpty()) {
+            authorNames = book.getBookAuthors().stream()
+                    .map(BookAuthor::getAuthor)
+                    .filter(author -> author != null && author.getName() != null)
+                    .map(a -> a.getName().trim())
+                    .filter(name -> !name.isBlank())
+                    .distinct()
+                    .collect(Collectors.joining(", "));
+
+        }
+
+        String publisherName = null;
+        if (book.getPublisher() != null) {
+            publisherName = book.getPublisher().getName();
+        }
+
+        Integer categoryIdValue = (category != null) ? category.getCategoryId() : null;
+
         return new BookResponse(
-                book.getBookId(),
+                book.getId(),
                 book.getTitle(),
+                authorNames,
                 book.getIsbn(),
-                book.getAuthor(),
                 book.getPrice(),
                 book.getImage(),
-                category != null ? category.getCategoryId() : null,
+                categoryIdValue,
                 book.getContent(),
-                book.getPublisher(),
+                publisherName,
                 book.getPublishedDate(),
                 avgRating,
                 reviewCount
         );
     }
+
+
 
     // 2) 리뷰 리스트를 그대로 받아서 평균·개수를 계산하는 팩토리
     public static BookResponse from(Book book,

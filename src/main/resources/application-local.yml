@@ -45,6 +45,12 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
+  elasticsearch:
+    host: s4.java21.net
+    port: 9200
+    username: elastic
+    password: nhnacademy123!
+
 
 logging:
   file:

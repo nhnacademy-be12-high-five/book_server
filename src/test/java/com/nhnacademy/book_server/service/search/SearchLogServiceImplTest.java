@@ -1,8 +1,7 @@
-package com.nhnacademy.book_server.service;
+package com.nhnacademy.book_server.service.search;
 
 import com.nhnacademy.book_server.entity.SearchLog;
 import com.nhnacademy.book_server.repository.SearchLogRepository;
-import com.nhnacademy.book_server.service.search.SearchLogServiceImpl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
