@@ -44,7 +44,7 @@ public class AdminBookController implements bookSwagger{
 //
 //    // 책 한권 조회
     @GetMapping("/{id}")
-    public ResponseEntity<List<Book>> getAllBooksId(@PathVariable Long bookId,@RequestHeader("X-User-Id") String userId) {
+    public ResponseEntity<List<Book>> getAllBooksId(@PathVariable("id") Long bookId,@RequestHeader("X-User-Id") String userId) {
         try {
             Optional<Book> book = bookService.findBookById(bookId,userId);
 
@@ -61,7 +61,7 @@ public class AdminBookController implements bookSwagger{
 //
     // 책 한권 수정
     @PutMapping("/{id}")
-    public ResponseEntity<Book> updateBook(@PathVariable Long bookId, @RequestBody BookUpdateRequest updateDto, @RequestHeader("X-User-Id") String userId){
+    public ResponseEntity<Book> updateBook(@PathVariable("id") Long bookId, @RequestBody BookUpdateRequest updateDto, @RequestHeader("X-User-Id") String userId){
         try {
             Book updatedBook = bookService.updateBook(bookId,updateDto,userId);
             return ResponseEntity.ok(updatedBook); // 200 OK
@@ -71,7 +71,7 @@ public class AdminBookController implements bookSwagger{
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteBook(@PathVariable Long bookId, @RequestHeader("X-User-Id") String userId){
+    public ResponseEntity<Void> deleteBook(@PathVariable("id") Long bookId, @RequestHeader("X-User-Id") String userId){
         try {
             bookService.deleteBook(bookId,userId);
             return ResponseEntity.ok().build();

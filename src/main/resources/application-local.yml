@@ -42,3 +42,23 @@ minio:
 # 5. 서버 포트
 server:
   port: 9003
+logging:
+  file:
+    name: logs/book-server.log  # 1. 프로젝트 루트의 logs 폴더 안에 파일 생성
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB       # 2. 파일 하나가 10MB 넘으면 분리
+      max-history: 7            # 3. 최대 7일치 로그 보관
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n" # 콘솔은 짧게
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n" # 파일은 자세히
+  level:
+    root: INFO
+    # 파서 쪽 로그는 WARN(경고) 이상일 때만 출력 (INFO 로그 숨김)
+    com.nhnacademy.book_server.parser: WARN
+    com.nhnacademy.book_server.service.DataParsingService: WARN
+
+
+aladin:
+  ttb-key : ttbminnie9089971045001
+
