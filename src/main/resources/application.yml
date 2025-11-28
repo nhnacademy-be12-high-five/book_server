@@ -1,11 +1,10 @@
 spring:
   application:
-    name: team5_book_server
+    name: book-server
+  profiles:
+    active: local # 👈 여기서 'local'을 기본값으로 켜줍니다.
+
+  # [핵심] optional을 붙여야 Config Server가 죽어있어도 앱이 안 꺼집니다.
+  # 나중에 배포(prod)할 때도 Config Server가 잠깐 죽어도 앱은 켜지게 하는 안전장치입니다.
   config:
     import: "optional:configserver:"
-
-# ▼ [필수 추가] 이 부분이 없으면 Docker가 주는 유레카 주소를 못 받습니다!
-eureka:
-  client:
-    service-url:
-      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}

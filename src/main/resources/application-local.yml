@@ -1,0 +1,44 @@
+# 1. 클라우드 기능 끄기 (Config Server, Eureka 무시)
+spring:
+  cloud:
+    config:
+      enabled: false      # Config Server 접속 안 함
+      discovery:
+        enabled: false    # Discovery로 Config 찾기 안 함
+  datasource:
+    url: jdbc:mysql://localhost:3306/taehunDB # 내 로컬 DB
+    username: root
+    password:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        default_batch_fetch_size: 100
+  rabbitmq:
+    host: s4.java21.net
+    port: 5672
+    username: admin
+    password: nhnacademy123!
+
+# 2. Eureka Client 끄기
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+# 3. 로컬 DB 설정
+
+# 4. MinIO 설정 (하드코딩) -> Config Server가 죽었으니 여기서 직접 값을 줘야 함
+minio:
+  url: "http://storage.java21.net:8000"
+  access-key: "iiRcN2oAPop4ezp3ZvmR"
+  secret-key: "2wVro40kcE1s3w8kAOpc1uTyCwYKBV7LSraiKAuD"
+  bucket-name: hi-five-bucket
+
+# 5. 서버 포트
+server:
+  port: 9003
