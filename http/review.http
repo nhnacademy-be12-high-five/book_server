@@ -1,0 +1,11 @@
+###
+POST localhost:9003/api/books/1/reviews
+Content-Type: application/json
+
+{
+  "rating": 3,
+  "content": "라라라"
+}
+
+###
+
