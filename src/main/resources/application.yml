@@ -8,3 +8,9 @@ spring:
   # 나중에 배포(prod)할 때도 Config Server가 잠깐 죽어도 앱은 켜지게 하는 안전장치입니다.
   config:
     import: "optional:configserver:"
+
+# ▼ [필수 추가] 이 부분이 없으면 Docker가 주는 유레카 주소를 못 받습니다!
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
