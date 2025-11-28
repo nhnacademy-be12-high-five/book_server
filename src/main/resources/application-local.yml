@@ -1,0 +1,69 @@
+# 3. [local] 독자 실행 모드 (나 혼자 뜰래!)
+# 👉 'local' 프로필일 때만 이 설정들이 적용됩니다.
+
+server:
+  port: 8080 # ⚠️ (수정됨) server 설정은 eureka 밑이 아니라 최상위 레벨에 있어야 합니다.
+
+spring:
+  config:
+    activate:
+      on-profile: "local"
+
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    show-sql: true
+    # H2를 쓰지만 MySQL 문법을 호환해서 쓰겠다는 설정
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+
+  cloud:
+    config:
+      enabled: false
+
+eureka:
+  client:
+    enabled: false
+    fetch-registry: false
+
+springdoc:
+  api-docs:
+    version: openapi_3_0
+  swagger-ui:
+    path: /swagger-ui.html
+
+  elasticsearch:
+    host: s4.java21.net
+    port: 9200
+    username: elastic
+    password: nhnacademy123!
+
+
+logging:
+  file:
+    name: logs/book-server.log  # 1. 프로젝트 루트의 logs 폴더 안에 파일 생성
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB       # 2. 파일 하나가 10MB 넘으면 분리
+      max-history: 7            # 3. 최대 7일치 로그 보관
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n" # 콘솔은 짧게
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n" # 파일은 자세히
+  level:
+    root: INFO
+    # 파서 쪽 로그는 WARN(경고) 이상일 때만 출력 (INFO 로그 숨김)
+    com.nhnacademy.book_server.parser: WARN
+    com.nhnacademy.book_server.service.DataParsingService: WARN

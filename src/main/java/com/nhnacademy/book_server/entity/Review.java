@@ -14,16 +14,6 @@ import java.util.List;
 @Getter
 @NoArgsConstructor
 @Entity
-// 동시성 제어
-@Table(
-        name = "review",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        name = "uk_review_member_book",
-                        columnNames = {"member_id", "book_id"}
-                )
-        }
-)
 public class Review {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
