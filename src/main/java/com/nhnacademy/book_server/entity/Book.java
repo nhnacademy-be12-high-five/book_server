@@ -46,7 +46,8 @@ public class Book{
     // AUTHR_NM : 저자이름
 
     // 출판사
-    private String publisher;
+
+    private Publisher publisher;
 
     // 초판 발행일
     // PBLICTE_DE : 초판 발행일
