@@ -1,24 +1,11 @@
-#spring:
-#  application:
-#    name: book_server
-#
-#  profiles:
-#    active: local
-#
-#  config:
-#    import: "configserver:"
-#
-#  cloud:
-#    config:
-#      discovery:
-#        enabled: false
-#        service-id: config-server
-#      fail-fast: true
-#
-#eureka:
-#  client:
-#    enabled: false
-#    register-with-eureka: false
-#    fetch-registry: false
-##    service-url:
-##      defaultZone: http://localhost:8761/eureka/
+spring:
+  application:
+    name: team5_book_server
+  config:
+    import: "optional:configserver:"
+
+# ▼ [필수 추가] 이 부분이 없으면 Docker가 주는 유레카 주소를 못 받습니다!
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
