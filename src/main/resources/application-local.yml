@@ -34,6 +34,7 @@ spring:
     config:
       enabled: false
 
+
 eureka:
   client:
     enabled: false
@@ -44,7 +45,6 @@ springdoc:
     version: openapi_3_0
   swagger-ui:
     path: /swagger-ui.html
-
 
 logging:
   file:
@@ -61,3 +61,8 @@ logging:
     # 파서 쪽 로그는 WARN(경고) 이상일 때만 출력 (INFO 로그 숨김)
     com.nhnacademy.book_server.parser: WARN
     com.nhnacademy.book_server.service.DataParsingService: WARN
+
+
+aladin:
+  ttb-key : ttbminnie9089971045001
+
