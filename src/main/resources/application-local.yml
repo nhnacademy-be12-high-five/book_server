@@ -15,7 +15,7 @@ spring:
       path: /h2-console
 
   datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    url: "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
     driverClassName: org.h2.Driver
     username: sa
     password:
@@ -25,7 +25,7 @@ spring:
     # H2를 쓰지만 MySQL 문법을 호환해서 쓰겠다는 설정
     database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: update
+      ddl-auto: create
     properties:
       hibernate:
         format_sql: true
