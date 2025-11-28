@@ -1,59 +1,73 @@
 package com.nhnacademy.book_server.service.search;
 
-import com.nhnacademy.book_server.dto.BookSortType;
-import com.nhnacademy.book_server.entity.SearchFieldType;
 import com.nhnacademy.book_server.dto.BookResponse;
+import com.nhnacademy.book_server.dto.BookSortType;
+import com.nhnacademy.book_server.repository.ElasticRepository;
 import com.nhnacademy.book_server.service.read.BookReadService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
 
-@RequiredArgsConstructor
 @Service
+@RequiredArgsConstructor
 public class BookSearchServiceImpl implements BookSearchService {
 
+    // ES 검색용
+    private final ElasticRepository elasticRepository;
+
+    // 전체 조회 / 단건 조회용 (CSV/DB)
     private final BookReadService bookReadService;
+
+    // 인기도 계산용 (검색 로그)
     private final SearchLogService searchLogService;
 
+
+    //키워드 기반 도서 검색
+    //실제 검색,가중치 -> es
+    //정렬,페이징,검색로그 -> java
     @Override
-    public Page<BookResponse> searchBooks(String keyword, BookSortType sort, int page, int size){
+    public Page<BookResponse> searchBooks(String keyword, BookSortType sort, int page, int size) {
+        PageRequest pageRequest = PageRequest.of(page, size);
 
-        // 1) 동의어 키워드 확장
-        Set<String> expandedKeywords = Dictionary.expand(keyword);
+        if (keyword == null || keyword.isBlank()) {
+            return Page.empty(pageRequest);
+        }
 
-        // 2) 전체 도서 가져오기
-        List<BookResponse> allBooks = bookReadService.findAllBooks();
+        // 1) 검색 로그 기록 (키워드 단위)
+        searchLogService.setSearchLog(keyword);
 
-        // 3) score 계산 (확장된 모든 키워드 사용)
-        List<ScoredBook> matched = allBooks.stream()
-                .map(book -> new ScoredBook(book, calculateScore(book, expandedKeywords)))
-                .filter(sb -> expandedKeywords.isEmpty() || sb.score() > 0)
-                .toList();
+        // 2) ES 검색 호출 (여유 있게 page+1 만큼 조회)
+        int fetchSize = (page + 1) * size;
+        List<BookResponse> books = elasticRepository.search(keyword, fetchSize);
 
-        // 4) 정렬 기준 적용
-        Comparator<ScoredBook> comparator = resolveComparator(sort);
-        matched.sort(comparator);
+        if (books.isEmpty()) {
+            return new PageImpl<>(List.of(), pageRequest, 0);
+        }
 
-        // 5) 페이징 처리
-        int start = page * size;
-        int end = Math.min(start + size, matched.size());
-        List<BookResponse> content = matched.subList(start, end).stream()
-                .map(ScoredBook::book)
-                .toList();
+        // 3) 정렬 기준 적용 (ES의 기본 relevance 순서를 바꾸고 싶을 때만)
+        Comparator<BookResponse> comparator = resolveComparator(sort);
+        if (comparator != null) {
+            books.sort(comparator);
+        }
+        // sort == null 이면 ES 결과 순서를 그대로 사용
 
-        return new PageImpl<>(content, PageRequest.of(page, size), matched.size());
+        // 4) 페이징 잘라내기
+        int from = page * size;
+        int to = Math.min(from + size, books.size());
+        if (from >= books.size()) {
+            return new PageImpl<>(List.of(), pageRequest, books.size());
+        }
+
+        List<BookResponse> content = books.subList(from, to);
+        return new PageImpl<>(content, pageRequest, books.size());
     }
 
-
+    //전체 도서 조회
     @Override
-    public Page<BookResponse> getAllBooks(int page, int size){
-        //전체 도서 조회
+    public Page<BookResponse> getAllBooks(int page, int size) {
         List<BookResponse> allBooks = bookReadService.findAllBooks();
 
         PageRequest pageRequest = PageRequest.of(page, size);
@@ -68,126 +82,72 @@ public class BookSearchServiceImpl implements BookSearchService {
         return new PageImpl<>(content, pageRequest, allBooks.size());
     }
 
+    //단일 도서 조회
     @Override
-    public BookResponse getBookById(Long id){
+    public BookResponse getBookById(Long id) {
         return bookReadService.findBookById(id)
                 .orElseThrow(() -> new IllegalArgumentException("해당 ID의 도서를 찾을 수 없습니다: " + id));
     }
 
-
-
-    //bookResponse + score을 묶어주는 임시 클래스
-    private record ScoredBook(BookResponse book, int score){}
-
-    //점수계산 클래스
-    private int calculateScore(BookResponse book, Set<String> keywords) {
-        if (keywords == null || keywords.isEmpty()) {
-            return 0;
-        }
-
-        int score = 0;
-
-        for (String kw : keywords) {
-            // 제목
-            if (book.title() != null && book.title().toLowerCase().contains(kw)) {
-                score += SearchFieldType.TITLE.getWeight();
-            }
-
-            // 저자
-            if (book.author() != null && book.author().toLowerCase().contains(kw)) {
-                score += SearchFieldType.AUTHOR.getWeight();
-            }
-
-            // ISBN
-            if (book.isbn() != null && book.isbn().toLowerCase().contains(kw)) {
-                score += SearchFieldType.ISBN.getWeight();
-            }
-
-            // 출판사
-            if (book.publisher() != null && book.publisher().toLowerCase().contains(kw)) {
-                score += SearchFieldType.PUBLISHER.getWeight();
-            }
-
-
-            // 도서설명(content)
-            if (book.content() != null && book.content().toLowerCase().contains(kw)) {
-                score += SearchFieldType.CONTENT.getWeight();
-            }
-
-            // tag 추가할 경우 여기도 추가
-        }
-
-        return score;
-    }
-
-
-    private Comparator<ScoredBook> resolveComparator(BookSortType sort){
-        // 기본: 검색 가중치 점수 내림차순
-        Comparator<ScoredBook> byScoreDesc =
-                Comparator.comparingInt(ScoredBook::score).reversed();
-
+    //정렬
+    private Comparator<BookResponse> resolveComparator(BookSortType sort) {
         if (sort == null) {
-            return byScoreDesc;
+            // null 이면 ES 기본 점수 순서를 그대로 사용
+            return null;
         }
 
         return switch (sort) {
-            // 인기도: 일단은 가중치 점수 기준 (추후 searchLog, 조회수 연동 가능)
+            // 인기도: SearchLog 에 저장된 검색 횟수 기준 (내림차순)
             case POPULAR -> Comparator
-                    .comparingLong((ScoredBook sb) -> {
-                        String title = sb.book().title();
+                    .comparingLong((BookResponse b) -> {
+                        String title = b.title();
                         if (title == null || title.isBlank()) {
                             return 0L;
                         }
-                        // SearchLog.keyword에 도서 제목이 저장되어 있다고 가정하고 검색 횟수 조회
                         return searchLogService.getSearchCount(title);
                     })
-                    .reversed()
-                    // 인기도가 같으면 기존 검색 점수(가중치)로 한 번 더 정렬
-                    .thenComparing(byScoreDesc);
-
-            // 최저가
-            case LOW_PRICE -> Comparator.comparing(sb -> sb.book().price());
-
-            // 최고가
-            case HIGH_PRICE -> Comparator
-                    .comparing((ScoredBook sb) -> sb.book().price())
                     .reversed();
 
-            // 신상품: 발행일 내림차순
+            // 최저가: price 오름차순
+            case LOW_PRICE -> Comparator.comparing(
+                    (BookResponse b) -> b.price() != null ? b.price() : Integer.MAX_VALUE
+            );
+
+            // 최고가: price 내림차순
+            case HIGH_PRICE -> Comparator
+                    .comparing((BookResponse b) -> b.price() != null ? b.price() : 0)
+                    .reversed();
+
+            // 신상품: 발행일 내림차순 (문자열이 yyyy-MM-dd 형식이라고 가정)
             case NEW -> Comparator
                     .comparing(
-                            (ScoredBook sb) -> sb.book().publishedDate(),
+                            BookResponse::publishedDate,
                             Comparator.nullsLast(Comparator.naturalOrder())
                     )
                     .reversed();
 
-            // 평점: 리뷰수 100건 이상 우선 + 평균 평점 내림차순
+            // 평점: 리뷰수 100건 이상 먼저, 그 안에서 avgRating 내림차순
             case RATING -> Comparator
-                    // 1단계: reviewCount 100건 이상인 책을 먼저
-                    .comparingLong((ScoredBook sb) -> {
-                        Long count = sb.book().reviewCount();
-                        return (count != null && count >= 100) ? 1L : 0L;
+                    .comparingLong((BookResponse b) -> {
+                        Long count = b.reviewCount();
+                        return (count != null && count >= 100L) ? 1L : 0L;
                     })
                     .reversed()
-                    // 2단계: 그 안에서 avgRating 내림차순
                     .thenComparing(
-                            (ScoredBook sb) -> {
-                                Double avg = sb.book().avgRating();
+                            (BookResponse b) -> {
+                                Double avg = b.avgRating();
                                 return avg != null ? avg : 0.0;
                             },
                             Comparator.reverseOrder()
                     );
-            //리뷰 수: reviewCount 기준 내림차순
+
+            // 리뷰 수: reviewCount 내림차순
             case REVIEW -> Comparator
-                    .comparingLong((ScoredBook sb) -> {
-                        Long cnt = sb.book().reviewCount();
+                    .comparingLong((BookResponse b) -> {
+                        Long cnt = b.reviewCount();
                         return cnt != null ? cnt : 0L;
                     })
                     .reversed();
         };
-
     }
-
-
-
 }
