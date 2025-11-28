@@ -4,7 +4,12 @@
       "filter": {
         "synonym_filter": {
           "type": "synonym",
-          "synonyms_path": "analysis/synonyms.txt"
+          "synonyms": [
+            "자바, Java",
+            "스프링, Spring",
+            "엘라스틱서치, Elasticsearch, es",
+            "JPA, Hibernate, 하이버네이트"
+          ]
         }
       },
       "analyzer": {

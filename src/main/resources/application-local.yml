@@ -13,7 +13,7 @@ spring:
   jpa:
     show-sql: true
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
     properties:
       hibernate:
         default_batch_fetch_size: 100
@@ -38,6 +38,19 @@ minio:
   access-key: "iiRcN2oAPop4ezp3ZvmR"
   secret-key: "2wVro40kcE1s3w8kAOpc1uTyCwYKBV7LSraiKAuD"
   bucket-name: hi-five-bucket
+
+elasticsearch:
+  host: s4.java21.net
+  port: 9200
+  username: elastic
+  password: nhnacademy123!
+
+springdoc:
+  api-docs:
+    version: openapi_3_0
+  swagger-ui:
+    path: /swagger-ui.html
+
 
 # 5. 서버 포트
 server:

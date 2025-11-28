@@ -10,7 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/books")
+@RequestMapping("/api/search")
 @RequiredArgsConstructor
 public class SearchController implements SearchSwagger {
 
@@ -18,7 +18,7 @@ public class SearchController implements SearchSwagger {
     private final BookSearchService bookSearchService;
 
     @Override
-    @GetMapping("/search")
+    @GetMapping
     public ResponseEntity<Page<BookResponse>> searchBooks(
             @RequestParam String keyword,
             @RequestParam(defaultValue = "POPULAR")BookSortType sort,
@@ -27,22 +27,5 @@ public class SearchController implements SearchSwagger {
             ) {
         return ResponseEntity.ok(bookSearchService.searchBooks(keyword, sort, page, size));
 
-    }
-
-
-    @Override
-    @GetMapping
-    public ResponseEntity<Page<BookResponse>> getAllBooks(
-            @RequestParam(required = false, defaultValue = "0") int page,
-            @RequestParam(required = false, defaultValue = "20") int size
-    ) {
-        return ResponseEntity.ok(bookSearchService.getAllBooks(page, size));
-    }
-
-    @Override
-    @GetMapping("/{bookId}")
-    public ResponseEntity<BookResponse> getBookById(@PathVariable Long id){
-        return ResponseEntity.ok(bookSearchService.getBookById(id)
-        );
     }
 }

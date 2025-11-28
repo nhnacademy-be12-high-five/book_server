@@ -68,36 +68,4 @@ public interface SearchSwagger {
             )
             @RequestParam(required = false, defaultValue = "20") int size
     );
-
-    //전체 도서 조회
-    @Operation(
-            summary = "전체 도서 조회",
-            description ="페이징을 이용해 전체 도서 목록을 조회합니다."
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "조회 성공 (OK)")
-    })
-    @GetMapping
-    ResponseEntity<Page<BookResponse>> getAllBooks(
-            @Parameter(description = "페이지 번호 (0부터 시작)", example = "0")
-            @RequestParam(required = false, defaultValue = "0") int page,
-
-            @Parameter(description = "페이지당 조회 건수", example = "20")
-            @RequestParam(required = false, defaultValue = "20") int size
-    );
-
-    //단일 도서 조회
-    @Operation(
-            summary = "단일 도서 조회",
-            description = "도서 ID(식별자)를 기준으로 단일 도서를 조회합니다."
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "조회 성공 (OK)"),
-            @ApiResponse(responseCode = "404", description = "해당 ID의 도서를 찾을 수 없음 (Not Found)")
-    })
-    @GetMapping("/{bookId}")
-    ResponseEntity<BookResponse> getBookById(
-            @Parameter(description = "도서 ID", example = "1")
-            @PathVariable("bookId") Long id
-    );
 }
