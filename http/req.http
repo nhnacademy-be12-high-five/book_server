@@ -6,6 +6,60 @@ Content-Type: application/json
 GET http://localhost:8080/api/books
 Content-Type: application/json
 
-###
+### 도서 재고조회
 GET http://localhost:8080/api/books/1/stock
 Content-Type: application/json
+
+### 관리자 책 조회
+GET http://localhost:8080/api/admin/1
+X-USER-ID: 1
+
+### 관리자 책 생성
+POST http://localhost:8080/api/admin
+Content-Type: application/json
+X-USER-ID: 1
+
+{
+  "isbn": "978-8960773400",
+  "title": "예시 책 제목",
+  "publisher": "예시 출판사",
+  "pubDate": "2024-01-01",
+  "price": "25000원",
+  "imageUrl": "http://example.com/image.jpg",
+  "description": "이 책은 예시를 위한 책입니다.",
+  "author": "작가 A, 작가 B"
+}
+
+### 관리자 책 수정
+PUT http://localhost:8080/api/admin/1
+X-USER-ID: 1
+Content-Type: application/json
+
+{
+  "isbn": "978-8960773400",
+  "title": "예시 책 제목",
+  "publisher": "예시 출판사",
+  "pubDate": "2024-01-01",
+  "price": "35000원",
+  "imageUrl": "http://example.com/image.jpg",
+  "description": "이 책은 예시를 위한 책입니다.",
+  "author": "작가 A, 작가 B"
+}
+
+### 관리자 책 삭제
+DELETE http://localhost:8080/api/admin/1
+X-USER-ID: 1
+Content-Type: application/json
+
+{
+  "isbn": "978-8960773400",
+  "title": "예시 책 제목",
+  "publisher": "예시 출판사",
+  "pubDate": "2024-01-01",
+  "price": "25000원",
+  "imageUrl": "http://example.com/image.jpg",
+  "description": "이 책은 예시를 위한 책입니다.",
+  "author": "작가 A, 작가 B"
+}
+
+
