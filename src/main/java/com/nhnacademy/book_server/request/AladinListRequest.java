@@ -5,6 +5,8 @@ import java.util.List;
 
 public class AladinListRequest {
 
+    // 상품 리스트 API 는 제공하는 리스트 중 선택
+
     private String ttbkey;
    List<Items> items=new ArrayList<>();
 
@@ -15,7 +17,4 @@ public class AladinListRequest {
        public String isbn;
        public String description;
    }
-
-
-
 }

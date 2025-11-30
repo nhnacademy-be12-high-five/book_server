@@ -1,21 +1,21 @@
 ### 도서 전체 조회
-GET http://localhost:8080/api/books
+GET http://localhost:9003/api/books
 Content-Type: application/json
 
 ### 도서 한권 조회
-GET http://localhost:8080/api/books
+GET http://localhost:9003/api/books
 Content-Type: application/json
 
 ### 도서 재고조회
-GET http://localhost:8080/api/books/1/stock
+GET http://localhost:9003/api/books/1/stock
 Content-Type: application/json
 
 ### 관리자 책 조회
-GET http://localhost:8080/api/admin/1
+GET http://localhost:9003/api/admin/1
 X-USER-ID: 1
 
 ### 관리자 책 생성
-POST http://localhost:8080/api/admin
+POST http://localhost:9003/api/admin
 Content-Type: application/json
 X-USER-ID: 1
 
@@ -31,7 +31,7 @@ X-USER-ID: 1
 }
 
 ### 관리자 책 수정
-PUT http://localhost:8080/api/admin/1
+PUT http://localhost:9003/api/admin/1
 X-USER-ID: 1
 Content-Type: application/json
 
@@ -47,7 +47,7 @@ Content-Type: application/json
 }
 
 ### 관리자 책 삭제
-DELETE http://localhost:8080/api/admin/1
+DELETE http://localhost:9003/api/admin/1
 X-USER-ID: 1
 Content-Type: application/json
 
@@ -62,4 +62,7 @@ Content-Type: application/json
   "author": "작가 A, 작가 B"
 }
 
+#### 알라딘 query에 맞는 책 전체 조회
+GET http://localhost:9003/api/aladin/search
+Content-Type: application/json
 
