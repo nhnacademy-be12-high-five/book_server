@@ -10,11 +10,15 @@ import java.util.Set;
 
 public interface BookRepository extends JpaRepository<Book, Long> {
 
-    // 이미 등록된 ISBN인지 확인하기 위해 사용
-    boolean existsByIsbn(String isbn);
+    // 이미 등록된 ISBN13 인지 확인하기 위해 사용
+    boolean existsByIsbn13(String isbn);
 
-    Optional<Book> findByIsbn(String isbn);
+    Optional<Book> findByIsbn13(String isbn);
 
     // 파싱 시 중복 데이터를 미리 걸러내기 위해 사용
-    List<Book> findAllByIsbnIn(Set<String> isbns);
+    List<Book> findAllByIsbn13In(Set<String> isbns);
+
+    List<Book> findAllByIdIn(List<Long> bookIds);
+
+    Optional<Book> findAllByIsbn13(String isbn13);
 }

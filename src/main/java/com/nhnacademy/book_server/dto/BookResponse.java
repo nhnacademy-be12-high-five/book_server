@@ -2,7 +2,6 @@ package com.nhnacademy.book_server.dto;
 
 import com.nhnacademy.book_server.entity.*;
 
-import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -49,7 +48,7 @@ public record BookResponse(Long id,
                 book.getId(),
                 book.getTitle(),
                 authorNames,
-                book.getIsbn(),
+                book.getIsbn13(),
                 book.getPrice(),
                 book.getImage(),
                 categoryIdValue,

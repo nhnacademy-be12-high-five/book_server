@@ -25,7 +25,7 @@ public class AladinSearchResponse {
     private String link; // 상품 링크 URL
 
     private String author;
-    private Date pubdate; // 출시일
+    private String pubdate; // 출시일
     private String description;  // 상품 설명
 
     private String isbn;

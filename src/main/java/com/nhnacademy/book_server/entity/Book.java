@@ -33,7 +33,7 @@ public class Book{
 
     @NotNull
     @Column(nullable = false)
-    private String isbn;
+    private String isbn13;
     // int로 하면 범위를 초과하므로 String으로 변경
     // ISBN_THIRTEEN_NO : ISBN 번호
 
@@ -105,4 +105,6 @@ public class Book{
 
     //포장 여부
 //    private boolean WrappedOr;
+
+
 }
