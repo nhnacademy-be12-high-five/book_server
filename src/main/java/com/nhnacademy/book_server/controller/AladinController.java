@@ -25,12 +25,14 @@ public class AladinController {
 
     //상세 세부 조회
     @GetMapping("/lookup")
+    // http://localhost:9003/api/aladin/lookup?isbn13=9791163035105
     public AladinItem lookup(@RequestParam String isbn13){
         return aladinService.lookupBook(isbn13);
     }
 
     // 베스트 셀러 신간 조회
     @GetMapping("/list")
+    // http://localhost:9003/api/aladin/list?queryType=Bestseller
     public List<AladinItem> getList(@RequestParam(defaultValue = "Bestseller") String queryType) {
         // QueryType: Bestseller, ItemNewAll, ItemNewSpecial 등
         return aladinService.getBookList(queryType);

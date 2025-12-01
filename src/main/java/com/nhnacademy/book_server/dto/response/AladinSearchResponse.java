@@ -1,10 +1,9 @@
-package com.nhnacademy.book_server.response;
+package com.nhnacademy.book_server.dto.response;
 
 import com.nhnacademy.book_server.entity.AladinItem;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.Date;
 import java.util.List;
 
 @Getter

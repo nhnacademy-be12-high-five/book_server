@@ -40,7 +40,6 @@ public class UserBookController implements UserBookSwagger {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-
     //사용자의 재고 조회
     @GetMapping("/{bookId}/stock")
     public ResponseEntity<Integer> getBookStock(@PathVariable Long bookId) {

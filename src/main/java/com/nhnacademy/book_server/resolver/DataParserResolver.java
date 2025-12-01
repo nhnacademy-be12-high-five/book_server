@@ -1,4 +1,4 @@
-package com.nhnacademy.book_server.service;
+package com.nhnacademy.book_server.resolver;
 
 import com.nhnacademy.book_server.parser.DataParser;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +17,7 @@ public class DataParserResolver {
     public DataParser getDataParser(String fileName) {
         // 2. 파서 리스트가 잘 들어왔는지 확인 (최초 1회 확인용)
         if (parsers.isEmpty()) {
-            log.error("CRITICAL: 등록된 파서가 하나도 없습니다! @Component 스캔을 확인하세요.");
+            log.error("CRITICAL: 등록된 파서가 하나도 없습니다!");
             return null;
         }
 
