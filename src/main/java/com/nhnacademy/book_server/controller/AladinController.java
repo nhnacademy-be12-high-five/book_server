@@ -1,8 +1,7 @@
 package com.nhnacademy.book_server.controller;
 
 import com.nhnacademy.book_server.entity.AladinItem;
-import com.nhnacademy.book_server.response.AladinSearchResponse;
-import com.nhnacademy.book_server.service.AladinService;
+import com.nhnacademy.book_server.service.impl.AladinServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,7 +15,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AladinController {
 
-    private final AladinService aladinService;
+    private final AladinServiceImpl aladinService;
 
     // 전체 조회
     @GetMapping("/search")
@@ -26,12 +25,14 @@ public class AladinController {
 
     //상세 세부 조회
     @GetMapping("/lookup")
+    // http://localhost:9003/api/aladin/lookup?isbn13=9791163035105
     public AladinItem lookup(@RequestParam String isbn13){
         return aladinService.lookupBook(isbn13);
     }
 
     // 베스트 셀러 신간 조회
     @GetMapping("/list")
+    // http://localhost:9003/api/aladin/list?queryType=Bestseller
     public List<AladinItem> getList(@RequestParam(defaultValue = "Bestseller") String queryType) {
         // QueryType: Bestseller, ItemNewAll, ItemNewSpecial 등
         return aladinService.getBookList(queryType);

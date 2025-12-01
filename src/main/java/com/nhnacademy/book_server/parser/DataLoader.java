@@ -1,8 +1,6 @@
 package com.nhnacademy.book_server.parser;
 
-import com.nhnacademy.book_server.parser.DataParser;
-import com.nhnacademy.book_server.parser.ParsingDto;
-import com.nhnacademy.book_server.service.DataParserResolver;
+import com.nhnacademy.book_server.resolver.DataParserResolver;
 import com.nhnacademy.book_server.service.DataParsingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
