@@ -1,9 +1,11 @@
 package com.nhnacademy.book_server.response;
 
+import com.nhnacademy.book_server.entity.AladinItem;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.util.Date;
+import java.util.List;
 
 @Getter
 @Setter
@@ -23,7 +25,7 @@ public class AladinSearchResponse {
     private String link; // 상품 링크 URL
 
     private String author;
-    private Date pubdate; // 출시일
+    private String pubdate; // 출시일
     private String description;  // 상품 설명
 
     private String isbn;
@@ -31,4 +33,6 @@ public class AladinSearchResponse {
 
     private Integer pricesales; // 판매가
     private Integer pricestandard;  // 정가
+
+    private List<AladinItem> item;
 }

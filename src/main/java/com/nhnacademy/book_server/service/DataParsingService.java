@@ -75,8 +75,8 @@ public class DataParsingService {
 
         for (int i = 0; i < isbnList.size(); i += BATCH_SIZE) {
             List<String> batch = isbnList.subList(i, Math.min(isbnList.size(), i + BATCH_SIZE));
-            bookRepository.findAllByIsbnIn(new HashSet<>(batch))
-                    .forEach(book -> existingIsbnSet.add(book.getIsbn()));
+            bookRepository.findAllByIsbn13In(new HashSet<>(batch))
+                    .forEach(book -> existingIsbnSet.add(book.getIsbn13()));
         }
 
         // 5. Book 객체 생성
@@ -94,7 +94,7 @@ public class DataParsingService {
             Publisher publisher = publisherMap.get(dto.getPublisher().trim());
 
             Book book = Book.builder()
-                    .isbn(isbn)
+                    .isbn13(isbn)
                     .title(dto.getTitle())
                     .publisher(publisher)
                     .price(parsePrice(dto.getPrice()))

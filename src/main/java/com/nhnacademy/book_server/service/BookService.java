@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,7 +27,7 @@ public class BookService {
     private final BookAuthorRepository bookAuthorRepository;
 
     public Book createBook(ParsingDto dto){
-        if (bookRepository.existsByIsbn(dto.getIsbn())) {
+        if (bookRepository.existsByIsbn13(dto.getIsbn())) {
             log.warn("이미 존재하는 ISBN입니다: {}", dto.getIsbn());
         }
 
@@ -39,7 +40,7 @@ public class BookService {
                     ));
         }
         Book newBook = Book.builder()
-                .isbn(dto.getIsbn())
+                .isbn13(dto.getIsbn())
                 .title(dto.getTitle())
                 .publisher(publisher)
                 .publishedDate(dto.getPubDate())
@@ -111,6 +112,16 @@ public class BookService {
         } catch (NumberFormatException e) {
             return 0;
         }
+    }
+
+    // feign client를 위한 메서드
+    public List<Book> getBooksByIds(List<Long> bookIds) {
+
+        if (bookIds.isEmpty()){
+            return Collections.emptyList();
+        }
+
+        return bookRepository.findAllByIdIn(bookIds);
     }
 }
 
