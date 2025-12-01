@@ -29,5 +29,4 @@ public class SearchLogController{
         long count = searchLogService.getSearchCount(keyword);
         return ResponseEntity.ok(count);
     }
-
 }
