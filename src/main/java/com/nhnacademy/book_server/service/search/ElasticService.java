@@ -1,4 +1,4 @@
-package com.nhnacademy.book_server.service;
+package com.nhnacademy.book_server.service.search;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
@@ -9,6 +9,7 @@ import com.nhnacademy.book_server.repository.ElasticRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -136,7 +137,19 @@ public class ElasticService implements ElasticRepository {
     }
 
     public void saveAll(List<BookResponse> books) {
-        books.forEach(this::saveToIndex);
+        for (BookResponse book : books) {
+            try {
+                client.index(i -> i
+                        .index(index)
+                        .id(book.id().toString())
+                        .document(book)
+                );
+            } catch (IOException e) {
+                // 필요하면 로깅/예외 처리
+                throw new RuntimeException("ES 인덱싱 실패: " + book.id(), e);
+            }
+        }
     }
+
 
 }

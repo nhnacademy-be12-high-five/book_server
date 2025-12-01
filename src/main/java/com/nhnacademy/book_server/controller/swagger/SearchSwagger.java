@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 // 도서 검색 API Swagger 인터페이스
@@ -68,4 +69,19 @@ public interface SearchSwagger {
             )
             @RequestParam(required = false, defaultValue = "20") int size
     );
+
+    @Operation(
+            summary = "도서 검색 인덱스 재구축",
+            description = """
+                    DB/파싱된 도서 전체를 Elasticsearch book_index에 다시 색인합니다.
+                    - CSV/알라딘 파서가 먼저 실행되어 DB에 도서가 들어가 있어야 합니다.
+                    - 검색 가중치/정렬은 BookSearchServiceImpl에서 처리합니다.
+                    """
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "인덱싱 완료"),
+            @ApiResponse(responseCode = "500", description = "인덱싱 중 오류 발생")
+    })
+    @PostMapping("/search/reindex")
+    ResponseEntity<String> reindex();
 }

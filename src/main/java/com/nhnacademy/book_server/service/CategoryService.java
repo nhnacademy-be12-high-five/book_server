@@ -17,25 +17,25 @@ public class CategoryService {
     private final CategoryRepository categoryRepository;
     private final BookCategoryRepository bookCategoryRepository;
 
-    //대분류
-    public List<CategoryResponse> getParents(){
+    // 대분류
+    public List<CategoryResponse> getParents() {
         return categoryRepository.findByDepth(1)
                 .stream()
-                .map(c -> new CategoryResponse(c.getCategoryId(),c.getCategoryName()))
+                .map(c -> new CategoryResponse(c.getCategoryId(), c.getCategoryName()))
                 .toList();
     }
 
-    //하위 카테고리 조회
-    public List<CategoryResponse> getChilds(int parentId){
+    // 하위 카테고리 조회
+    public List<CategoryResponse> getChilds(int parentId) {
         return categoryRepository.findByParentId(parentId)
                 .stream()
-                .map(c -> new CategoryResponse(c.getCategoryId(),c.getCategoryName()))
+                .map(c -> new CategoryResponse(c.getCategoryId(), c.getCategoryName()))
                 .toList();
     }
 
-    //카테고리별 도서 조회
-    public List<BookResponse> getBooksByCategory(int categoryID){
-        Category category= categoryRepository.findById(categoryID)
+    // 카테고리별 도서 조회
+    public List<BookResponse> getBooksByCategory(int categoryID) {
+        Category category = categoryRepository.findById(categoryID)
                 .orElseThrow();
 
         return bookCategoryRepository.findByCategory(category)
