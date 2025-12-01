@@ -121,4 +121,22 @@ public class ElasticService implements ElasticRepository {
                 reviewCount
         );
     }
+
+    //elasticservice에 인덱스 저장 기능
+    public void saveToIndex(BookResponse book) {
+        try {
+            client.index(i -> i
+                    .index(index)
+                    .id(book.id().toString())
+                    .document(book)
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("ES 저장 실패: " + e.getMessage());
+        }
+    }
+
+    public void saveAll(List<BookResponse> books) {
+        books.forEach(this::saveToIndex);
+    }
+
 }
