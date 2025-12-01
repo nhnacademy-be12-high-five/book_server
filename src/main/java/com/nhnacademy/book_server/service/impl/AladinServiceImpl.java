@@ -75,7 +75,6 @@ public class AladinServiceImpl implements AladinService {
                     if(book != null) {
                         booksToSave.add(book);
                     }
-
                 }
 
                 return items; // 저장된 리스트 반환
@@ -166,7 +165,6 @@ public class AladinServiceImpl implements AladinService {
         }
         return Collections.emptyList();
     }
-
 
     public AladinItem convertEntityToAladinItem(Book book) {
         AladinItem item = new AladinItem();

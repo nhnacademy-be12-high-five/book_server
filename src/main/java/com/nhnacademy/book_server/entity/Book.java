@@ -101,10 +101,4 @@ public class Book{
     //    private String tag;
 //    private String bookLike;
     private Boolean isPortalSiteBookExist;
-
-
-    //포장 여부
-//    private boolean WrappedOr;
-
-
 }

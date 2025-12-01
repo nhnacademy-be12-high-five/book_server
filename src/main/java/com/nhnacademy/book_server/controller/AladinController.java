@@ -20,6 +20,7 @@ public class AladinController {
     // 전체 조회
     @GetMapping("/search")
     public List<AladinItem> search(@RequestParam String query, @RequestParam String queryType) {
+        // http:localhost:9003/api/aladin/search?query=자바&queryType=Title
         return aladinService.searchBooks(query, queryType);
     }
 
