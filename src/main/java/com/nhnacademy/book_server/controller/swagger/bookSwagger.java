@@ -44,7 +44,7 @@ public interface bookSwagger{
 //            @ApiResponse(responseCode = "404",description = "도서 추가할 수 없음")
     })
     @GetMapping("/{id}")
-    ResponseEntity<List<Book>> getAllBooksId(@PathVariable Long bookId,@Parameter(hidden = true) @RequestHeader("X-User-Id") String userId);
+    ResponseEntity<Book> getAllBookById(@PathVariable Long bookId,@Parameter(hidden = true) @RequestHeader("X-User-Id") String userId);
 
     // 책 한권 수정
     @Operation(summary = "관리자 도서 수정",description = "도서를 조회합니다.")
@@ -55,7 +55,9 @@ public interface bookSwagger{
     })
 
     @PutMapping("/{id}")
-    ResponseEntity<Book> updateBook(@PathVariable Long bookId, BookUpdateRequest updateDto, @Parameter(hidden = true) @RequestHeader("X-User-Id") String userId);
+    ResponseEntity<Book> updateBook(@PathVariable Long bookId,
+                                    BookUpdateRequest updateDto,
+                                    @Parameter(hidden = true) @RequestHeader("X-User-Id") String userId);
 
     // 도서 삭제
     @Operation(summary = "관리자 도서 삭제",description = "도서를 삭제합니다.")

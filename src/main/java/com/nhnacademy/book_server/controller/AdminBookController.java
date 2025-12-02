@@ -37,22 +37,22 @@ public class AdminBookController implements bookSwagger{
 
 //    // 도서 전체 조회
     @GetMapping
-    public ResponseEntity<List<Book>> getAllBooks(String userId) {
-        List<Book> books = bookService.findAllBooks(userId);
+    public ResponseEntity<List<Book>> getAllBooks(@RequestHeader("X-USER-ID") String userId) {
+        List<Book> books = bookService.findAllBooks();
         return ResponseEntity.ok(books); // 200 OK
     }
 //
 //    // 책 한권 조회
     @GetMapping("/{id}")
-    public ResponseEntity<List<Book>> getAllBooksId(@PathVariable("id") Long bookId,@RequestHeader("X-User-Id") String userId) {
+    public ResponseEntity<Book> getAllBookById(@PathVariable("id") Long bookId,@RequestHeader("X-User-Id") String userId) {
         try {
-            Optional<Book> book = bookService.findBookById(bookId,userId);
+            Optional<Book> book = bookService.findBookById(bookId);
 
             if (book.isEmpty()) {
                 return ResponseEntity.notFound().build(); // 404 Not Found
             }
 
-            return new ResponseEntity<>(HttpStatus.OK);
+            return ResponseEntity.ok(book.get());
         }
         catch (RuntimeException e){
             return ResponseEntity.notFound().build();
@@ -61,9 +61,11 @@ public class AdminBookController implements bookSwagger{
 //
     // 책 한권 수정
     @PutMapping("/{id}")
-    public ResponseEntity<Book> updateBook(@PathVariable("id") Long bookId, @RequestBody BookUpdateRequest updateDto, @RequestHeader("X-User-Id") String userId){
+    public ResponseEntity<Book> updateBook(@PathVariable("id") Long bookId, @RequestBody BookUpdateRequest updateDto,
+                                           @RequestHeader("X-User-Id") String userId){
         try {
-            Book updatedBook = bookService.updateBook(bookId,updateDto,userId);
+            Book updatedBook = bookService.updateBook(bookId,updateDto);
+
             return ResponseEntity.ok(updatedBook); // 200 OK
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build(); // 404 Not Found (책을 찾을 수 없을 때)

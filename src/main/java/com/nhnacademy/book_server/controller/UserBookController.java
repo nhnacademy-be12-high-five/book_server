@@ -25,7 +25,7 @@ public class UserBookController implements UserBookSwagger {
     @GetMapping
     public ResponseEntity<List<Book>> getAllBooks() {
         // 구현 로직 (서비스 호출 등)
-        List<Book> bookList = bookService.findAllBooks(null);
+        List<Book> bookList = bookService.findAllBooks();
         return ResponseEntity.ok(bookList);
     }
 
@@ -34,7 +34,7 @@ public class UserBookController implements UserBookSwagger {
     @GetMapping("/{bookId}")
     public ResponseEntity<Book> getBookById(@PathVariable("bookId") Long bookId) {
         // 구현 로직 (서비스 호출 등)
-        return bookService.findBookById(bookId, null)
+        return bookService.findBookById(bookId)
                 // 🔴 [수정] 찾은 책(book)을 ok() 안에 넣어줘야 함!
                 .map(book -> ResponseEntity.ok(book))
                 .orElse(ResponseEntity.notFound().build());
@@ -45,7 +45,7 @@ public class UserBookController implements UserBookSwagger {
     public ResponseEntity<Integer> getBookStock(@PathVariable Long bookId) {
         // 구현 로직: bookId를 사용하여 해당 도서의 현재 재고 수량을 조회
         // 예: return ResponseEntity.ok(bookService.getStockQuantity(bookId));
-        return bookService.findBookById(bookId, null)
+        return bookService.findBookById(bookId)
                 .map(book -> {
                     boolean inStock = Boolean.TRUE.equals(book.getStockCheckedAt());
                     return ResponseEntity.ok(inStock ? 1 : 0);
