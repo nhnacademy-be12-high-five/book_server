@@ -1,4 +1,4 @@
-package com.nhnacademy.book_server.request;
+package com.nhnacademy.book_server.dto.request;
 
 import java.util.ArrayList;
 import java.util.List;

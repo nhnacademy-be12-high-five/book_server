@@ -1,4 +1,4 @@
-package com.nhnacademy.book_server.request;
+package com.nhnacademy.book_server.dto.request;
 
 // 상품 조회 API
 public class AladinLookUpRequest {

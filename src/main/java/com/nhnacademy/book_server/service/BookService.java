@@ -78,27 +78,40 @@ public class BookService {
 
     // 모든 책 조회
     @Transactional(readOnly = true)
-    public List<Book> findAllBooks(String userId){
+    public List<Book> findAllBooks(){
         return bookRepository.findAll();
     }
 
     // 책 한권 조회
     @Transactional(readOnly = true)
-    public Optional<Book> findBookById(Long id, String userId) {
+    public Optional<Book> findBookById(Long id) {
         return bookRepository.findById(id);
     }
 
     // 책 업데이트
     @Transactional // 💡 트랜잭션 적용
-    public Book updateBook(Long id, BookUpdateRequest request, String userId){
+    public Book updateBook(Long id, BookUpdateRequest request){
         Book existingBook = bookRepository.findById(id).orElseThrow(()->new RuntimeException("아이디가 존재하지 않습니다."));
+
+        existingBook.setTitle(request.getTitle());
+        existingBook.setContent(request.getDescription());
+
+        if (StringUtils.hasText(request.getPublisher())) {
+            String publisherName = request.getPublisher().trim();
+            Publisher publisher=publisherRepository.findByName(publisherName)
+                    .orElseGet(() -> publisherRepository.save(
+                            Publisher.builder().name(publisherName).build()
+                    ));
+
+            existingBook.setPublisher(publisher);
+        }
 
         return bookRepository.save(existingBook);
     }
 
     // 책 삭제
     public void deleteBook(Long id,String userId){
-        if (bookRepository.existsById(id)) {
+        if (!bookRepository.existsById(id)) {
             throw new RuntimeException("삭제할 아이디가 없습니다.");
         }
 
@@ -114,14 +127,14 @@ public class BookService {
         }
     }
 
-    // feign client를 위한 메서드
-    public List<Book> getBooksByIds(List<Long> bookIds) {
-
-        if (bookIds.isEmpty()){
-            return Collections.emptyList();
-        }
-
-        return bookRepository.findAllByIdIn(bookIds);
-    }
+//    // feign client를 위한 메서드
+//    public List<Book> getBooksByIds(List<Long> bookIds) {
+//
+//        if (bookIds.isEmpty()){
+//            return Collections.emptyList();
+//        }
+//
+//        return bookRepository.findAllByIdIn(bookIds);
+//    }
 }
 
