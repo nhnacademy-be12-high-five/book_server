@@ -103,7 +103,7 @@ public class BookService {
                             Publisher.builder().name(publisherName).build()
                     ));
 
-            existingBook.setPublisher(publisher);
+//            existingBook.setPublisher(publisher);
         }
 
         return bookRepository.save(existingBook);
@@ -127,14 +127,5 @@ public class BookService {
         }
     }
 
-//    // feign client를 위한 메서드
-//    public List<Book> getBooksByIds(List<Long> bookIds) {
-//
-//        if (bookIds.isEmpty()){
-//            return Collections.emptyList();
-//        }
-//
-//        return bookRepository.findAllByIdIn(bookIds);
-//    }
 }
 
