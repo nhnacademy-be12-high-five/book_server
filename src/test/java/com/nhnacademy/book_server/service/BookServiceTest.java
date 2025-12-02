@@ -1,9 +1,6 @@
 package com.nhnacademy.book_server.service;
 
-import com.nhnacademy.book_server.entity.Author;
-import com.nhnacademy.book_server.entity.Book;
-import com.nhnacademy.book_server.entity.BookUpdateRequest;
-import com.nhnacademy.book_server.entity.Publisher;
+import com.nhnacademy.book_server.entity.*;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.repository.AuthorRepository;
 import com.nhnacademy.book_server.repository.BookAuthorRepository;
@@ -15,10 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.core.parameters.P;
-import org.springframework.web.bind.annotation.PathVariable;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,6 +34,8 @@ class BookServiceTest {
     private PublisherRepository publisherRepository;
     @Mock
     private AuthorRepository authorRepository;
+    @Mock
+    private BookAuthorRepository bookAuthorRepository;
 
     @Test
     @DisplayName("도서 생성")
@@ -49,7 +45,7 @@ class BookServiceTest {
         dto.setTitle("title");
         dto.setPrice("15000");
         dto.setPublisher("Publisher");
-
+        dto.setAuthor("Author");
         // isbn 중복 체크
         given(bookRepository.existsByIsbn13(any())).willReturn(true);
 
@@ -65,14 +61,27 @@ class BookServiceTest {
                 .name("publisher")
                 .build();
 
+        Author author=Author.builder()
+                .id(1L)
+                .name("name")
+                .build();
+
+        BookAuthor bookAuthor=BookAuthor.builder()
+                .book(savedBook)
+                .author(author)
+                .build();
+
         given(bookRepository.save(any(Book.class))).willReturn(savedBook);
         given(publisherRepository.save(any(Publisher.class))).willReturn(publisher);
+        given(authorRepository.save(any(Author.class))).willReturn(author);
+         given(bookAuthorRepository.save(any(BookAuthor.class))).willReturn(bookAuthor);
         //
         Book result1=bookService.createBook(dto);
         assertThat(result1.getTitle()).isEqualTo("Test Title");
 
         verify(bookRepository, times(1)).save(any(Book.class));
         verify(publisherRepository, times(1)).save(any(Publisher.class)); // 출판사 저장됨
+        verify(authorRepository,times(1)).save(any(Author.class));
     }
 
     @Test
