@@ -2,12 +2,10 @@ package com.nhnacademy.book_server.controller;
 
 import com.nhnacademy.book_server.controller.swagger.bookSwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
+import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.entity.Book;
-import com.nhnacademy.book_server.entity.BookUpdateRequest;
-import com.nhnacademy.book_server.parser.CsvBookParser;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.service.BookService;
-import com.nhnacademy.book_server.service.DataParsingService;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -33,40 +31,39 @@ import java.util.Optional;
 public class AdminBookController implements bookSwagger{
 
     private final BookService bookService;
-    private final DataParsingService dataParsingService; // [1] 대용량 저장 서비스 주입
-    private final CsvBookParser csvBookParser;           // [2] 파서 주입
-
-
-    @PostMapping(value = "/books/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<String> uploadBookCsv(@RequestPart("file") MultipartFile file) {
-        if (file.isEmpty()) {
-            return ResponseEntity.badRequest().body("파일이 비어있습니다.");
-        }
-
-        File tempFile = null;
-        try {
-            // 1. MultipartFile -> java.io.File 변환 (Parser가 File을 요구하므로)
-            // 임시 파일 생성
-            tempFile = File.createTempFile("upload_", ".csv");
-            file.transferTo(tempFile);
-
-            // 2. 파싱 실행 (File -> List<ParsingDto>)
-            List<ParsingDto> parsingList = csvBookParser.parsing(tempFile);
-
-            // 3. DB 저장 서비스 호출 (List<ParsingDto> -> DB)
-            dataParsingService.saveAll(parsingList);
-
-            return ResponseEntity.ok("성공적으로 업로드 및 저장이 완료되었습니다. (처리 건수: " + parsingList.size() + "건)");
-
-        } catch (IOException e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("파일 처리 중 오류가 발생했습니다.");
-        } finally {
-            // 4. 임시 파일 삭제 (리소스 정리)
-            if (tempFile != null && tempFile.exists()) {
-                tempFile.delete();
-            }
-        }
-    }
+//    private final DataParsingService dataParsingService; // [1] 대용량 저장 서비스 주입
+//    private final CsvBookParser csvBookParser;           // [2] 파서 주입
+//
+//    @PostMapping(value = "/books/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+//    public ResponseEntity<String> uploadBookCsv(@RequestPart("file") MultipartFile file) {
+//        if (file.isEmpty()) {
+//            return ResponseEntity.badRequest().body("파일이 비어있습니다.");
+//        }
+//
+//        File tempFile = null;
+//        try {
+//            // 1. MultipartFile -> java.io.File 변환 (Parser가 File을 요구하므로)
+//            // 임시 파일 생성
+//            tempFile = File.createTempFile("upload_", ".csv");
+//            file.transferTo(tempFile);
+//
+//            // 2. 파싱 실행 (File -> List<ParsingDto>)
+//            List<ParsingDto> parsingList = csvBookParser.parsing(tempFile);
+//
+//            // 3. DB 저장 서비스 호출 (List<ParsingDto> -> DB)
+//            dataParsingService.saveAll(parsingList);
+//
+//            return ResponseEntity.ok("성공적으로 업로드 및 저장이 완료되었습니다. (처리 건수: " + parsingList.size() + "건)");
+//
+//        } catch (IOException e) {
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("파일 처리 중 오류가 발생했습니다.");
+//        } finally {
+//            // 4. 임시 파일 삭제 (리소스 정리)
+//            if (tempFile != null && tempFile.exists()) {
+//                tempFile.delete();
+//            }
+//        }
+//    }
 
     // 북 생성
     @PostMapping
