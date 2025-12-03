@@ -1,6 +1,7 @@
 package com.nhnacademy.book_server.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.BookUpdateRequest;
 import com.nhnacademy.book_server.entity.Publisher;
@@ -10,6 +11,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.data.web.config.PageableHandlerMethodArgumentResolverCustomizer;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean; // Spring Boot 3.4+
@@ -39,6 +46,8 @@ class AdminBookControllerTest {
 
     @MockitoBean // 서비스는 가짜 객체로 대체
     private BookService bookService;
+    @Autowired
+    private PageableHandlerMethodArgumentResolverCustomizer pageableCustomizer;
 
     @Test
     @DisplayName("도서 생성 성공")
@@ -46,6 +55,7 @@ class AdminBookControllerTest {
     void createBook() throws Exception {
         // given
         ParsingDto parsingDto = new ParsingDto();
+
         parsingDto.setTitle("Test Book");
         parsingDto.setIsbn("1234567890123");
         parsingDto.setPrice("15000");
@@ -81,9 +91,11 @@ class AdminBookControllerTest {
         // given
         Book book1 = Book.builder().id(1L).title("Book 1").build();
         Book book2 = Book.builder().id(2L).title("Book 2").build();
-        List<Book> books = List.of(book1, book2);
+        Page<Book> bookPage = new PageImpl<>(List.of(book1, book2));
 
-        given(bookService.findAllBooks()).willReturn(books);
+        Pageable pageable = PageRequest.of(0, 20);
+
+        given(bookService.findAllBooks(pageable)).willReturn(bookPage);
 
         // when & then
         mockMvc.perform(get("/api/admin")

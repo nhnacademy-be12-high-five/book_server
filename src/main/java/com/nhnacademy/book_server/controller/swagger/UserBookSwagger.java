@@ -1,6 +1,7 @@
 package com.nhnacademy.book_server.controller.swagger;
 
 
+import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.entity.Book;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -8,6 +9,8 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -32,7 +35,7 @@ public interface UserBookSwagger {
 //            @ApiResponse(responseCode = "404", description = "등록된 도서가 없음 (Not Found)")
     })
 //    @GetMapping("/api/books") // 사용자용 API 경로 예시
-    ResponseEntity<List<Book>> getAllBooks();
+    ResponseEntity<List<BookResponse>> getAllBooks(Pageable pageable);
 
     /**
      * 도서 한 권 상세 조회
@@ -50,7 +53,7 @@ public interface UserBookSwagger {
     })
 
 //    @GetMapping("/api/books/{bookId}") // 사용자용 API 경로 예시
-    ResponseEntity<Book> getBookById(
+    ResponseEntity<BookResponse> getBookById(
             @Parameter(description = "조회할 도서의 고유 ID", required = true, example = "1",hidden = true)
             @PathVariable("bookId") Long bookId);
 

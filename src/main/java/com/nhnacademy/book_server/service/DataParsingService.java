@@ -9,6 +9,7 @@ import com.nhnacademy.book_server.repository.AuthorRepository;
 import com.nhnacademy.book_server.repository.BookAuthorRepository;
 import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.PublisherRepository;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,17 +24,18 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional
 public class DataParsingService {
 
     private final BookRepository bookRepository;
     private final AuthorRepository authorRepository;
     private final PublisherRepository publisherRepository;
     private final BookAuthorRepository bookAuthorRepository;
+    private final EntityManager entityManager;
 
     // 한 번에 처리할 배치 사이즈 (DB 파라미터 제한 회피용)
     private static final int BATCH_SIZE = 1000;
 
+    @Transactional
     public void saveAll(List<ParsingDto> records) {
         if (records == null || records.isEmpty()) {
             return;
@@ -91,7 +93,21 @@ public class DataParsingService {
             }
             existingIsbnSet.add(isbn); // CSV 내부 중복 방지
 
-            Publisher publisher = publisherMap.get(dto.getPublisher().trim());
+            String pubName = dto.getPublisher() != null ? dto.getPublisher().trim() : "";
+            Publisher publisher = publisherMap.get(pubName);
+
+            // [중요] 맵에서 못 찾았을 경우 경고 로그 출력!!
+            if (publisher == null) {
+                if (!pubName.isEmpty()) {
+                    // 이름은 있는데 맵에 없다? -> 로직 문제
+                    log.error("🚨 비상: 출판사 매핑 실패! 이름: [{}]", pubName);
+                } else {
+                    // 이름 자체가 비어있다? -> CSV 파서 문제 (인덱스 확인 필요)
+                    log.warn("⚠️ 경고: 출판사 데이터가 비어있음. ISBN: {}", isbn);
+                }
+            }
+
+//            Publisher publisher = publisherMap.get(dto.getPublisher().trim());
 
             Book book = Book.builder()
                     .isbn13(isbn)
@@ -141,9 +157,12 @@ public class DataParsingService {
                         String name = rawName.trim();
                         Author author = authorMap.get(name);
                         if (author != null && distinctAuthors.add(author)) {
+
+                            Author managedAuthor = entityManager.merge(author);
+
                             bookAuthors.add(BookAuthor.builder()
                                     .book(book)
-                                    .author(author)
+                                    .author(managedAuthor)
                                     .build());
                         }
                     }
@@ -161,62 +180,149 @@ public class DataParsingService {
     }
 
     private Map<String, Publisher> resolvePublishers(Set<String> names) {
-        Map<String, Publisher> map = new HashMap<>();
+        Map<String, Publisher> map = new HashMap<>(); // 최종 반환용 (Key: 원본 이름)
         if (names.isEmpty()) return map;
 
         List<String> nameList = new ArrayList<>(names);
+
+        // 1. DB 조회 및 중복 체크용 맵 생성 (Key: 소문자 이름)
+        Map<String, Publisher> lowerCaseMap = new HashMap<>();
 
         // 배치 조회 (있는 것 찾기)
         for (int i = 0; i < nameList.size(); i += BATCH_SIZE) {
             List<String> batch = nameList.subList(i, Math.min(nameList.size(), i + BATCH_SIZE));
             publisherRepository.findAllByNameIn(new HashSet<>(batch))
-                    .forEach(p -> map.put(p.getName(), p));
+                    .forEach(p -> lowerCaseMap.put(p.getName().toLowerCase(), p));
         }
 
-        // 없는 것만 필터링하여 저장
+        // 2. 없는 것만 필터링 (대소문자 중복 방지)
         List<Publisher> toSave = new ArrayList<>();
         for (String name : names) {
-            if (!map.containsKey(name)) {
-                toSave.add(Publisher.builder().name(name).build());
+            String lowerName = name.toLowerCase();
+            if (!lowerCaseMap.containsKey(lowerName)) {
+                Publisher newPub = Publisher.builder().name(name).build();
+                toSave.add(newPub);
+                lowerCaseMap.put(lowerName, newPub); // 임시 등록 (ID 없음)
             }
         }
 
+        // 3. 배치 저장 및 안전 로직 (좀비 퇴치 기능 포함)
         if (!toSave.isEmpty()) {
-            // 배치 저장
             for (int i = 0; i < toSave.size(); i += BATCH_SIZE) {
                 List<Publisher> batch = toSave.subList(i, Math.min(toSave.size(), i + BATCH_SIZE));
-                publisherRepository.saveAll(batch).forEach(p -> map.put(p.getName(), p));
+                try {
+                    // [시도 A] 시원하게 한 번에 저장
+                    publisherRepository.saveAll(batch).forEach(p ->
+                            lowerCaseMap.put(p.getName().toLowerCase(), p)
+                    );
+                } catch (Exception e) {
+                    // [실패 시] 1. 일단 좀비 객체들(batch)을 메모리에서 쫓아냄
+                    entityManager.clear();
+                    log.warn("배치 저장 실패(중복 등). 개별 처리 및 메모리 정리 완료.");
+
+                    // [시도 B] 한 땀 한 땀 개별 저장
+                    for (Publisher p : batch) {
+                        try {
+                            // 개별 저장 시도
+                            Publisher saved = publisherRepository.save(p);
+                            lowerCaseMap.put(saved.getName().toLowerCase(), saved);
+                        } catch (Exception ex) {
+
+                            entityManager.clear();
+
+                            try {
+                                Publisher existing = publisherRepository.findByName(p.getName())
+                                        .orElseThrow(() -> new RuntimeException("구제 불능 데이터: " + p.getName()));
+                                lowerCaseMap.put(existing.getName().toLowerCase(), existing);
+                            } catch (Exception fatal) {
+                                log.error("🚨 처리 불가 출판사: {}", p.getName());
+                            }
+                        }
+                    }
+                }
             }
         }
+
+        // 4. 최종 결과 맵 생성 (Key: 원본 CSV에 있던 이름)
+        for (String name : names) {
+            Publisher p = lowerCaseMap.get(name.toLowerCase());
+            if (p != null) {
+                map.put(name, p);
+            }
+        }
+
         return map;
     }
 
+    // [수정된 작가 처리 메서드] - 출판사 처리와 똑같이 '안전 장치' 추가
     private Map<String, Author> resolveAuthors(Set<String> names) {
         Map<String, Author> map = new HashMap<>();
         if (names.isEmpty()) return map;
 
         List<String> nameList = new ArrayList<>(names);
 
-        // 배치 조회
+        // 1. DB 조회 (중복 체크용)
+        Map<String, Author> lowerCaseMap = new HashMap<>();
         for (int i = 0; i < nameList.size(); i += BATCH_SIZE) {
             List<String> batch = nameList.subList(i, Math.min(nameList.size(), i + BATCH_SIZE));
             authorRepository.findAllByNameIn(new HashSet<>(batch))
-                    .forEach(a -> map.put(a.getName(), a));
+                    .forEach(a -> lowerCaseMap.put(a.getName().toLowerCase(), a));
         }
 
-        // 없는 것 저장
+        // 2. 저장할 대상 필터링
         List<Author> toSave = new ArrayList<>();
         for (String name : names) {
-            if (!map.containsKey(name)) {
-                toSave.add(Author.builder().name(name).build());
+            String lowerName = name.toLowerCase();
+            if (!lowerCaseMap.containsKey(lowerName)) {
+                Author newAuthor = Author.builder().name(name).build();
+                toSave.add(newAuthor);
+                lowerCaseMap.put(lowerName, newAuthor);
             }
         }
 
+        // 3. 안전 저장 로직 (출판사 처리와 동일하게 적용)
         if (!toSave.isEmpty()) {
-            // 배치 저장
             for (int i = 0; i < toSave.size(); i += BATCH_SIZE) {
                 List<Author> batch = toSave.subList(i, Math.min(toSave.size(), i + BATCH_SIZE));
-                authorRepository.saveAll(batch).forEach(a -> map.put(a.getName(), a));
+                try {
+                    // [시도 A] 한 번에 저장
+                    authorRepository.saveAll(batch).forEach(a ->
+                            lowerCaseMap.put(a.getName().toLowerCase(), a)
+                    );
+                } catch (Exception e) {
+                    // [실패 시] 1. 좀비 객체(영속성 컨텍스트) 정리 -> 이게 핵심!
+                    entityManager.clear();
+
+                    log.warn("작가 배치 저장 실패. 개별 처리로 전환합니다.");
+
+                    // [시도 B] 한 땀 한 땀 개별 저장
+                    for (Author a : batch) {
+                        try {
+                            Author saved = authorRepository.save(a);
+                            lowerCaseMap.put(saved.getName().toLowerCase(), saved);
+                        } catch (Exception ex) {
+                            // 개별 실패 시에도 detach 필수
+                            entityManager.clear();
+
+                            // [최후의 수단] DB에서 조회
+                            try {
+                                Author existing = authorRepository.findByName(a.getName())
+                                        .orElseThrow(() -> new RuntimeException("작가 구제 불능: " + a.getName()));
+                                lowerCaseMap.put(existing.getName().toLowerCase(), existing);
+                            } catch (Exception fatal) {
+                                log.error("🚨 작가 처리 완전 실패: {}", a.getName());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. 결과 매핑
+        for (String name : names) {
+            Author a = lowerCaseMap.get(name.toLowerCase());
+            if (a != null) {
+                map.put(name, a);
             }
         }
         return map;

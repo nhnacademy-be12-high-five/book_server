@@ -14,6 +14,7 @@ import java.sql.Date;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -25,7 +26,7 @@ import java.util.stream.Collectors;
 @Schema(description = "도서 정보 모델입니다.")
 @Getter
 @Setter
-public class Book{
+public class Book {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -101,4 +102,9 @@ public class Book{
     //    private String tag;
 //    private String bookLike;
     private Boolean isPortalSiteBookExist;
+
+    @ManyToOne
+    @JoinColumn(name = "category_category_id")
+    private Category category;
+
 }

@@ -1,7 +1,6 @@
 package com.nhnacademy.book_server.repository;
 
 import com.nhnacademy.book_server.entity.Book;
-import com.nhnacademy.book_server.parser.ParsingDto;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -19,6 +18,4 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     List<Book> findAllByIsbn13In(Set<String> isbns);
 
     List<Book> findAllByIdIn(List<Long> bookIds);
-
-    Optional<Book> findAllByIsbn13(String isbn13);
 }

@@ -1,5 +1,6 @@
 package com.nhnacademy.book_server.service;
 
+import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.entity.*;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.repository.AuthorRepository;
@@ -8,13 +9,16 @@ import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.PublisherRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -77,9 +81,10 @@ public class BookService {
     }
 
     // 모든 책 조회
+    // list -> Pageable로 변환
     @Transactional(readOnly = true)
-    public List<Book> findAllBooks(){
-        return bookRepository.findAll();
+    public Page<Book> findAllBooks(@PageableDefault(size = 10) Pageable pageable){
+        return bookRepository.findAll(pageable);
     }
 
     // 책 한권 조회
@@ -125,6 +130,19 @@ public class BookService {
         } catch (NumberFormatException e) {
             return 0;
         }
+    }
+
+    // bulk api 조회
+    // 장바구니에서 책을 조회할때 책을 1번만 호출하도록 하는 API
+    // Service Layer
+    public List<BookResponse> getBooksBulk(List<Long> bookIds) {
+        List<Book> books = bookRepository.findAllById(bookIds);
+
+        // List를 Map<BookId, Dto> 형태로 변환
+        return books.stream()
+                .map(book -> BookResponse.from(book,book.getCategory()))
+                .collect(Collectors.toList());
+
     }
 
 }

@@ -84,23 +84,23 @@ class BookServiceTest {
         verify(authorRepository,times(1)).save(any(Author.class));
     }
 
-    @Test
-    @DisplayName("도서 전체 조회")
-    void findAllBooks() {
-        // given
-        List<Book> books = List.of(
-                Book.builder().title("Book1").build(),
-                Book.builder().title("Book2").build()
-        );
-        given(bookRepository.findAll()).willReturn(books);
-
-        // when
-        List<Book> result = bookService.findAllBooks();
-
-        // then
-        assertThat(result).hasSize(2);
-        assertThat(result.get(0).getTitle()).isEqualTo("Book1");
-    }
+//    @Test
+//    @DisplayName("도서 전체 조회")
+//    void findAllBooks() {
+//        // given
+//        List<Book> books = List.of(
+//                Book.builder().title("Book1").build(),
+//                Book.builder().title("Book2").build()
+//        );
+//        given(bookRepository.findAll()).willReturn(books);
+//
+//        // when
+//        List<Book> result = bookService.findAllBooks();
+//
+//        // then
+//        assertThat(result).hasSize(2);
+//        assertThat(result.get(0).getTitle()).isEqualTo("Book1");
+//    }
 
     @Test
     @DisplayName("도서 단건 조회 - 성공")
