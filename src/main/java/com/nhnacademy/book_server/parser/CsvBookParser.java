@@ -14,7 +14,9 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j // 로그를 찍어 확인하기 위해 추가
 @Component
@@ -47,6 +49,7 @@ public class CsvBookParser implements DataParser {
                     continue;
                 }
 
+
                 try {
                     ParsingDto dto = new ParsingDto();
                     dto.setIsbn(data[1]);
@@ -54,6 +57,15 @@ public class CsvBookParser implements DataParser {
                     List<String> authorList = parseAuthors(data[4]);
                     dto.setAuthor(String.join(",", authorList));
                     dto.setPublisher(data[5]);
+
+                    if (!StringUtils.hasText(data[5])){
+                        dto.setPublisher("알 수 없음");
+                    }
+                    else{
+                        dto.setPublisher(data[5]);
+                    }
+
+                    log.info("파싱 확인 - 제목: {}, 출판사: {}", data[3], data[5]);
 
                     // 수정 2: 가격 파싱 안전하게 처리 (콤마 제거)
                     String stringPrice = data[8];
@@ -89,36 +101,49 @@ public class CsvBookParser implements DataParser {
     }
 
     public List<String> parseAuthors(String authorField) {
-        List<String> authorNames = new ArrayList<>();
+        Set<String> uniqueNames = new HashSet<>();
         if (!StringUtils.hasText(authorField)) {
-            return authorNames;
+            // [수정] 결과가 없으면 빈 리스트를 반환합니다.
+            return new ArrayList<>(uniqueNames);
         }
 
-        // 알라딘/교보문고 등 데이터 포맷: "홍길동 (지은이), 김철수 (옮긴이)"
-        // 수정 4: 단순히 쉼표로 먼저 분리 후 처리 (Regex 의존도 낮춤)
-        String[] groups = authorField.split(",");
+        String[] groups = authorField.split("[,;]"); // 쉼표와 세미콜론으로 분리
+
+        // [핵심] 괄호 밖의 모든 역할 정보를 정규 표현식으로 정의 (가장 강력한 클렌징)
+        String rolePattern = "(저자:|편저자:|글 그림:|지은이:|연구위원:|선 \\[공\\]|원작|역자:|엮음|역\\s|\\s著|\\s譯|\\s지음|\\s그림|\\s사진|\\s역)";
 
         for (String group : groups) {
-            group = group.trim();
+            String cleanedName = group.trim();
 
-            // "(지은이)" 같은 역할 표기가 있는 경우
-            int roleStartIndex = group.lastIndexOf('(');
+            // 1. 괄호 안의 역할 제거 및 주 저자 판별
+            boolean isPrimaryAuthor = true;
+            int roleStartIndex = cleanedName.lastIndexOf('(');
 
             if (roleStartIndex != -1) {
-                // 괄호 앞부분이 이름
-                String name = group.substring(0, roleStartIndex).trim();
-                // 역할 확인 (지은이만 추출할 것인지, 아니면 그냥 이름은 다 넣을 것인지 결정)
-                // 만약 '지은이'만 필요하다면 아래 조건 유지, 모든 저자가 필요하면 조건 제거
-                if (group.contains("지은이") && StringUtils.hasText(name)) {
-                    authorNames.add(name);
+                String roleText = cleanedName.substring(roleStartIndex).trim();
+
+                // 주 저자 역할이 아니면 무시 (옮긴이, 그림 제외)
+                if (!(roleText.contains("지은이") || roleText.contains("저") || roleText.contains("著"))) {
+                    isPrimaryAuthor = false;
                 }
-            } else {
-                // 괄호가 없는 경우 (이름만 있는 경우) -> 그냥 이름으로 추가
-                if (StringUtils.hasText(group)) {
-                    authorNames.add(group);
-                }
+                cleanedName = cleanedName.substring(0, roleStartIndex).trim(); // 괄호 부분 제거
+            }
+
+            // 2. 주 저자가 아니면 (옮긴이, 그림 등) 해당 이름은 무시하고 다음으로 넘어감
+            if (!isPrimaryAuthor) {
+                continue;
+            }
+
+            // 3. [최종 클렌징] 괄호 밖의 모든 불필요한 접두사/접미사 제거
+            cleanedName = cleanedName.replaceAll(rolePattern, "").strip();
+
+            // 4. 최종 이름 추가 (중복 제거)
+            if (StringUtils.hasText(cleanedName)) {
+                uniqueNames.add(cleanedName);
             }
         }
-        return authorNames;
+
+        // [수정] Set에 담긴 고유 이름들을 리스트로 변환하여 반환
+        return new ArrayList<>(uniqueNames);
     }
 }
