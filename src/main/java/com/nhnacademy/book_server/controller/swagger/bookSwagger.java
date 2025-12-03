@@ -1,5 +1,6 @@
 package com.nhnacademy.book_server.controller.swagger;
 
+import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.BookUpdateRequest;
 
@@ -8,6 +9,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,7 +38,8 @@ public interface bookSwagger{
             @ApiResponse(responseCode = "404",description = "도서 추가할 수 없음")
     })
     @GetMapping
-    ResponseEntity<List<Book>> getAllBooks(String userId);
+    ResponseEntity<List<BookResponse>> getAllBooks(@RequestHeader("X-USER-ID") String userId,
+                                                          @PageableDefault(size = 10) Pageable pageable);
 
     // 도서 한권 조회
     @Operation(summary = "관리자 도서 한권 조회",description = "도서를 조회합니다.")
@@ -43,19 +48,19 @@ public interface bookSwagger{
 //            @ApiResponse(responseCode = "403",description = "도서 권한이 없음"),
 //            @ApiResponse(responseCode = "404",description = "도서 추가할 수 없음")
     })
+
     @GetMapping("/{id}")
-    ResponseEntity<Book> getAllBookById(@PathVariable Long bookId,@Parameter(hidden = true) @RequestHeader("X-User-Id") String userId);
+    ResponseEntity<BookResponse> getAllBookById(@PathVariable Long bookId,
+                                                @Parameter(hidden = true) @RequestHeader("X-User-Id") String userId);
 
     // 책 한권 수정
     @Operation(summary = "관리자 도서 수정",description = "도서를 조회합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200",description = "도서 수정 성공 (OK)"),
-//            @ApiResponse(responseCode = "403",description = "관리자 권한이 없음 (Forbidden)"),
-//            @ApiResponse(responseCode = "404",description = "수정하려는 도서를 찾을 수 없음 (Not Found)")
     })
 
     @PutMapping("/{id}")
-    ResponseEntity<Book> updateBook(@PathVariable Long bookId,
+    ResponseEntity<BookResponse> updateBook(@PathVariable Long bookId,
                                     BookUpdateRequest updateDto,
                                     @Parameter(hidden = true) @RequestHeader("X-User-Id") String userId);
 

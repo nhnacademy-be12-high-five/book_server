@@ -1,5 +1,4 @@
 package com.nhnacademy.book_server.dto;
-
 import com.nhnacademy.book_server.entity.*;
 
 import java.util.List;
@@ -60,8 +59,6 @@ public record BookResponse(Long id,
         );
     }
 
-
-
     // 2) 리뷰 리스트를 그대로 받아서 평균·개수를 계산하는 팩토리
     public static BookResponse from(Book book,
                                     Category category,
@@ -84,4 +81,9 @@ public record BookResponse(Long id,
     public static BookResponse from(Book book, Category category) {
         return from(book, category, null, 0L);
     }
+
+    public static BookResponse from(Book book) {
+        return from(book, book.getCategory());
+    }
+
 }

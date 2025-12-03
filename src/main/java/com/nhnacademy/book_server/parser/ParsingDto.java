@@ -1,13 +1,13 @@
 package com.nhnacademy.book_server.parser;
 
 import com.opencsv.bean.CsvBindByName;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
 
 @Getter
 @Setter
 @ToString
+@AllArgsConstructor
+@RequiredArgsConstructor
 public class ParsingDto {
 
     @CsvBindByName(column = "SEQ_NO")

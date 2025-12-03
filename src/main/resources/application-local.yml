@@ -6,6 +6,10 @@ spring:
       discovery:
         enabled: false    # Discovery로 Config 찾기 안 함
 
+  devtools:
+    restart:
+      enabled: false
+
   h2:
     console:
       path: /h2-console
@@ -13,19 +17,28 @@ spring:
       settings:
         web-allow-others: true
 
+#  datasource:
+#    url: "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+#    driver-class-name: org.h2.Driver
+#    username: sa
+#    password:
+
   datasource:
-    url: "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    # 예시: MySQL 연결 설정
+    url: jdbc:mysql://220.67.216.14:13306/project_be12_team5?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&rewriteBatchedStatements=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: project_be12_team5      # 실제 DB 아이디
+    password: KFYUERgqkPF!r6    # 실제 DB 비밀번호
 
   jpa:
-    show-sql: true
+    show-sql: false
     hibernate:
       ddl-auto: update
+
     properties:
       hibernate:
-        default_batch_fetch_size: 100
+        default_batch_fetch_size: 1000
+    open-in-view: false
   rabbitmq:
     host: s4.java21.net
     port: 5672
@@ -69,15 +82,9 @@ springdoc:
 server:
   port: 9003
 
-
-
 logging:
   file:
     name: logs/book-server.log  # 1. 프로젝트 루트의 logs 폴더 안에 파일 생성
-  logback:
-    rollingpolicy:
-      max-file-size: 10MB       # 2. 파일 하나가 10MB 넘으면 분리
-      max-history: 7            # 3. 최대 7일치 로그 보관
   pattern:
     console: "%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n" # 콘솔은 짧게
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n" # 파일은 자세히
@@ -86,7 +93,6 @@ logging:
     # 파서 쪽 로그는 WARN(경고) 이상일 때만 출력 (INFO 로그 숨김)
     com.nhnacademy.book_server.parser: WARN
     com.nhnacademy.book_server.service.DataParsingService: WARN
-
 
 aladin:
   ttb-key : ttbminnie9089971045001
