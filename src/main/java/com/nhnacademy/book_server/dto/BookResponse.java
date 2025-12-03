@@ -18,6 +18,8 @@ public record BookResponse(Long id,
                            Long reviewCount
 ) {
 
+    // 서버가 클라이언트로 데이터를 전송할 때 사용되는 객체
+
     // 1) 기본 팩토리: 평균평점·리뷰수까지 계산된 값이 넘어오는 경우
     public static BookResponse from(Book book,
                                     Category category,

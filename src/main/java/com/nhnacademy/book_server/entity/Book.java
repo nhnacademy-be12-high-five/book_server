@@ -49,14 +49,16 @@ public class Book {
 
     @NotNull
     @Builder.Default
-    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true) // 이 부분을 채워주세요!
+    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<BookAuthor> bookAuthors = new ArrayList<>(); // List 초기화는 @Builder에서 처리됨
     // AUTHR_NM : 저자이름
+    // 도서와 저자는 1:N 관계 -> 한권의 책에 여러 저자가 있을 수 있음
 
     // 출판사
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "publisher_id")
     private Publisher publisher;
+    // 도서와 출판사는 N:1관계
 
     // 초판 발행일
     // PBLICTE_DE : 초판 발행일
@@ -106,5 +108,6 @@ public class Book {
     @ManyToOne
     @JoinColumn(name = "category_category_id")
     private Category category;
+    //  도서와 카테고리는 1:N관계
 
 }

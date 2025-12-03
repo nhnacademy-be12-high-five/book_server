@@ -1,6 +1,7 @@
 package com.nhnacademy.book_server.service;
 
 import com.nhnacademy.book_server.dto.BookResponse;
+import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.entity.*;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.repository.AuthorRepository;
@@ -12,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -90,7 +92,14 @@ public class BookService {
     // 책 한권 조회
     @Transactional(readOnly = true)
     public Optional<Book> findBookById(Long id) {
-        return bookRepository.findById(id);
+        Optional<Book> book = bookRepository.findById(id);
+
+        book.ifPresent(b -> {
+            // b.getBookAuthors()에 접근하고 size()를 호출하면, JPA가 DB에서 해당 데이터를 로드합니다.
+            b.getBookAuthors().size();
+        });
+
+        return book;
     }
 
     // 책 업데이트
@@ -98,17 +107,32 @@ public class BookService {
     public Book updateBook(Long id, BookUpdateRequest request){
         Book existingBook = bookRepository.findById(id).orElseThrow(()->new RuntimeException("아이디가 존재하지 않습니다."));
 
+        existingBook.setIsbn13(request.getIsbn());
         existingBook.setTitle(request.getTitle());
         existingBook.setContent(request.getDescription());
+        existingBook.setPrice(request.getPrice());
+        existingBook.setImage(request.getImage());
+        existingBook.setPublishedDate(request.getPublishedDate());
 
         if (StringUtils.hasText(request.getPublisher())) {
             String publisherName = request.getPublisher().trim();
-            Publisher publisher=publisherRepository.findByName(publisherName)
+            Publisher publisher = publisherRepository.findByName(publisherName)
                     .orElseGet(() -> publisherRepository.save(
                             Publisher.builder().name(publisherName).build()
                     ));
 
-//            existingBook.setPublisher(publisher);
+            existingBook.setPublisher(publisher);
+        }
+
+        existingBook.getBookAuthors().clear();
+
+        if (request.getAuthors() != null){
+            for (String authorName: request.getAuthors()){
+                authorRepository.findByName(authorName).orElseGet(()->authorRepository.save(Author.builder().name(authorName).build()));
+
+
+                existingBook.getBookAuthors().add(new BookAuthor());
+            }
         }
 
         return bookRepository.save(existingBook);
