@@ -3,14 +3,14 @@ package com.nhnacademy.book_server.service.impl;
 import com.nhnacademy.book_server.entity.AladinItem;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.repository.BookRepository;
-import com.nhnacademy.book_server.dto.response.AladinSearchResponse;
+import com.nhnacademy.book_server.response.AladinSearchResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Lookup;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -20,7 +20,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Transactional
 @Slf4j
-public class AladinServiceImpl implements AladinService {
+public class AladinServiceImpl {
 
     private final RestTemplate restTemplate;
     private final BookRepository bookRepository; // Repository 필수 사용
@@ -40,7 +40,6 @@ public class AladinServiceImpl implements AladinService {
     private static final String LIST_URL =
             "http://www.aladin.co.kr/ttb/api/ItemList.aspx?ttbkey={ttbKey}&QueryType={queryType}&SearchTarget=Book&output=JS&Version=20131101&Cover=Big";
 
-    @Override
     public List<AladinItem> searchBooks(String query, String queryType) {
 
         try {
@@ -75,6 +74,7 @@ public class AladinServiceImpl implements AladinService {
                     if(book != null) {
                         booksToSave.add(book);
                     }
+
                 }
 
                 return items; // 저장된 리스트 반환
@@ -87,8 +87,7 @@ public class AladinServiceImpl implements AladinService {
         return Collections.emptyList();
     }
 
-    @Override
-    public Book convertToBookEntity(AladinItem item) {
+    private Book convertToBookEntity(AladinItem item) {
         // 데이터 무결성 체크 (ISBN이나 제목이 없으면 저장 안 함)
         if (item.getIsbn13() == null || item.getTitle() == null) {
             return null;
@@ -166,7 +165,8 @@ public class AladinServiceImpl implements AladinService {
         return Collections.emptyList();
     }
 
-    public AladinItem convertEntityToAladinItem(Book book) {
+
+    private AladinItem convertEntityToAladinItem(Book book) {
         AladinItem item = new AladinItem();
         item.setTitle(book.getTitle());
         item.setLink(book.getImage());  // 이미지 Link
