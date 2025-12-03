@@ -2,6 +2,8 @@ package com.nhnacademy.book_server.repository;
 
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.parser.ParsingDto;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -21,4 +23,12 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     List<Book> findAllByIdIn(List<Long> bookIds);
 
     Optional<Book> findAllByIsbn13(String isbn13);
+
+
+    //검색 키워드를 제목이나 설명에 포함하는 도서 검색 (페이지네이션)
+    Page<Book> findByTitle(
+            String titleKeyword,
+            String descriptionKeyword,
+            Pageable pageable
+    );
 }

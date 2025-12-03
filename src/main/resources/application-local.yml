@@ -5,11 +5,15 @@ spring:
       enabled: false      # Config Server 접속 안 함
       discovery:
         enabled: false    # Discovery로 Config 찾기 안 함
+
+
   datasource:
-    url: jdbc:mysql://localhost:3306/taehunDB # 내 로컬 DB
-    username: root
-    password:
+    # 예시: MySQL 연결 설정
+    url: jdbc:mysql://10.116.64.14:13306/project_be12_team5?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&rewriteBatchedStatements=true
     driver-class-name: com.mysql.cj.jdbc.Driver
+    username: project_be12_team5      # 실제 DB 아이디
+    password: KFYUERgqkPF!r6    # 실제 DB 비밀번호
+
   jpa:
     show-sql: true
     hibernate:
@@ -18,7 +22,7 @@ spring:
       hibernate:
         default_batch_fetch_size: 100
   rabbitmq:
-    host: s4.java21.net
+    host: localhost
     port: 5672
     username: admin
     password: nhnacademy123!
@@ -40,10 +44,29 @@ minio:
   bucket-name: hi-five-bucket
 
 elasticsearch:
-  host: s4.java21.net
+  host: localhost
   port: 9200
   username: elastic
   password: nhnacademy123!
+
+# RAG 벡터 검색을 위한 설정 추가
+rag:
+  index-name: book_embedding_index
+  dim: 768      # BGE-M3 모델 벡터 차원
+  similarity: cosine
+
+
+gemini:
+  api-key: "AIzaSyCy1yXEz7k0SAL3Xr1Abx2b4NFp4qUazbk"
+  embedding-model: "models/text-embedding-004"
+
+rag-search:
+  top-k: 5
+  rerank: false
+  fields:
+    - title
+    - author
+    - content
 
 springdoc:
   api-docs:
@@ -74,4 +97,5 @@ logging:
 
 aladin:
   ttb-key : ttbminnie9089971045001
+
 

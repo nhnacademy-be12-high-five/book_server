@@ -1,4 +1,4 @@
-package com.nhnacademy.book_server.service;
+package com.nhnacademy.book_server.service.search;
 
 import java.util.List;
 

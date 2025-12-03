@@ -2,7 +2,6 @@ package com.nhnacademy.book_server.controller;
 
 import com.nhnacademy.book_server.controller.swagger.UserBookSwagger;
 import com.nhnacademy.book_server.entity.Book;
-import com.nhnacademy.book_server.service.AladinService;
 import com.nhnacademy.book_server.service.BookService;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

@@ -1,4 +1,4 @@
-package com.nhnacademy.book_server.service;
+package com.nhnacademy.book_server.service.impl;
 
 import com.nhnacademy.book_server.entity.AladinItem;
 import com.nhnacademy.book_server.entity.Book;
@@ -11,8 +11,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
-
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -22,7 +20,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Transactional
 @Slf4j
-public class AladinService {
+public class AladinServiceImpl {
 
     private final RestTemplate restTemplate;
     private final BookRepository bookRepository; // Repository 필수 사용

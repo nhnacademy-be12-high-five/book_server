@@ -1,8 +1,7 @@
 package com.nhnacademy.book_server.controller;
 
 import com.nhnacademy.book_server.entity.AladinItem;
-import com.nhnacademy.book_server.response.AladinSearchResponse;
-import com.nhnacademy.book_server.service.AladinService;
+import com.nhnacademy.book_server.service.impl.AladinServiceImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,7 +15,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AladinController {
 
-    private final AladinService aladinService;
+    private final AladinServiceImpl aladinService;
 
     // 전체 조회
     @GetMapping("/search")
