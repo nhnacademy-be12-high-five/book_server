@@ -1,0 +1,99 @@
+# 1. 클라우드 기능 끄기 (Config Server, Eureka 무시)
+spring:
+  cloud:
+    config:
+      enabled: false      # Config Server 접속 안 함
+      discovery:
+        enabled: false    # Discovery로 Config 찾기 안 함
+
+  devtools:
+    restart:
+      enabled: false
+
+  h2:
+    console:
+      path: /h2-console
+      enabled: true
+      settings:
+        web-allow-others: true
+
+#  datasource:
+#    url: "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
+#    driver-class-name: org.h2.Driver
+#    username: sa
+#    password:
+
+  datasource:
+    # 예시: MySQL 연결 설정
+    url: jdbc:mysql://220.67.216.14:13306/project_be12_team5?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&rewriteBatchedStatements=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: project_be12_team5      # 실제 DB 아이디
+    password: KFYUERgqkPF!r6    # 실제 DB 비밀번호
+
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: update
+
+    properties:
+      hibernate:
+        default_batch_fetch_size: 1000
+    open-in-view: false
+  rabbitmq:
+    host: s4.java21.net
+    port: 5672
+    username: admin
+    password: nhnacademy123!
+
+# 2. Eureka Client 끄기
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+management:
+  health:
+    elasticsearch:
+      enabled: false
+
+# 3. 로컬 DB 설정
+# 4. MinIO 설정 (하드코딩) -> Config Server가 죽었으니 여기서 직접 값을 줘야 함
+
+minio:
+  url: "http://storage.java21.net:8000"
+  access-key: "iiRcN2oAPop4ezp3ZvmR"
+  secret-key: "2wVro40kcE1s3w8kAOpc1uTyCwYKBV7LSraiKAuD"
+  bucket-name: hi-five-bucket
+
+elasticsearch:
+  host: s4.java21.net
+  port: 9200
+  username: elastic
+  password: nhnacademy123!
+
+springdoc:
+  api-docs:
+    version: openapi_3_0
+  swagger-ui:
+    path: /swagger-ui.html
+
+# 5. 서버 포트
+server:
+  port: 9003
+
+logging:
+  file:
+    name: logs/book-server.log  # 1. 프로젝트 루트의 logs 폴더 안에 파일 생성
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n" # 콘솔은 짧게
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n" # 파일은 자세히
+  level:
+    root: INFO
+    # 파서 쪽 로그는 WARN(경고) 이상일 때만 출력 (INFO 로그 숨김)
+    com.nhnacademy.book_server.parser: WARN
+    com.nhnacademy.book_server.service.DataParsingService: WARN
+
+aladin:
+  ttb-key : ttbminnie9089971045001
+
