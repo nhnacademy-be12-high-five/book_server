@@ -1,6 +1,7 @@
 package com.nhnacademy.book_server.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,12 +19,16 @@ import java.net.URI;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MinioImageService {
 
     private final S3Client s3Client;
 
     @Value("${minio.bucket-name}")
     private String bucketName;
+
+    @Value("${minio.url}") // yml에서 도메인 주입 받음
+    private String minioUrl;
 
     public String uploadImage(MultipartFile file) {
         try {
@@ -47,7 +52,7 @@ public class MinioImageService {
                     RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
 
             // 4. 업로드된 이미지의 접근 URL 반환
-            return String.format("http://storage.java21.net:8000/%s/%s", bucketName, storedFileName);
+            return String.format("%s/%s/%s", minioUrl, bucketName, storedFileName);
 
         } catch (IOException e) {
             throw new RuntimeException("이미지 업로드 실패", e);
@@ -107,7 +112,7 @@ public class MinioImageService {
                 extractedKeys.add(decodedKey);
 
             } catch (Exception e) {
-                System.err.println("URL 파싱 실패: " + fileUrl);
+                log.error("URL 파싱 실패: {}", fileUrl, e);
             }
         }
         return extractedKeys;
