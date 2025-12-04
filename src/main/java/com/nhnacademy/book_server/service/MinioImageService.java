@@ -18,7 +18,7 @@ import java.net.URI;
 
 @Service
 @RequiredArgsConstructor
-public class ImageService {
+public class MinioImageService {
 
     private final S3Client s3Client;
 
