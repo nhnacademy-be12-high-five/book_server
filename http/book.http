@@ -12,7 +12,7 @@ Content-Type: application/json
 #
 
 #### 관리자 책 조회
-GET http://localhost:9003/api/admin/3
+GET http://localhost:9003/api/admin/176460
 X-USER-ID:1
 Content-Type: application/json
 
@@ -30,11 +30,15 @@ X-USER-ID: 1
   "price": 25000,
   "imageUrl": "http://example.com/image.jpg",
   "description": "이 책은 예시를 위한 책입니다.",
-  "author": "작가 A, 작가 B"
+  "publishedDate": "2020-12-12",
+  "authors": [
+    "작가 A",
+    "작가 B"
+  ]
 }
 
 #### 관리자 책 수정
-PUT http://localhost:9003/api/admin/119433
+PUT http://localhost:9003/api/admin/176460
 X-USER-ID: 1
 Content-Type: application/json
 
@@ -44,22 +48,18 @@ Content-Type: application/json
   "publisher": "예시 출판사",
   "price": 45000,
   "description": "이 책은 예시를 위한 책입니다.",
-  "author": "작가 A, 작가 B"
+  "publishedDate": "2020-12-12",
+  "authors": [
+    "작가 A",
+    "작가 B"
+  ]
 }
 
 ### 관리자 책 삭제
-DELETE http://localhost:9003/api/admin
+DELETE http://localhost:9003/api/admin/3
 X-USER-ID: 1
 Content-Type: application/json
 
-{
-  "isbn": "978-8960773400",
-  "title": "예시 책 제목 가나다",
-  "publisher": "예시 출판사",
-  "price": 45000,
-  "description": "이 책은 예시를 위한 책입니다.",
-  "author": "작가 A, 작가 B"
-}
 
 
 ##### 알라딘 query에 맞는 책 전체 조회

@@ -12,8 +12,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -85,8 +83,11 @@ public class BookService {
     // 모든 책 조회
     // list -> Pageable로 변환
     @Transactional(readOnly = true)
-    public Page<Book> findAllBooks(@PageableDefault(size = 10) Pageable pageable){
-        return bookRepository.findAll(pageable);
+    public Page<BookResponse> findAllBooks(Pageable pageable){
+        Page<Book> books = bookRepository.findAll(pageable);
+
+        // 트랜잭션 안에서 DTO로 변환 (이때 LAZY 로딩이 발생해도 안전함)
+        return books.map(BookResponse::from);
     }
 
     // 책 한권 조회
@@ -124,14 +125,16 @@ public class BookService {
             existingBook.setPublisher(publisher);
         }
 
-        existingBook.getBookAuthors().clear();
-
         if (request.getAuthors() != null){
             for (String authorName: request.getAuthors()){
-                authorRepository.findByName(authorName).orElseGet(()->authorRepository.save(Author.builder().name(authorName).build()));
+                Author author=authorRepository.findByName(authorName).orElseGet(()->authorRepository.save(Author.builder().name(authorName).build()));
 
+                BookAuthor bookAuthor = BookAuthor.builder()
+                        .book(existingBook)  // 중요: 현재 책 정보 주입
+                        .author(author)      // 중요: 찾은 작가 정보 주입
+                        .build();
 
-                existingBook.getBookAuthors().add(new BookAuthor());
+                existingBook.getBookAuthors().add(bookAuthor);
             }
         }
 
@@ -166,7 +169,6 @@ public class BookService {
         return books.stream()
                 .map(book -> BookResponse.from(book,book.getCategory()))
                 .collect(Collectors.toList());
-
     }
 
 }
