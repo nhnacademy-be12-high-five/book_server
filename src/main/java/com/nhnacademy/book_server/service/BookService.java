@@ -1,6 +1,7 @@
 package com.nhnacademy.book_server.service;
 
 import com.nhnacademy.book_server.dto.BookResponse;
+import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.entity.*;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.repository.AuthorRepository;
@@ -11,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -83,14 +83,24 @@ public class BookService {
     // 모든 책 조회
     // list -> Pageable로 변환
     @Transactional(readOnly = true)
-    public Page<Book> findAllBooks(@PageableDefault(size = 10) Pageable pageable){
-        return bookRepository.findAll(pageable);
+    public Page<BookResponse> findAllBooks(Pageable pageable){
+        Page<Book> books = bookRepository.findAll(pageable);
+
+        // 트랜잭션 안에서 DTO로 변환 (이때 LAZY 로딩이 발생해도 안전함)
+        return books.map(BookResponse::from);
     }
 
     // 책 한권 조회
     @Transactional(readOnly = true)
     public Optional<Book> findBookById(Long id) {
-        return bookRepository.findById(id);
+        Optional<Book> book = bookRepository.findById(id);
+
+        book.ifPresent(b -> {
+            // b.getBookAuthors()에 접근하고 size()를 호출하면, JPA가 DB에서 해당 데이터를 로드합니다.
+            b.getBookAuthors().size();
+        });
+
+        return book;
     }
 
     // 책 업데이트
@@ -98,17 +108,34 @@ public class BookService {
     public Book updateBook(Long id, BookUpdateRequest request){
         Book existingBook = bookRepository.findById(id).orElseThrow(()->new RuntimeException("아이디가 존재하지 않습니다."));
 
+        existingBook.setIsbn13(request.getIsbn());
         existingBook.setTitle(request.getTitle());
         existingBook.setContent(request.getDescription());
+        existingBook.setPrice(request.getPrice());
+        existingBook.setImage(request.getImage());
+        existingBook.setPublishedDate(request.getPublishedDate());
 
         if (StringUtils.hasText(request.getPublisher())) {
             String publisherName = request.getPublisher().trim();
-            Publisher publisher=publisherRepository.findByName(publisherName)
+            Publisher publisher = publisherRepository.findByName(publisherName)
                     .orElseGet(() -> publisherRepository.save(
                             Publisher.builder().name(publisherName).build()
                     ));
 
-//            existingBook.setPublisher(publisher);
+            existingBook.setPublisher(publisher);
+        }
+
+        if (request.getAuthors() != null){
+            for (String authorName: request.getAuthors()){
+                Author author=authorRepository.findByName(authorName).orElseGet(()->authorRepository.save(Author.builder().name(authorName).build()));
+
+                BookAuthor bookAuthor = BookAuthor.builder()
+                        .book(existingBook)  // 중요: 현재 책 정보 주입
+                        .author(author)      // 중요: 찾은 작가 정보 주입
+                        .build();
+
+                existingBook.getBookAuthors().add(bookAuthor);
+            }
         }
 
         return bookRepository.save(existingBook);
@@ -142,7 +169,6 @@ public class BookService {
         return books.stream()
                 .map(book -> BookResponse.from(book,book.getCategory()))
                 .collect(Collectors.toList());
-
     }
 
 }

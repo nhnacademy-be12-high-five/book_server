@@ -35,7 +35,8 @@ public interface UserBookSwagger {
 //            @ApiResponse(responseCode = "404", description = "등록된 도서가 없음 (Not Found)")
     })
 //    @GetMapping("/api/books") // 사용자용 API 경로 예시
-    ResponseEntity<List<BookResponse>> getAllBooks(Pageable pageable);
+    ResponseEntity<List<BookResponse>> getAllBooks(@RequestHeader("X-USER-ID") String userId,
+                                                   @PageableDefault(size = 10) Pageable pageable);
 
     /**
      * 도서 한 권 상세 조회

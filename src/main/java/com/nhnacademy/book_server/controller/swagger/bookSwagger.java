@@ -1,9 +1,8 @@
 package com.nhnacademy.book_server.controller.swagger;
 
 import com.nhnacademy.book_server.dto.BookResponse;
+import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.entity.Book;
-import com.nhnacademy.book_server.entity.BookUpdateRequest;
-
 import com.nhnacademy.book_server.parser.ParsingDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

@@ -1,5 +1,6 @@
 package com.nhnacademy.book_server.service;
 
+import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.entity.*;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.repository.AuthorRepository;

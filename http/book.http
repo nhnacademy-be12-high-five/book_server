@@ -1,18 +1,20 @@
-### 도서 전체 조회
+#### 도서 전체 조회
 GET http://localhost:9003/api/books
 Content-Type: application/json
-
-### 도서 한권 조회
+#
+#### 도서 한권 조회
 GET http://localhost:9003/api/books
 Content-Type: application/json
-
-### 도서 재고조회
+#
+#### 도서 재고조회
 GET http://localhost:9003/api/books/1/stock
 Content-Type: application/json
+#
 
-### 관리자 책 조회
-GET http://localhost:9003/api/admin/1
-X-USER-ID: 1
+#### 관리자 책 조회
+GET http://localhost:9003/api/admin/176460
+X-USER-ID:1
+Content-Type: application/json
 
 ### 관리자 책 생성
 POST http://localhost:9003/api/admin
@@ -20,49 +22,47 @@ Content-Type: application/json
 X-USER-ID: 1
 
 {
+  "id": 2,
   "isbn": "978-8960773400",
   "title": "예시 책 제목",
   "publisher": "예시 출판사",
   "pubDate": "2024-01-01",
-  "price": "25000원",
+  "price": 25000,
   "imageUrl": "http://example.com/image.jpg",
   "description": "이 책은 예시를 위한 책입니다.",
-  "author": "작가 A, 작가 B"
+  "publishedDate": "2020-12-12",
+  "authors": [
+    "작가 A",
+    "작가 B"
+  ]
 }
 
-### 관리자 책 수정
-PUT http://localhost:9003/api/admin/1
+#### 관리자 책 수정
+PUT http://localhost:9003/api/admin/176460
 X-USER-ID: 1
 Content-Type: application/json
 
 {
   "isbn": "978-8960773400",
-  "title": "예시 책 제목",
+  "title": "예시 책 제목 가나다",
   "publisher": "예시 출판사",
-  "pubDate": "2024-01-01",
-  "price": "35000원",
-  "imageUrl": "http://example.com/image.jpg",
+  "price": 45000,
   "description": "이 책은 예시를 위한 책입니다.",
-  "author": "작가 A, 작가 B"
+  "publishedDate": "2020-12-12",
+  "authors": [
+    "작가 A",
+    "작가 B"
+  ]
 }
 
 ### 관리자 책 삭제
-DELETE http://localhost:9003/api/admin/1
+DELETE http://localhost:9003/api/admin/3
 X-USER-ID: 1
 Content-Type: application/json
 
-{
-  "isbn": "978-8960773400",
-  "title": "예시 책 제목",
-  "publisher": "예시 출판사",
-  "pubDate": "2024-01-01",
-  "price": "25000원",
-  "imageUrl": "http://example.com/image.jpg",
-  "description": "이 책은 예시를 위한 책입니다.",
-  "author": "작가 A, 작가 B"
-}
 
-#### 알라딘 query에 맞는 책 전체 조회
-GET http://localhost:9003/api/aladin/search
-Content-Type: application/json
 
+##### 알라딘 query에 맞는 책 전체 조회
+#GET http://localhost:9003/api/aladin/search
+#Content-Type: application/json
+#
