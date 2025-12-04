@@ -27,12 +27,12 @@ public class UserBookController implements UserBookSwagger {
     // 도서 전체 조회 (GET /api/books)
     @Override
     @GetMapping
-    public ResponseEntity<List<BookResponse>> getAllBooks(@PageableDefault(size = 10) Pageable pageable) {
-        List<BookResponse> bookList = bookService.findAllBooks(pageable)
-                .stream().map(BookResponse::from)
-                .collect(java.util.stream.Collectors.toList());
+    public ResponseEntity<List<BookResponse>> getAllBooks(@RequestHeader("X-USER-ID") String userId,
+                                                          @PageableDefault(size = 10) Pageable pageable) {
+        // 책을 한번에 로드 하기 위한 pagenation 추가
+        Page<BookResponse> bookPage=bookService.findAllBooks(pageable);
 
-        return ResponseEntity.ok(bookList);
+        return ResponseEntity.ok(bookPage.getContent());
     }
 
     // 도서 한 권 상세 조회 (GET /api/books/{bookId})

@@ -79,12 +79,9 @@ public class AdminBookController implements bookSwagger{
     public ResponseEntity<List<BookResponse>> getAllBooks(@RequestHeader("X-USER-ID") String userId,
                                                   @PageableDefault(size = 10) Pageable pageable) {
         // 책을 한번에 로드 하기 위한 pagenation 추가
-        Page<Book> bookPage=bookService.findAllBooks(pageable);
+        Page<BookResponse> bookPage=bookService.findAllBooks(pageable);
 
-        Page<BookResponse> bookResponsePage=bookPage.map(BookResponse::from);
-        // map을 사용해서 book을 BookResponse로 변환
-
-        return ResponseEntity.ok(bookResponsePage.getContent());
+        return ResponseEntity.ok(bookPage.getContent());
     }
 //
 //    // 책 한권 조회
