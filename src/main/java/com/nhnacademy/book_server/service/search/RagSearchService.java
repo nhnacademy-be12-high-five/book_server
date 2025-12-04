@@ -1,3 +1,4 @@
+
 package com.nhnacademy.book_server.service.search;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
@@ -7,9 +8,11 @@ import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.SearchResult;
 import com.nhnacademy.book_server.service.read.BookReadService;
 import com.nhnacademy.book_server.service.search.EmbeddingClientService;
+import org.springframework.transaction.annotation.Transactional;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service
+import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -78,12 +81,12 @@ public class RagSearchService implements RagSearchable {
             return new SearchResult<>(books, totalHits);
 
         } catch (Exception exception) {
-        log.error("RAG 검색 중 예외 발생 keyword={}", keyword, exception);
-        // 500으로 올리지 말고, 일단 빈 결과 반환
-        return new SearchResult<>(List.of(), 0L);
-    }
+            log.error("RAG 검색 중 예외 발생 keyword={}", keyword, exception);
+            // 500으로 올리지 말고, 일단 빈 결과 반환
+            return new SearchResult<>(List.of(), 0L);
+        }
 
-}
+    }
 
     // ElasticService.toBookResponse 그대로 가져온 버전
     private BookResponse toBookResponse(Map<String, Object> source) {
@@ -148,6 +151,7 @@ public class RagSearchService implements RagSearchable {
         );
     }
     @Override
+    @Transactional(readOnly = true)
     public void reindexBooks() {
         log.info("RAG reindex 시작 - book_embedding_index 전체 재색인");
 
