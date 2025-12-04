@@ -16,10 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
@@ -45,7 +42,7 @@ public class AdminBookController implements bookSwagger{
 //            // 1. MultipartFile -> java.io.File 변환 (Parser가 File을 요구하므로)
 //            // 임시 파일 생성
 //            tempFile = File.createTempFile("upload_", ".csv");
-//            file.transferTo(tempFile);
+//            file.transferTo(tempFile);ee
 //
 //            // 2. 파싱 실행 (File -> List<ParsingDto>)
 //            List<ParsingDto> parsingList = csvBookParser.parsing(tempFile);
@@ -68,7 +65,7 @@ public class AdminBookController implements bookSwagger{
     // 북 생성
     @PostMapping
     public ResponseEntity<Book> createBook(@RequestBody ParsingDto parsingDto,
-                                           @RequestHeader("X-User-Id") String userId){
+                                           @RequestHeader("X-User-Id") Long memberId){
 
         Book savedBook=bookService.createBook(parsingDto);
         return new ResponseEntity<>(savedBook, HttpStatus.CREATED);
@@ -76,7 +73,7 @@ public class AdminBookController implements bookSwagger{
 
 //    // 도서 전체 조회
     @GetMapping
-    public ResponseEntity<List<BookResponse>> getAllBooks(@RequestHeader("X-USER-ID") String userId,
+    public ResponseEntity<List<BookResponse>> getAllBooks(@RequestHeader("X-USER-ID") Long memberId,
                                                   @PageableDefault(size = 10) Pageable pageable) {
         // 책을 한번에 로드 하기 위한 pagenation 추가
         Page<BookResponse> bookPage=bookService.findAllBooks(pageable);
@@ -87,7 +84,7 @@ public class AdminBookController implements bookSwagger{
 //    // 책 한권 조회
     @GetMapping("/{id}")
     public ResponseEntity<BookResponse> getAllBookById(@PathVariable("id") Long bookId,
-                                               @RequestHeader("X-User-Id") String userId) {
+                                               @RequestHeader("X-User-Id") Long memberId) {
 
         return bookService.findBookById(bookId)
                 .map(BookResponse::from)
@@ -99,7 +96,7 @@ public class AdminBookController implements bookSwagger{
     @PutMapping("/{id}")
     public ResponseEntity<BookResponse> updateBook(@PathVariable("id") Long bookId,
                                                    @RequestBody BookUpdateRequest updateDto,
-                                           @RequestHeader("X-User-Id") String userId){
+                                           @RequestHeader("X-User-Id") Long memberId){
         try {
             Book updatedBook=bookService.updateBook(bookId,updateDto);
             BookResponse updatedResponse=BookResponse.from(updatedBook);
@@ -111,9 +108,10 @@ public class AdminBookController implements bookSwagger{
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteBook(@PathVariable("id") Long bookId, @RequestHeader("X-User-Id") String userId){
+    public ResponseEntity<Void> deleteBook(@PathVariable("id") Long bookId,
+                                           @RequestHeader("X-User-Id") Long memberId){
         try {
-            bookService.deleteBook(bookId,userId);
+            bookService.deleteBook(bookId,memberId);
             return ResponseEntity.ok().build();
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build(); // 404 Not Found (책을 찾을 수 없을 때)

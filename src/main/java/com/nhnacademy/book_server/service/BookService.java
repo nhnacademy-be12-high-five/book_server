@@ -25,6 +25,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class BookService {
+
     private final BookRepository bookRepository;
     private final PublisherRepository publisherRepository;
     private final AuthorRepository authorRepository;
@@ -142,7 +143,7 @@ public class BookService {
     }
 
     // 책 삭제
-    public void deleteBook(Long id,String userId){
+    public void deleteBook(Long id,Long memberId){
         if (!bookRepository.existsById(id)) {
             throw new RuntimeException("삭제할 아이디가 없습니다.");
         }

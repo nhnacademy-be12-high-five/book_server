@@ -110,4 +110,6 @@ public class Book {
     private Category category;
     //  도서와 카테고리는 1:N관계
 
+    // 재고
+    private Integer stock;
 }

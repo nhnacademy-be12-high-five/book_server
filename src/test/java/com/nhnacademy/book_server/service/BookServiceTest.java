@@ -175,7 +175,7 @@ class BookServiceTest {
         given(bookRepository.existsById(bookId)).willReturn(true);
 
         // when
-        bookService.deleteBook(bookId, "user");
+        bookService.deleteBook(bookId, 1L);
 
         // then
         verify(bookRepository, times(1)).deleteById(bookId);
@@ -189,7 +189,7 @@ class BookServiceTest {
         given(bookRepository.existsById(bookId)).willReturn(false);
 
         // when & then
-        assertThatThrownBy(() -> bookService.deleteBook(bookId, "user"))
+        assertThatThrownBy(() -> bookService.deleteBook(bookId, 1L))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessage("삭제할 아이디가 없습니다.");
 
