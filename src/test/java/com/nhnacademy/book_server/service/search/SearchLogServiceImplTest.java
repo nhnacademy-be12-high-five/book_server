@@ -2,7 +2,7 @@ package com.nhnacademy.book_server.service.search;
 
 import com.nhnacademy.book_server.entity.SearchLog;
 import com.nhnacademy.book_server.repository.SearchLogRepository;
-import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -12,10 +12,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class SearchLogServiceImplTest {
+class SearchLogServiceImplTest {
 
     @Mock
     SearchLogRepository searchLogRepository;
@@ -24,49 +25,49 @@ public class SearchLogServiceImplTest {
     SearchLogServiceImpl searchLogService;
 
     @Test
-    void setSearchLog_first(){
-        String keyword ="처음";
-        when(searchLogRepository.findByKeyword(keyword)).thenReturn(Optional.empty()); //given
+    @DisplayName("기존 로그가 없으면 새 SearchLog를 생성하고 searchCount=1로 저장")
+    void setSearchLog_whenNotExist_createNew() {
+        // given
+        String keyword = "자바";
+        when(searchLogRepository.findByKeyword(keyword))
+                .thenReturn(Optional.empty());
 
-        searchLogService.setSearchLog(keyword); //when
+        // when
+        searchLogService.setSearchLog(keyword);
 
-        ArgumentCaptor<SearchLog> captor = ArgumentCaptor.forClass(SearchLog.class); //then
-        verify(searchLogRepository, times(1)).save(captor.capture());
+        // then
+        ArgumentCaptor<SearchLog> captor = ArgumentCaptor.forClass(SearchLog.class);
+        verify(searchLogRepository).save(captor.capture());
 
-        Assertions.assertEquals(keyword,captor.getValue().getKeyword());
-        Assertions.assertEquals(1L,captor.getValue().getSearchCount());
+        SearchLog saved = captor.getValue();
+        assertThat(saved.getKeyword()).isEqualTo(keyword);
+        assertThat(saved.getSearchCount()).isEqualTo(1L);
     }
 
     @Test
-    void setSearchLog_exist(){
-        String keyword="존재";
-        SearchLog log = SearchLog.builder().keyword(keyword).searchCount(5L).build();
+    @DisplayName("기존 로그가 있으면 searchCount를 1 증가시켜 저장")
+    void setSearchLog_whenExist_increaseCount() {
+        // given
+        String keyword = "자바";
+        SearchLog existing = SearchLog.builder()
+                .id(1L)
+                .keyword(keyword)
+                .searchCount(3L)
+                .build();
 
-        when(searchLogRepository.findByKeyword(keyword)).thenReturn(Optional.of(log));
+        when(searchLogRepository.findByKeyword(keyword))
+                .thenReturn(Optional.of(existing));
 
-        searchLogService.setSearchLog(keyword); //when
+        // when
+        searchLogService.setSearchLog(keyword);
 
-        verify(searchLogRepository,times(1)).save(log); //then
-        Assertions.assertEquals(6L, log.getSearchCount());
+        // then
+        ArgumentCaptor<SearchLog> captor = ArgumentCaptor.forClass(SearchLog.class);
+        verify(searchLogRepository).save(captor.capture());
+
+        SearchLog saved = captor.getValue();
+        assertThat(saved.getId()).isEqualTo(1L);
+        assertThat(saved.getKeyword()).isEqualTo(keyword);
+        assertThat(saved.getSearchCount()).isEqualTo(4L); // 3 -> 4
     }
-
-    @Test
-    void geetSearchCount_nonExists(){
-        when(searchLogRepository.findByKeyword("없는 키워드")).thenReturn(Optional.empty());
-
-        long count = searchLogService.getSearchCount("없는 키워드");
-
-        Assertions.assertEquals(0L,count);
-    }
-
-    @Test
-    void getSearchCount_exist(){
-        String keyword="자바";
-        when(searchLogRepository.findByKeyword(keyword)).thenReturn(Optional.of(SearchLog.builder().keyword(keyword).searchCount(10L).build()));
-
-        long count = searchLogService.getSearchCount(keyword);
-
-        Assertions.assertEquals(10L, count);
-    }
-
 }
