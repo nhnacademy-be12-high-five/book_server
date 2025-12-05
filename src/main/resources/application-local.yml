@@ -67,7 +67,7 @@ minio:
   bucket-name: hi-five-bucket
 
 elasticsearch:
-  host: s4.java21.net
+  host: localhost
   port: 9200
   username: elastic
   password: nhnacademy123!

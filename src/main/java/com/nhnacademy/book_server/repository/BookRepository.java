@@ -20,7 +20,6 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     // 파싱 시 중복 데이터를 미리 걸러내기 위해 사용
     List<Book> findAllByIsbn13In(Set<String> isbns);
 
-<<<<<<< Updated upstream
     List<Book> findAllByIdIn(List<Long> bookIds);
 
     Optional<Book> findAllByIsbn13(String isbn13);
@@ -32,6 +31,4 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             String descriptionKeyword,
             Pageable pageable
     );
-=======
->>>>>>> Stashed changes
 }

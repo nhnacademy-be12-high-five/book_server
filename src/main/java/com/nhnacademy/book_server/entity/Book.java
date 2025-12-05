@@ -119,4 +119,5 @@ public class Book {
         this.publishedDate = publishedDate;
     }
 
+    private Integer stock;
 }
