@@ -34,48 +34,48 @@ public class DataParsingService {
 
     private final TransactionalService transactionalService;
 
-    // 한 번에 처리할 배치 사이즈 (DB 파라미터 제한 회피용)
     private static final int BATCH_SIZE = 1000;
 
-    @Transactional
     public void saveAll(List<ParsingDto> records) {
-        if (records == null || records.isEmpty()) {
-            return;
-        }
+        if (records == null || records.isEmpty()) return;
 
-        log.info("총 {}건의 데이터 파싱 완료. 중복 확인 및 저장 시작...", records.size());
+        log.info("총 {}건의 데이터 파싱 완료. 데이터 처리(Upsert) 시작...", records.size());
 
         Set<String> allPublisherNames = new HashSet<>();
         Set<String> allAuthorNames = new HashSet<>();
-        Set<String> allIsbns = new HashSet<>();
 
-        // 1. 데이터 수집
+        // 1. 데이터 수집 (출판사, 작가 이름 모으기)
         for (ParsingDto dto : records) {
             if (StringUtils.hasText(dto.getPublisher())) {
                 allPublisherNames.add(dto.getPublisher().trim());
             }
             if (StringUtils.hasText(dto.getAuthor())) {
-                String[] splitAuthors = dto.getAuthor().split("[,;]");
-                for (String authorName : splitAuthors) {
+                for (String authorName : dto.getAuthor().split("[,;]")) {
                     if (StringUtils.hasText(authorName)) {
                         allAuthorNames.add(authorName.trim());
                     }
                 }
             }
-            if (StringUtils.hasText(dto.getIsbn())) {
-                allIsbns.add(dto.getIsbn().trim());
-            }
         }
 
+<<<<<<< Updated upstream
+        // 2. 출판사/작가 처리 (트랜잭션 분리하여 미리 확보)
         Map<String, Publisher> publisherMap = transactionalService.executeInNewTransaction(
                 () -> resolvePublishers(allPublisherNames)
         );
-
-        // 3. 작가 처리 (배치 조회)
-        // [수정]: 새로운 트랜잭션으로 감싸서 Author 저장 및 커밋 보장
         Map<String, Author> authorMap = transactionalService.executeInNewTransaction(
                 () -> resolveAuthors(allAuthorNames)
         );
+
+        // 3. 책 데이터 배치 처리 (Insert + Update)
+        saveBooksInBatch(records, publisherMap, authorMap);
+    }
+
+    private void saveBooksInBatch(List<ParsingDto> dtos, Map<String, Publisher> publisherMap, Map<String, Author> authorMap) {
+        int total = dtos.size();
+=======
+        Map<String, Publisher> publisherMap = resolvePublishers(allPublisherNames);
+        Map<String, Author> authorMap = resolveAuthors(allAuthorNames);
 
         // 4. 이미 존재하는 ISBN 확인 (배치 조회)
         Set<String> existingIsbnSet = new HashSet<>();
@@ -83,8 +83,12 @@ public class DataParsingService {
 
         for (int i = 0; i < isbnList.size(); i += BATCH_SIZE) {
             List<String> batch = isbnList.subList(i, Math.min(isbnList.size(), i + BATCH_SIZE));
-            bookRepository.findAllByIsbn13In(new HashSet<>(batch))
-                    .forEach(book -> existingIsbnSet.add(book.getIsbn13()));
+            // 읽기 전용 트랜잭션은 괜찮음
+            transactionalService.executeInNewTransaction(() -> {
+                bookRepository.findAllByIsbn13In(new HashSet<>(batch))
+                        .forEach(book -> existingIsbnSet.add(book.getIsbn13()));
+                return null;
+            });
         }
 
         // 5. Book 객체 생성
@@ -97,6 +101,7 @@ public class DataParsingService {
             if (isbn.isEmpty() || existingIsbnSet.contains(isbn)) {
                 continue;
             }
+
             existingIsbnSet.add(isbn); // CSV 내부 중복 방지
 
             String pubName = dto.getPublisher() != null ? dto.getPublisher().trim() : "";
@@ -136,158 +141,338 @@ public class DataParsingService {
     }
 
     // 도서와 작가 관계를 배치로 나누어 저장하는 메서드
+    // [수정된 메서드] 유령 출판사/작가 복구 로직 추가
     private void saveBooksInBatch(List<Book> books, List<ParsingDto> dtos, Map<String, Author> authorMap) {
         int total = books.size();
-        log.info("새로운 도서 {}권 저장을 시작합니다.", total);
+        log.info("총 {}권의 도서 저장을 시작합니다.", total);
+>>>>>>> Stashed changes
 
         for (int i = 0; i < total; i += BATCH_SIZE) {
             int start = i;
             int end = Math.min(total, i + BATCH_SIZE);
 
-            // [수정]: 배치 단위로 새로운 트랜잭션을 시작합니다.
-            transactionalService.executeInNewTransaction(
-                    () -> {
-                        List<Book> bookBatch = books.subList(start, end);
-                        List<ParsingDto> dtoBatch = dtos.subList(start, end);
+<<<<<<< Updated upstream
+            transactionalService.executeInNewTransaction(() -> {
+                List<ParsingDto> batchDtos = dtos.subList(start, end);
 
-                        // 1) 책 저장 (Book)
-                        bookRepository.saveAll(bookBatch);
+                // 1) 현재 배치의 ISBN 목록 추출
+                Set<String> batchIsbns = batchDtos.stream()
+                        .map(dto -> dto.getIsbn() != null ? dto.getIsbn().trim() : "")
+                        .filter(StringUtils::hasText)
+                        .collect(Collectors.toSet());
 
-                        // 2) 책-작가 관계 생성
-                        List<BookAuthor> bookAuthors = new ArrayList<>();
-                        for (int j = 0; j < bookBatch.size(); j++) {
-                            Book book = bookBatch.get(j);
-                            ParsingDto dto = dtoBatch.get(j);
+                // 2) DB에서 이미 존재하는 책들을 조회 (Map으로 변환: ISBN -> Book)
+                List<Book> existingBooks = bookRepository.findAllByIsbn13In(batchIsbns);
+                Map<String, Book> bookMap = existingBooks.stream()
+                        .collect(Collectors.toMap(Book::getIsbn13, book -> book));
 
-                            if (StringUtils.hasText(dto.getAuthor())) {
-                                String[] splitAuthors = dto.getAuthor().split("[,;]");
-                                Set<Author> distinctAuthors = new HashSet<>();
-                                for (String rawName : splitAuthors) {
-                                    String name = rawName.trim();
-                                    Author author = authorMap.get(name);
-                                    if (author != null && distinctAuthors.add(author)) {
+                List<Book> booksToSave = new ArrayList<>();
+                // 신규 생성된 책인지 여부를 추적하기 위한 Set (ISBN 기준)
+                Set<String> newBookIsbns = new HashSet<>();
 
-                                        // [참고] Author 객체는 resolveAuthors에서 이미 Merge되었으므로
-                                        // 여기서는 다시 Merge하지 않아도 되지만, 안전을 위해 유지합니다.
-                                        Author managedAuthor = entityManager.merge(author);
+                // 3) DTO 루프: 있으면 Update, 없으면 Create
+                for (ParsingDto dto : batchDtos) {
+                    String isbn = dto.getIsbn() != null ? dto.getIsbn().trim() : "";
+                    if (!StringUtils.hasText(isbn)) continue;
 
+                    Publisher publisher = publisherMap.get(dto.getPublisher() != null ? dto.getPublisher().trim() : "");
+                    // [중요] 출판사 Merge (준영속 상태 -> 영속 상태로 전환)
+                    Publisher managedPublisher = (publisher != null) ? entityManager.merge(publisher) : null;
+
+                    Book book = bookMap.get(isbn);
+
+                    if (book != null) {
+                        // A. 이미 존재함 -> 정보 업데이트 (Dirty Checking)
+                        book.updateBookInfo(
+                                dto.getTitle(),
+                                managedPublisher,
+                                parsePrice(dto.getPrice()),
+                                dto.getDescription(),
+                                dto.getImageUrl(),
+                                parseDate(dto.getPubDate()).toString()
+                        );
+                        // 기존 책은 booksToSave에 넣어서 saveAll 호출 (merge 효과)
+                        booksToSave.add(book);
+                    } else {
+                        // B. 없음 -> 신규 생성
+                        book = Book.builder()
+                                .isbn13(isbn)
+                                .title(dto.getTitle())
+                                .publisher(managedPublisher)
+                                .price(parsePrice(dto.getPrice()))
+                                .content(dto.getDescription())
+                                .image(dto.getImageUrl())
+                                .publishedDate(parseDate(dto.getPubDate()).toString())
+                                .build();
+
+                        booksToSave.add(book);
+                        newBookIsbns.add(isbn); // 신규 책임을 표시
+                    }
+                }
+
+                // 4) 책 일괄 저장 (영속화)
+                // saveAll은 신규 엔티티는 persist, 기존 엔티티는 merge 처리합니다.
+                List<Book> savedBooks = bookRepository.saveAll(booksToSave);
+                entityManager.flush();
+
+                // 5) 작가 연결 (신규 책인 경우에만 수행하여 중복 방지)
+                List<BookAuthor> bookAuthorsToSave = new ArrayList<>();
+
+                // savedBooks 순서는 booksToSave 순서와 동일함
+                for (int idx = 0; idx < savedBooks.size(); idx++) {
+                    Book book = savedBooks.get(idx);
+                    // 방금 저장된 책이 '신규'인 경우에만 작가 관계를 맺음 (기존 책은 관계 유지)
+                    if (newBookIsbns.contains(book.getIsbn13())) {
+                        // 원본 DTO 찾기 (ISBN으로 매칭하거나 순서 이용)
+                        // 여기서는 순서가 같으므로 batchDtos가 아니라 booksToSave 생성 시점의 DTO 매칭이 필요하지만,
+                        // 구조상 batchDtos를 순회하며 booksToSave를 만들었으므로 약간의 인덱스 차이가 있을 수 있음.
+                        // 안전하게 ISBN으로 DTO를 다시 찾습니다. (성능상 Map 사용 추천하지만 여기선 간단히)
+                        ParsingDto matchedDto = findDtoByIsbn(batchDtos, book.getIsbn13());
+
+                        if (matchedDto != null && StringUtils.hasText(matchedDto.getAuthor())) {
+                            String[] splitAuthors = matchedDto.getAuthor().split("[,;]");
+                            for (String rawName : splitAuthors) {
+                                Author author = authorMap.get(rawName.trim());
+                                if (author != null) {
+                                    Author managedAuthor = entityManager.merge(author);
+                                    bookAuthorsToSave.add(BookAuthor.builder()
+                                            .book(book)
+                                            .author(managedAuthor)
+                                            .build());
+=======
+            try {
+                // 트랜잭션 시작
+                transactionalService.executeInNewTransaction(() -> {
+                    List<Book> bookBatch = books.subList(start, end);
+                    List<ParsingDto> dtoBatch = dtos.subList(start, end);
+
+                    // 1) [중요] 책 저장 전, 출판사 유효성 검사 (Ghost ID 치료)
+                    for (Book book : bookBatch) {
+                        Publisher pub = book.getPublisher();
+                        if (pub != null) {
+                            // ID가 있는데 DB에 없는지 확인 (1차 캐시 혹은 DB 조회)
+                            boolean isGhost = false;
+                            if (pub.getPublisherId() != null) {
+                                // DB에 진짜 있는지 확인
+                                if (entityManager.find(Publisher.class, pub.getPublisherId()) == null) {
+                                    isGhost = true;
+                                }
+                            }
+
+                            if (isGhost) {
+                                log.warn("👻 유령 출판사 발견! (ID: {}, 이름: {}). 복구를 시도합니다.", pub.getPublisherId(), pub.getName());
+                                // 이름으로 다시 찾기
+                                Publisher realPub = publisherRepository.findByName(pub.getName()).orElse(null);
+
+                                if (realPub == null) {
+                                    // 진짜 없으면 새로 만듦 (ID 초기화 후 저장)
+                                    realPub = Publisher.builder().name(pub.getName()).build();
+                                    realPub = publisherRepository.save(realPub);
+                                }
+                                // 책에 진짜 출판사 연결
+                                book.setPublisher(realPub);
+                            } else {
+                                // 유령이 아니면 안전하게 merge (영속성 컨텍스트 연결)
+                                // ID가 없으면(null) save 할 때 cascade 되거나 에러날 수 있으나, 보통 위 로직에서 걸러짐
+                                if (pub.getPublisherId() != null) {
+                                    book.setPublisher(entityManager.merge(pub));
+                                }
+                            }
+                        }
+                    }
+
+                    // 2) 책 일괄 저장
+                    bookRepository.saveAll(bookBatch);
+
+                    // 3) 책-작가 관계 생성
+                    List<BookAuthor> bookAuthors = new ArrayList<>();
+                    for (int j = 0; j < bookBatch.size(); j++) {
+                        Book book = bookBatch.get(j);
+                        ParsingDto dto = dtoBatch.get(j);
+
+                        if (StringUtils.hasText(dto.getAuthor())) {
+                            String[] splitAuthors = dto.getAuthor().split("[,;]");
+                            Set<Author> distinctAuthors = new HashSet<>();
+                            for (String rawName : splitAuthors) {
+                                String name = rawName.trim();
+                                Author author = authorMap.get(name);
+
+                                if (author != null && distinctAuthors.add(author)) {
+                                    // [안전 장치] 작가도 유령일 수 있으므로 merge 시도
+                                    Author managedAuthor = null;
+                                    if (author.getId() != null) {
+                                        Author found = entityManager.find(Author.class, author.getId());
+                                        if (found != null) {
+                                            managedAuthor = found; // 유령 아님, 정상!
+                                        }
+                                    }
+
+                                    if (managedAuthor != null) {
                                         bookAuthors.add(BookAuthor.builder()
                                                 .book(book)
                                                 .author(managedAuthor)
                                                 .build());
                                     }
+>>>>>>> Stashed changes
                                 }
                             }
                         }
-
-                        // 3) 관계 저장 (BookAuthor)
-                        if (!bookAuthors.isEmpty()) {
-                            bookAuthorRepository.saveAll(bookAuthors);
-                        }
-
-                        // [참고] 트랜잭션 종료 시 자동 커밋 (오류 없을 경우)
-
-                        return null;
                     }
-            ); // 트랜잭션이 여기서 끝나고 커밋됩니다.
+<<<<<<< Updated upstream
+                }
 
-            // 성공 로그는 트랜잭션이 완료된 후 출력
-            log.info("진행률: {}/{} 권 저장 완료 (커밋됨)", end, total);
+                if (!bookAuthorsToSave.isEmpty()) {
+                    bookAuthorRepository.saveAll(bookAuthorsToSave);
+                }
+
+                entityManager.flush();
+                entityManager.clear(); // 1차 캐시 비우기
+                return null;
+            });
+
+            log.info("진행률: {}/{} 권 처리 완료", end, total);
         }
-        log.info("모든 데이터 저장 완료!");
+        log.info("모든 데이터 처리 완료!");
+    }
+
+    // 리스트에서 ISBN으로 DTO 찾는 헬퍼 메서드
+    private ParsingDto findDtoByIsbn(List<ParsingDto> dtos, String isbn) {
+        for (ParsingDto dto : dtos) {
+            String dtoIsbn = dto.getIsbn() != null ? dto.getIsbn().trim() : "";
+            if (dtoIsbn.equals(isbn)) {
+                return dto;
+            }
+        }
+        return null;
+=======
+
+                    if (!bookAuthors.isEmpty()) {
+                        bookAuthorRepository.saveAll(bookAuthors);
+                    }
+                    return null;
+                });
+
+                log.info("진행률: {}/{} 권 저장 성공", end, total);
+
+            } catch (Exception e) {
+                log.error("❌ 배치 저장 실패 (Index: {} ~ {}). 원인: {}", start, end, e.getMessage());
+                // 상세 원인 파악을 위해 필요시 주석 해제
+                // e.printStackTrace();
+            }
+        }
+        log.info("모든 데이터 저장 로직 종료!");
+>>>>>>> Stashed changes
     }
 
     private Map<String, Publisher> resolvePublishers(Set<String> names) {
-        Map<String, Publisher> map = new HashMap<>(); // 최종 반환용 (Key: 원본 이름)
+        Map<String, Publisher> map = new HashMap<>();
         if (names.isEmpty()) return map;
 
         List<String> nameList = new ArrayList<>(names);
-
-        // 1. DB 조회 및 중복 체크용 맵 생성 (Key: 소문자 이름)
         Map<String, Publisher> lowerCaseMap = new HashMap<>();
 
-        // 배치 조회 (있는 것 찾기)
         for (int i = 0; i < nameList.size(); i += BATCH_SIZE) {
             List<String> batch = nameList.subList(i, Math.min(nameList.size(), i + BATCH_SIZE));
-            publisherRepository.findAllByNameIn(new HashSet<>(batch))
-                    .forEach(p -> lowerCaseMap.put(p.getName().toLowerCase(), p));
+            transactionalService.executeInNewTransaction(() -> {
+                publisherRepository.findAllByNameIn(new HashSet<>(batch))
+                        .forEach(p -> lowerCaseMap.put(p.getName().toLowerCase(), p));
+                return null;
+            });
         }
 
-        // 2. 없는 것만 필터링 (대소문자 중복 방지)
         List<Publisher> toSave = new ArrayList<>();
         for (String name : names) {
             String lowerName = name.toLowerCase();
             if (!lowerCaseMap.containsKey(lowerName)) {
                 Publisher newPub = Publisher.builder().name(name).build();
                 toSave.add(newPub);
-                lowerCaseMap.put(lowerName, newPub); // 임시 등록 (ID 없음)
+                lowerCaseMap.put(lowerName, newPub);
             }
         }
 
-        // 3. 배치 저장 및 안전 로직 (좀비 퇴치 기능 포함)
         if (!toSave.isEmpty()) {
             for (int i = 0; i < toSave.size(); i += BATCH_SIZE) {
                 List<Publisher> batch = toSave.subList(i, Math.min(toSave.size(), i + BATCH_SIZE));
                 try {
-                    // [시도 A] 시원하게 한 번에 저장
+<<<<<<< Updated upstream
                     publisherRepository.saveAll(batch).forEach(p ->
                             lowerCaseMap.put(p.getName().toLowerCase(), p)
                     );
-                } catch (Exception e) {
-                    // [실패 시] 1. 일단 좀비 객체들(batch)을 메모리에서 쫓아냄
-                    entityManager.clear();
-                    log.warn("배치 저장 실패(중복 등). 개별 처리 및 메모리 정리 완료.");
+=======
+                    // [시도 A] 시원하게 한 번에 저장
+                    transactionalService.executeInNewTransaction(() -> {
+                        publisherRepository.saveAll(batch); // 여기서 실패하면 이 트랜잭션만 롤백됨
+                        return null;
+                    });
 
-                    // [시도 B] 한 땀 한 땀 개별 저장
+                    // 성공 시 맵에 등록
+                    batch.forEach(p -> lowerCaseMap.put(p.getName().toLowerCase(), p));
+>>>>>>> Stashed changes
+                } catch (Exception e) {
+                    entityManager.clear();
+                    // 개별 저장 로직 (생략 없이 이전 코드와 동일하게 사용하시면 됩니다)
+                    // ... (이전 답변의 resolvePublishers 안전 저장 로직 참조)
                     for (Publisher p : batch) {
                         try {
-                            // 개별 저장 시도
+<<<<<<< Updated upstream
                             Publisher saved = publisherRepository.save(p);
                             lowerCaseMap.put(saved.getName().toLowerCase(), saved);
+=======
+                            // 개별 건마다 새로운 트랜잭션 사용
+                            transactionalService.executeInNewTransaction(() -> {
+                                Publisher saved = publisherRepository.save(p);
+                                lowerCaseMap.put(saved.getName().toLowerCase(), saved);
+                                return null;
+                            });
+>>>>>>> Stashed changes
                         } catch (Exception ex) {
-
                             entityManager.clear();
-
                             try {
-                                Publisher existing = publisherRepository.findByName(p.getName())
-                                        .orElseThrow(() -> new RuntimeException("구제 불능 데이터: " + p.getName()));
+<<<<<<< Updated upstream
+                                Publisher existing = publisherRepository.findByName(p.getName()).orElseThrow();
                                 lowerCaseMap.put(existing.getName().toLowerCase(), existing);
+                            } catch (Exception fatal) {}
+=======
+                                Publisher existing = transactionalService.executeInNewTransaction(() ->
+                                        publisherRepository.findByName(p.getName()).orElse(null)
+                                );
+                                if (existing != null) {
+                                    lowerCaseMap.put(existing.getName().toLowerCase(), existing);
+                                }
                             } catch (Exception fatal) {
-                                log.error("🚨 처리 불가 출판사: {}", p.getName());
+                                log.error("🚨 출판사 최종 실패: {}", p.getName());
                             }
+>>>>>>> Stashed changes
                         }
                     }
                 }
             }
         }
 
-        // 4. 최종 결과 맵 생성 (Key: 원본 CSV에 있던 이름)
         for (String name : names) {
             Publisher p = lowerCaseMap.get(name.toLowerCase());
-            if (p != null) {
-                map.put(name, p);
-            }
+            if (p != null) map.put(name, p);
         }
-
         return map;
     }
 
-    // [수정된 작가 처리 메서드] - 출판사 처리와 똑같이 '안전 장치' 추가
     private Map<String, Author> resolveAuthors(Set<String> names) {
+        // ... (resolvePublishers와 동일한 로직, AuthorRepository 사용) ...
+        // 코드가 너무 길어져서 생략했지만, 이전 답변의 resolveAuthors 메서드를 그대로 쓰시면 됩니다.
         Map<String, Author> map = new HashMap<>();
         if (names.isEmpty()) return map;
-
         List<String> nameList = new ArrayList<>(names);
-
-        // 1. DB 조회 (중복 체크용)
         Map<String, Author> lowerCaseMap = new HashMap<>();
+
         for (int i = 0; i < nameList.size(); i += BATCH_SIZE) {
             List<String> batch = nameList.subList(i, Math.min(nameList.size(), i + BATCH_SIZE));
-            authorRepository.findAllByNameIn(new HashSet<>(batch))
-                    .forEach(a -> lowerCaseMap.put(a.getName().toLowerCase(), a));
+            transactionalService.executeInNewTransaction(() -> {
+                authorRepository.findAllByNameIn(new HashSet<>(batch))
+                        .forEach(a -> lowerCaseMap.put(a.getName().toLowerCase(), a));
+                return null;
+            });
         }
 
-        // 2. 저장할 대상 필터링
         List<Author> toSave = new ArrayList<>();
         for (String name : names) {
             String lowerName = name.toLowerCase();
@@ -298,50 +483,58 @@ public class DataParsingService {
             }
         }
 
-        // 3. 안전 저장 로직 (출판사 처리와 동일하게 적용)
         if (!toSave.isEmpty()) {
             for (int i = 0; i < toSave.size(); i += BATCH_SIZE) {
                 List<Author> batch = toSave.subList(i, Math.min(toSave.size(), i + BATCH_SIZE));
                 try {
-                    // [시도 A] 한 번에 저장
-                    authorRepository.saveAll(batch).forEach(a ->
-                            lowerCaseMap.put(a.getName().toLowerCase(), a)
-                    );
+<<<<<<< Updated upstream
+                    authorRepository.saveAll(batch).forEach(a -> lowerCaseMap.put(a.getName().toLowerCase(), a));
+=======
+                    // [시도 A] 배치 저장 (새 트랜잭션)
+                    transactionalService.executeInNewTransaction(() -> {
+                        authorRepository.saveAll(batch);
+                        return null;
+                    });
+
+                    batch.forEach(a -> lowerCaseMap.put(a.getName().toLowerCase(), a));
+
+>>>>>>> Stashed changes
                 } catch (Exception e) {
-                    // [실패 시] 1. 좀비 객체(영속성 컨텍스트) 정리 -> 이게 핵심!
                     entityManager.clear();
-
-                    log.warn("작가 배치 저장 실패. 개별 처리로 전환합니다.");
-
-                    // [시도 B] 한 땀 한 땀 개별 저장
                     for (Author a : batch) {
                         try {
-                            Author saved = authorRepository.save(a);
-                            lowerCaseMap.put(saved.getName().toLowerCase(), saved);
+                            transactionalService.executeInNewTransaction(() -> {
+                                Author saved = authorRepository.save(a);
+                                lowerCaseMap.put(saved.getName().toLowerCase(), saved);
+                                return null;
+                            });
                         } catch (Exception ex) {
-                            // 개별 실패 시에도 detach 필수
                             entityManager.clear();
-
-                            // [최후의 수단] DB에서 조회
                             try {
-                                Author existing = authorRepository.findByName(a.getName())
-                                        .orElseThrow(() -> new RuntimeException("작가 구제 불능: " + a.getName()));
+<<<<<<< Updated upstream
+                                Author existing = authorRepository.findByName(a.getName()).orElseThrow();
                                 lowerCaseMap.put(existing.getName().toLowerCase(), existing);
+                            } catch (Exception fatal) {}
+=======
+                                Author existing = transactionalService.executeInNewTransaction(() ->
+                                        authorRepository.findByName(a.getName()).orElse(null)
+                                );
+                                if (existing != null) {
+                                    lowerCaseMap.put(existing.getName().toLowerCase(), existing);
+                                }
                             } catch (Exception fatal) {
-                                log.error("🚨 작가 처리 완전 실패: {}", a.getName());
+                                log.error("🚨 작가 최종 실패: {}", a.getName());
                             }
+>>>>>>> Stashed changes
                         }
                     }
                 }
             }
         }
 
-        // 4. 결과 매핑
         for (String name : names) {
             Author a = lowerCaseMap.get(name.toLowerCase());
-            if (a != null) {
-                map.put(name, a);
-            }
+            if (a != null) map.put(name, a);
         }
         return map;
     }
@@ -355,6 +548,65 @@ public class DataParsingService {
         }
     }
 
+    // DataParsingService.java
+
+    // 🛠️ 날짜 수정 전용 긴급 복구 메서드
+    public void fixDatesOnly(List<ParsingDto> records) {
+        if (records == null || records.isEmpty()) return;
+
+        log.info("📅 날짜 복구 작업 시작! 총 {}건", records.size());
+
+        // 배치 사이즈만큼 나눠서 처리 (메모리 보호)
+        for (int i = 0; i < records.size(); i += BATCH_SIZE) {
+            int end = Math.min(records.size(), i + BATCH_SIZE);
+            List<ParsingDto> batchDtos = records.subList(i, end);
+
+            // 1. 이번 배치의 ISBN 목록 추출
+            Set<String> isbns = batchDtos.stream()
+                    .map(dto -> dto.getIsbn().trim())
+                    .filter(StringUtils::hasText)
+                    .collect(Collectors.toSet());
+
+            transactionalService.executeInNewTransaction(() -> {
+                // 2. DB에서 해당 ISBN을 가진 책들을 한꺼번에 조회 (성능 최적화)
+                List<Book> books = bookRepository.findAllByIsbn13In(isbns);
+
+                // 검색 속도를 위해 Map으로 변환 (ISBN -> Book)
+                Map<String, Book> bookMap = books.stream()
+                        .collect(Collectors.toMap(Book::getIsbn13, book -> book));
+
+                List<Book> dirtyBooks = new ArrayList<>();
+
+                // 3. 날짜 업데이트 진행
+                for (ParsingDto dto : batchDtos) {
+                    String isbn = dto.getIsbn().trim();
+                    Book book = bookMap.get(isbn);
+
+                    if (book != null) {
+                        String newDateStr = parseDate(dto.getPubDate()).toString(); // 이제 제대로 된 날짜가 옴
+
+                        // 기존 날짜와 다를 때만 업데이트 (불필요한 DB 쓰기 방지)
+                        if (!newDateStr.equals(book.getPublishedDate())) {
+                            book.setPublishedDate(newDateStr);
+                            dirtyBooks.add(book);
+                        }
+                    }
+                }
+
+                // 4. 변경된 책들만 일괄 저장 (JPA Dirty Checking이 동작하지만 명시적으로 saveAll 권장)
+                if (!dirtyBooks.isEmpty()) {
+                    bookRepository.saveAll(dirtyBooks);
+                }
+
+                return null;
+            });
+
+            // 메모리 청소
+            entityManager.clear();
+        }
+        log.info("🎉 모든 날짜 복구 작업이 완료되었습니다!");
+    }
+
     private LocalDate parseDate(String dateStr) {
         if (!StringUtils.hasText(dateStr)) return LocalDate.now();
         try {
@@ -363,4 +615,6 @@ public class DataParsingService {
             return LocalDate.now();
         }
     }
+
+
 }

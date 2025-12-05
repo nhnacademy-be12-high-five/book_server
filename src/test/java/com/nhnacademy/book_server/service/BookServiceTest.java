@@ -1,5 +1,6 @@
 package com.nhnacademy.book_server.service;
 
+import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.entity.*;
 import com.nhnacademy.book_server.parser.ParsingDto;
@@ -13,6 +14,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;
@@ -47,8 +52,9 @@ class BookServiceTest {
         dto.setPrice("15000");
         dto.setPublisher("Publisher");
         dto.setAuthor("Author");
+
         // isbn 중복 체크
-        given(bookRepository.existsByIsbn13(any())).willReturn(true);
+        given(bookRepository.existsByIsbn13(any())).willReturn(false);
 
         // 3. 책 저장시 반환될 객체
         Book savedBook = Book.builder()
@@ -85,23 +91,34 @@ class BookServiceTest {
         verify(authorRepository,times(1)).save(any(Author.class));
     }
 
-//    @Test
-//    @DisplayName("도서 전체 조회")
-//    void findAllBooks() {
-//        // given
-//        List<Book> books = List.of(
-//                Book.builder().title("Book1").build(),
-//                Book.builder().title("Book2").build()
+    @Test
+    @DisplayName("도서 전체 조회")
+    void findAllBooks() {
+        // given
+
+        Book book1 = Book.builder().id(1L).title("Book 1").price(10000).build();
+        Book book2 = Book.builder().id(2L).title("Book 2").price(20000).build();
+
+//        List<Book> responseList = List.of(
+//                BookResponse.from(book1),
+//                BookResponse.from(book2)
 //        );
-//        given(bookRepository.findAll()).willReturn(books);
+
+        List<Book> bookList = List.of(book1,book2);
+
+        Page<Book> bookPage = new PageImpl<>(bookList);
+//
+        given(bookRepository.findAll(any(Pageable.class))).willReturn(bookPage);
+
+        Pageable pageable=PageRequest.of(0,10);
 //
 //        // when
-//        List<Book> result = bookService.findAllBooks();
+        Page<BookResponse> result = bookService.findAllBooks(pageable);
 //
 //        // then
-//        assertThat(result).hasSize(2);
-//        assertThat(result.get(0).getTitle()).isEqualTo("Book1");
-//    }
+        assertThat(result).hasSize(2);
+        assertThat(result.getContent().get(0)).isInstanceOf(BookResponse.class);
+    }
 
     @Test
     @DisplayName("도서 단건 조회 - 성공")

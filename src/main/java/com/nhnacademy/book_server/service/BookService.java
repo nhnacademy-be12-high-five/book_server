@@ -2,6 +2,7 @@ package com.nhnacademy.book_server.service;
 
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
+import com.nhnacademy.book_server.dto.response.GetBookResponse;
 import com.nhnacademy.book_server.entity.*;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.repository.AuthorRepository;
@@ -12,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -163,13 +165,19 @@ public class BookService {
     // bulk api 조회
     // 장바구니에서 책을 조회할때 책을 1번만 호출하도록 하는 API
     // Service Layer
-    public List<BookResponse> getBooksBulk(List<Long> bookIds) {
+    public List<GetBookResponse> getBooksBulk(List<Long> bookIds) {
         List<Book> books = bookRepository.findAllById(bookIds);
 
         // List를 Map<BookId, Dto> 형태로 변환
         return books.stream()
-                .map(book -> BookResponse.from(book,book.getCategory()))
+                .map(book -> new GetBookResponse(
+                        book.getId(),
+                        book.getTitle(),
+                        book.getPrice(),
+                        book.getImage()                // 이미지
+                ))
                 .collect(Collectors.toList());
+
     }
 
 }

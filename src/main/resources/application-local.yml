@@ -97,3 +97,10 @@ logging:
 aladin:
   ttb-key : ttbminnie9089971045001
 
+# 고민좀
+#    redis:
+#      host: s4.java21.net
+#      #      host: 10.116.64.14
+#      port: 6379
+#      password: '*N2vya7H@muDTwdNMR!'
+#      database: 400

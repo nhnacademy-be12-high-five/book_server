@@ -15,7 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Slf4j
-//@Component
+@Component
 @RequiredArgsConstructor
 public class csvParser implements CommandLineRunner {
 

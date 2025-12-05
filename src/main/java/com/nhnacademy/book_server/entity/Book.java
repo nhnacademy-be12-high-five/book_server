@@ -110,6 +110,13 @@ public class Book {
     private Category category;
     //  도서와 카테고리는 1:N관계
 
-    // 재고
-    private Integer stock;
+    public void updateBookInfo(String title, Publisher publisher, int price, String content, String image, String publishedDate) {
+        this.title = title;
+        this.publisher = publisher; // 변경된 출판사(영속 상태) 반영
+        this.price = price;
+        this.content = content;
+        this.image = image;
+        this.publishedDate = publishedDate;
+    }
+
 }

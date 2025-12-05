@@ -17,11 +17,10 @@ public enum ErrorCode {
     // Review
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "R001", "존재하지 않는 리뷰입니다."),
     REVIEW_NOT_AUTHOR(HttpStatus.NON_AUTHORITATIVE_INFORMATION, "R002", "작성자의 리뷰가 아닙니다."),
-
-    // Cart
-    CART_NOT_FOUND(HttpStatus.NOT_FOUND, "CT001", "해당 장바구니를 찾을 수 없습니다."),
-    CART_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "CT002", "장바구니에 해당 상품이 존재하지 않습니다."),
-    INVALID_QUANTITY(HttpStatus.BAD_REQUEST, "CT003", "수량은 1개 이상이어야 합니다."),
+    REVIEW_WRITE_AUTHOR(HttpStatus.NON_AUTHORITATIVE_INFORMATION, "R003", "해당 책을 구매한 맴버가 아닙니다."),
+    REVIEW_DUP(HttpStatus.NOT_ACCEPTABLE, "R004", "이미 해당 도서에 대한 리뷰를 작성하셨습니다"),
+    REVIEW_IMAGE_LIMIT_EXCEEDED(HttpStatus.NOT_ACCEPTABLE,"R005" , "등록 가능한 이미지 수를 넘었습니다."),
+    REVIEW_NOT_MATCH_BOOK(HttpStatus.NOT_FOUND, "R006" , "해당 리뷰는 이 책에 작성된 리뷰가 아닙니다." ),
 
     // Auth
     CART_ACCESS_DENIED(HttpStatus.FORBIDDEN, "A001", "해당 장바구니에 대한 접근 권한이 없습니다."),
@@ -32,12 +31,7 @@ public enum ErrorCode {
 
     // External (외부 서비스 관련)
     EXTERNAL_SERVER_ERROR(HttpStatus.SERVICE_UNAVAILABLE, "EXT001", "외부 서비스 통신 중 오류가 발생했습니다."),
-    BOOK_NOT_FOUND_IN_SERVER(HttpStatus.NOT_FOUND, "EXT002", "도서 서비스에서 해당 책을 찾을 수 없습니다."),
-
-    // Point (포인트 관련)
-    POINT_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "포인트 정보를 찾을 수 없습니다."),
-    POINT_NOT_ENOUGH(HttpStatus.BAD_REQUEST, "P002", "포인트 잔액이 부족합니다."),
-    MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "P003", "존재하지 않는 회원입니다.");
+    BOOK_NOT_FOUND_IN_SERVER(HttpStatus.NOT_FOUND, "EXT002", "도서 서비스에서 해당 책을 찾을 수 없습니다.");
 
     private final HttpStatus status;
     private final String code;

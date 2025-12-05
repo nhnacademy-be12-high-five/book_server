@@ -2,7 +2,7 @@ package com.nhnacademy.book_server.controller;
 
 import com.nhnacademy.book_server.controller.swagger.UserBookSwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
-import com.nhnacademy.book_server.entity.Book;
+import com.nhnacademy.book_server.dto.response.GetBookResponse;
 import com.nhnacademy.book_server.service.BookService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -62,10 +62,10 @@ public class UserBookController implements UserBookSwagger {
 
     @PostMapping("/bulk")
     // 조회 목적이지만 다량의 ID 리스트를 요청 본문에 담아 보내야 하므로 POST 요청을 보냄
-    public ResponseEntity<List<BookResponse>> getBooksBulk(@RequestBody List<Long> bookIds) {
+    public ResponseEntity<List<GetBookResponse>> getBooksBulk(@RequestBody List<Long> bookIds) {
         // bookIds에는 [1, 5, 22, 100] 처럼 여러 개가 들어옵니다.
         // POST 요청은 데이터를 **요청 본문(Request Body)**에 담아 보낼 수 있습니다.
-        List<BookResponse> response = bookService.getBooksBulk(bookIds);
+        List<GetBookResponse> response = bookService.getBooksBulk(bookIds);
         return ResponseEntity.ok(response);
     }
 }
