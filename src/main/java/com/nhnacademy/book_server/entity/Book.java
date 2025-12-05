@@ -102,7 +102,7 @@ public class Book {
 //    private String isbnNO;
 
     //    private String tag;
-//    private String bookLike;
+//    private String FbookLike;
     private Boolean isPortalSiteBookExist;
 
     @ManyToOne
