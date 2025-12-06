@@ -40,9 +40,10 @@ public interface UserBookLikeSwagger {
     );
 
     /**
-     * 2. (구 4번) 마이페이지 - 좋아요 누른 도서 목록 조회
+     * 2.  마이페이지 - 좋아요 누른 도서 목록 조회
      * 사용자가 좋아요를 누른 도서들의 리스트를 페이징하여 반환합니다.
      */
+
     @Operation(summary = "내가 좋아요 누른 도서 목록 조회", description = "마이페이지에서 사용자가 좋아요를 누른 도서 리스트를 페이징하여 조회합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "조회 성공",
