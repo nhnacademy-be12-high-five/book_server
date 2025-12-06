@@ -15,6 +15,7 @@ import org.springframework.data.domain.Persistable;
 public class BookLike {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id; // 좋아요 아이디
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -23,4 +24,5 @@ public class BookLike {
     private Book book; // 책 아이디
 
     // 멤버 아이디 추가
+    private Long memberId;
 }
