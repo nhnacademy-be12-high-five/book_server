@@ -27,7 +27,7 @@ public interface bookSwagger{
 //            @ApiResponse(responseCode = "403", description = "관리자 권한이 없음 (Forbidden)"),
     })
     @PostMapping
-    ResponseEntity<Book> createBook(@RequestBody ParsingDto parsingDto, @Parameter(hidden = true) @RequestHeader("X-User-Id") String userId);
+    ResponseEntity<Book> createBook(@RequestBody ParsingDto parsingDto, @Parameter(hidden = true) @RequestHeader("X-User-Id") Long memberId);
 
     // 도서 전체 조회
     @Operation(summary = "관리자 도서 조회",description = "도서를 조회합니다.")
@@ -37,7 +37,7 @@ public interface bookSwagger{
             @ApiResponse(responseCode = "404",description = "도서 추가할 수 없음")
     })
     @GetMapping
-    ResponseEntity<List<BookResponse>> getAllBooks(@RequestHeader("X-USER-ID") String userId,
+    ResponseEntity<List<BookResponse>> getAllBooks(@RequestHeader("X-USER-ID") Long memberId,
                                                           @PageableDefault(size = 10) Pageable pageable);
 
     // 도서 한권 조회
@@ -50,7 +50,7 @@ public interface bookSwagger{
 
     @GetMapping("/{id}")
     ResponseEntity<BookResponse> getAllBookById(@PathVariable Long bookId,
-                                                @Parameter(hidden = true) @RequestHeader("X-User-Id") String userId);
+                                                @Parameter(hidden = true) @RequestHeader("X-User-Id") Long memberId);
 
     // 책 한권 수정
     @Operation(summary = "관리자 도서 수정",description = "도서를 조회합니다.")
@@ -61,7 +61,7 @@ public interface bookSwagger{
     @PutMapping("/{id}")
     ResponseEntity<BookResponse> updateBook(@PathVariable Long bookId,
                                     BookUpdateRequest updateDto,
-                                    @Parameter(hidden = true) @RequestHeader("X-User-Id") String userId);
+                                    @Parameter(hidden = true) @RequestHeader("X-User-Id") Long memberId);
 
     // 도서 삭제
     @Operation(summary = "관리자 도서 삭제",description = "도서를 삭제합니다.")
@@ -73,5 +73,6 @@ public interface bookSwagger{
 //            @ApiResponse(responseCode = "404",description = "삭제하려는 도서를 찾을 수 없음 (Not Found)")
     })
 
-    ResponseEntity<Void> deleteBook(@PathVariable Long bookId, @Parameter(hidden = true) @RequestHeader("X-User-Id") String userId);
+    ResponseEntity<Void> deleteBook(@PathVariable Long bookId,
+                                    @Parameter(hidden = true) @RequestHeader("X-User-Id") Long memberId);
 }

@@ -12,9 +12,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/books") // 모든 도서 관련 API의 기본 경로를 지정
@@ -27,11 +25,10 @@ public class UserBookController implements UserBookSwagger {
     // 도서 전체 조회 (GET /api/books)
     @Override
     @GetMapping
-    public ResponseEntity<List<BookResponse>> getAllBooks(@RequestHeader("X-USER-ID") String userId,
+    public ResponseEntity<List<BookResponse>> getAllBooks(@RequestHeader("X-USER-ID") Long memberId,
                                                           @PageableDefault(size = 10) Pageable pageable) {
         // 책을 한번에 로드 하기 위한 pagenation 추가
         Page<BookResponse> bookPage=bookService.findAllBooks(pageable);
-
         return ResponseEntity.ok(bookPage.getContent());
     }
 

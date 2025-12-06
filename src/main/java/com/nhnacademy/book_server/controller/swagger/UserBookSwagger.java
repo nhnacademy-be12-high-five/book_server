@@ -35,7 +35,7 @@ public interface UserBookSwagger {
 //            @ApiResponse(responseCode = "404", description = "등록된 도서가 없음 (Not Found)")
     })
 //    @GetMapping("/api/books") // 사용자용 API 경로 예시
-    ResponseEntity<List<BookResponse>> getAllBooks(@RequestHeader("X-USER-ID") String userId,
+    ResponseEntity<List<BookResponse>> getAllBooks(@RequestHeader("X-USER-ID") Long memberId,
                                                    @PageableDefault(size = 10) Pageable pageable);
 
     /**
@@ -70,9 +70,11 @@ public interface UserBookSwagger {
                             schema = @Schema(type = "integer", example = "50"))), // 응답은 숫자 (재고 수량)
             @ApiResponse(responseCode = "404", description = "해당 ID의 도서를 찾을 수 없음 (Not Found)")
     })
+
     default ResponseEntity<Integer> getBookStock(@PathVariable int bookId,@Parameter(hidden = true) @RequestBody Book book) {
         // 구현 로직: bookId를 사용하여 해당 도서의 현재 재고 수량을 조회
         // 예: return ResponseEntity.ok(bookService.getStockQuantity(bookId));
+        // todo 책 재고 확인하는 메서드
         return null;
     }
 }
