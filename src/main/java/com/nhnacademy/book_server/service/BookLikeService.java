@@ -1,5 +1,6 @@
 package com.nhnacademy.book_server.service;
 
+import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.BookLike;
 
@@ -8,9 +9,14 @@ import com.nhnacademy.book_server.repository.BookRepository;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jdbc.core.JdbcAggregateOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor // 생성자 주입을 롬복으로 처리 (깔끔함)
@@ -47,5 +53,17 @@ public class BookLikeService{
         }
     }
 
+// // 마이페이지 - 좋아요 누른 도서 목록 조회
 
+    @Transactional(readOnly = true)
+    public List<BookResponse> getMyLikedBooks(Long memberId, Pageable pageable) {
+
+        // 1. DB에서 내 좋아요 목록 조회
+        Page<BookLike> likePage = bookLikeRepository.findAllByMemberId(memberId, pageable);
+
+        // 2. BookLike -> BookResponse 변환
+        return likePage.stream()
+                .map(bookLike -> BookResponse.from(bookLike.getBook()))
+                .collect(Collectors.toList());
+    }
 }

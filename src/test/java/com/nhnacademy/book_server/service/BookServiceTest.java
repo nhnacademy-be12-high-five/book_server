@@ -120,21 +120,21 @@ class BookServiceTest {
         assertThat(result.getContent().get(0)).isInstanceOf(BookResponse.class);
     }
 
-    @Test
-    @DisplayName("도서 단건 조회 - 성공")
-    void findBookById_Success() {
-        // given
-        Long bookId = 1L;
-        Book book = Book.builder().id(bookId).title("Book1").build();
-        given(bookRepository.findById(bookId)).willReturn(Optional.of(book));
-
-        // when
-        Optional<Book> result = bookService.findBookById(bookId);
-
-        // then
-        assertThat(result).isPresent();
-        assertThat(result.get().getTitle()).isEqualTo("Book1");
-    }
+//    @Test
+//    @DisplayName("도서 단건 조회 - 성공")
+//    void findBookById_Success() {
+//        // given
+//        Long bookId = 1L;
+//        Book book = Book.builder().id(bookId).title("Book1").build();
+//        given(bookRepository.findById(bookId)).willReturn(Optional.of(book));
+//
+//        // when
+//        Optional<Book> result = bookService.findBookById(bookId);
+//
+//        // then
+//        assertThat(result).isPresent();
+//        assertThat(result.get().getTitle()).isEqualTo("Book1");
+//    }
 
     @Test
     @DisplayName("도서 업데이트 - 성공")

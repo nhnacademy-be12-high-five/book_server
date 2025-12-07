@@ -87,23 +87,18 @@ public class BookService {
     // list -> Pageable로 변환
     @Transactional(readOnly = true)
     public Page<BookResponse> findAllBooks(Pageable pageable){
-        Page<Book> books = bookRepository.findAll(pageable);
-
-        // 트랜잭션 안에서 DTO로 변환 (이때 LAZY 로딩이 발생해도 안전함)
-        return books.map(BookResponse::from);
+        return bookRepository.findAll(pageable)
+                .map(BookResponse::from);
     }
 
     // 책 한권 조회
     @Transactional(readOnly = true)
-    public Optional<Book> findBookById(Long id) {
-        Optional<Book> book = bookRepository.findById(id);
+    public BookResponse findBookById(Long id) {
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("책을 찾을 수 없습니다."));
 
-        book.ifPresent(b -> {
-            // b.getBookAuthors()에 접근하고 size()를 호출하면, JPA가 DB에서 해당 데이터를 로드합니다.
-            b.getBookAuthors().size();
-        });
-
-        return book;
+        // Service 안에서 변환하므로 Lazy Loading 문제 없음 (이미 EntityGraph로 가져왔지만)
+        return BookResponse.from(book);
     }
 
     // 책 업데이트
@@ -129,7 +124,12 @@ public class BookService {
         }
 
         if (request.getAuthors() != null){
+            existingBook.getBookAuthors().clear();
+
             for (String authorName: request.getAuthors()){
+                String trimmedName = authorName.trim();
+
+                if(!StringUtils.hasText(trimmedName)) continue;
                 Author author=authorRepository.findByName(authorName).orElseGet(()->authorRepository.save(Author.builder().name(authorName).build()));
 
                 BookAuthor bookAuthor = BookAuthor.builder()
@@ -138,10 +138,11 @@ public class BookService {
                         .build();
 
                 existingBook.getBookAuthors().add(bookAuthor);
+                bookRepository.save(existingBook);
             }
         }
 
-        return bookRepository.save(existingBook);
+        return existingBook;
     }
 
     // 책 삭제
@@ -178,6 +179,23 @@ public class BookService {
                 ))
                 .collect(Collectors.toList());
 
+    }
+
+    // 재고 확인 (단순 조회이므로 readOnly)
+    @Transactional(readOnly = true)
+    public int getBookStock(Long bookId) {
+        // 1. 전체 엔티티를 다 가져오는 건 낭비일 수 있음.
+        // 단순히 재고만 확인할 거라면 Repository에서 재고 컬럼만 가져오는 쿼리를 짜는 게 성능상 베스트.
+        // 하지만 일단 기존 로직을 유지하면서 Service로 옮긴다면:
+
+        return bookRepository.findById(bookId)
+                .map(book -> {
+                    // 만약 getStockCheckedAt이 Boolean이 아니라 날짜라거나 로직이 있다면 여기서 처리
+                    // 예시: 재고 필드가 따로 있다면 book.getStock() 반환
+                    boolean inStock = Boolean.TRUE.equals(book.getStockCheckedAt());
+                    return inStock ? 1 : 0;
+                })
+                .orElse(0); // 책이 없으면 재고 0 처리
     }
 
 }

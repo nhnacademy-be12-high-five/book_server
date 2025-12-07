@@ -53,6 +53,8 @@ public class Book {
     private List<BookAuthor> bookAuthors = new ArrayList<>(); // List 초기화는 @Builder에서 처리됨
     // AUTHR_NM : 저자이름
     // 도서와 저자는 1:N 관계 -> 한권의 책에 여러 저자가 있을 수 있음
+    //orphanRemoval = true: bookAuthors 리스트에서 요소를 제거(remove, clear)하면,
+    // DB에서도 해당 BookAuthor 데이터를 DELETE 해줌.
 
     // 출판사
     @ManyToOne(fetch = FetchType.LAZY)

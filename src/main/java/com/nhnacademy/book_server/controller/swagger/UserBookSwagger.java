@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -34,9 +35,9 @@ public interface UserBookSwagger {
                             schema = @Schema(implementation = List.class))),
 //            @ApiResponse(responseCode = "404", description = "등록된 도서가 없음 (Not Found)")
     })
-//    @GetMapping("/api/books") // 사용자용 API 경로 예시
-    ResponseEntity<List<BookResponse>> getAllBooks(@RequestHeader("X-USER-ID") Long memberId,
-                                                   @PageableDefault(size = 10) Pageable pageable);
+    @GetMapping("/api/books") // 사용자용 API 경로 예시
+    ResponseEntity<Page<BookResponse>> getAllBooks(@RequestHeader(value = "X-USER-ID", required = false) Long memberId,
+                                                          @PageableDefault(size = 10) Pageable pageable);
 
     /**
      * 도서 한 권 상세 조회
@@ -53,7 +54,7 @@ public interface UserBookSwagger {
 //            @ApiResponse(responseCode = "404", description = "해당 ID의 도서를 찾을 수 없음 (Not Found)")
     })
 
-//    @GetMapping("/api/books/{bookId}") // 사용자용 API 경로 예시
+    @GetMapping("/api/books/{bookId}") // 사용자용 API 경로 예시
     ResponseEntity<BookResponse> getBookById(
             @Parameter(description = "조회할 도서의 고유 ID", required = true, example = "1",hidden = true)
             @PathVariable("bookId") Long bookId);
@@ -70,6 +71,7 @@ public interface UserBookSwagger {
                             schema = @Schema(type = "integer", example = "50"))), // 응답은 숫자 (재고 수량)
             @ApiResponse(responseCode = "404", description = "해당 ID의 도서를 찾을 수 없음 (Not Found)")
     })
+
 
     default ResponseEntity<Integer> getBookStock(@PathVariable int bookId,@Parameter(hidden = true) @RequestBody Book book) {
         // 구현 로직: bookId를 사용하여 해당 도서의 현재 재고 수량을 조회
