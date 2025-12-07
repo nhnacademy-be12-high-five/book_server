@@ -1,6 +1,8 @@
 package com.nhnacademy.book_server.repository;
 
 import com.nhnacademy.book_server.entity.BookLike;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -23,4 +25,6 @@ public interface BookLikeRepository extends JpaRepository<BookLike,Long> {
 
     // 좋아요 취소 메서드 추가
     void deleteByBookIdAndMemberId(Long bookId,Long memberId);
+
+    Page<BookLike> findAllByMemberId(Long memberId, Pageable pageable);
 }

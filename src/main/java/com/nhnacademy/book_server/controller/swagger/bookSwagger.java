@@ -37,8 +37,9 @@ public interface bookSwagger{
             @ApiResponse(responseCode = "404",description = "도서 추가할 수 없음")
     })
     @GetMapping
-    ResponseEntity<List<BookResponse>> getAllBooks(@RequestHeader("X-USER-ID") Long memberId,
-                                                          @PageableDefault(size = 10) Pageable pageable);
+    ResponseEntity<List<BookResponse>> getAllBooks(@PageableDefault(size = 10) Pageable pageable);
+
+     //--------------------------
 
     // 도서 한권 조회
     @Operation(summary = "관리자 도서 한권 조회",description = "도서를 조회합니다.")
@@ -49,8 +50,7 @@ public interface bookSwagger{
     })
 
     @GetMapping("/{id}")
-    ResponseEntity<BookResponse> getAllBookById(@PathVariable Long bookId,
-                                                @Parameter(hidden = true) @RequestHeader("X-User-Id") Long memberId);
+    public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId);
 
     // 책 한권 수정
     @Operation(summary = "관리자 도서 수정",description = "도서를 조회합니다.")

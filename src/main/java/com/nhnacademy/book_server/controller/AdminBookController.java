@@ -72,24 +72,22 @@ public class AdminBookController implements bookSwagger{
     }
 
 //    // 도서 전체 조회
+// [전체 조회]
     @GetMapping
-    public ResponseEntity<List<BookResponse>> getAllBooks(@RequestHeader("X-USER-ID") Long memberId,
-                                                  @PageableDefault(size = 10) Pageable pageable) {
-        // 책을 한번에 로드 하기 위한 pagenation 추가
-        Page<BookResponse> bookPage=bookService.findAllBooks(pageable);
-
+    public ResponseEntity<List<BookResponse>> getAllBooks(@PageableDefault(size = 10) Pageable pageable) {
+        Page<BookResponse> bookPage = bookService.findAllBooks(pageable);
         return ResponseEntity.ok(bookPage.getContent());
     }
 //
 //    // 책 한권 조회
     @GetMapping("/{id}")
-    public ResponseEntity<BookResponse> getAllBookById(@PathVariable("id") Long bookId,
-                                               @RequestHeader("X-User-Id") Long memberId) {
-
-        return bookService.findBookById(bookId)
-                .map(BookResponse::from)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+    public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId) {
+        try {
+            BookResponse response = bookService.findBookById(bookId);
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 //
     // 책 한권 수정
