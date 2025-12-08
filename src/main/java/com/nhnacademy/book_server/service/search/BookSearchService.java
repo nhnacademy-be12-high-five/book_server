@@ -15,7 +15,6 @@ public interface BookSearchService {
 
     BookResponse getBookById(Long id);
 
-    // ★ 정렬까지 지원하는 RAG 검색
     Page<BookResponse> searchBooksByRag(String keyword,
                                         int page,
                                         int size,

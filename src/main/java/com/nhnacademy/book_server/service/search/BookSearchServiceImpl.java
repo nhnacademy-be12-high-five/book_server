@@ -1,6 +1,5 @@
 package com.nhnacademy.book_server.service.search;
 
-import com.nhnacademy.book_server.config.RagSearchConfig;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.BookSortType;
 import com.nhnacademy.book_server.dto.SearchResult;
@@ -10,9 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -23,9 +20,7 @@ public class BookSearchServiceImpl implements BookSearchService {
     private final SearchLogService searchLogService;
     private final RagSearchable ragSearchable;
 
-    //키워드 기반 도서 검색
-    //검색, 동의어, 가중치, 정렬 -> ES(ElasticService)
-    //검색로그, Page 객체 변환 -> Java (여기)
+    // -------------------- 일반 검색 --------------------
     @Override
     public Page<BookResponse> searchBooks(String keyword,
                                           BookSortType sortType,
@@ -34,20 +29,17 @@ public class BookSearchServiceImpl implements BookSearchService {
 
         Pageable pageable = PageRequest.of(page, size);
 
-        // 키워드 없으면 빈 페이지 리턴
         if (keyword == null || keyword.isBlank()) {
             return Page.empty(pageable);
         }
 
-        // ES 일반 검색 호출
         SearchResult<BookResponse> result =
                 elasticRepository.search(keyword, sortType, page, size);
 
         return new PageImpl<>(result.content(), pageable, result.totalHits());
     }
 
-
-    //전체 도서 조회
+    // -------------------- 전체 도서 조회 --------------------
     @Override
     public Page<BookResponse> getAllBooks(int page, int size) {
         List<BookResponse> allBooks = bookReadService.findAllBooks();
@@ -64,27 +56,32 @@ public class BookSearchServiceImpl implements BookSearchService {
         return new PageImpl<>(content, pageable, allBooks.size());
     }
 
-    //단일 도서 조회
+    // -------------------- 단일 도서 조회 --------------------
     @Override
     public BookResponse getBookById(Long id) {
         return bookReadService.findBookById(id)
                 .orElseThrow(() -> new IllegalArgumentException("해당 ID의 도서를 찾을 수 없습니다: " + id));
     }
 
-
+    // -------------------- RAG 하이브리드 검색 --------------------
     @Override
-    public Page<BookResponse> searchBooksByRag(String keyword, int page, int size, BookSortType sortType) {
+    public Page<BookResponse> searchBooksByRag(String keyword,
+                                               int page,
+                                               int size,
+                                               BookSortType sortType) {
+
         Pageable pageable = PageRequest.of(page, size);
 
         if (keyword == null || keyword.isBlank()) {
             return Page.empty(pageable);
         }
 
-        // 1. 검색 로그 기록
+        // 1. 검색 로그
         searchLogService.setSearchLog(keyword);
 
-        // 2. 키워드 검색 (POPULAR 기준, 병합용으로 넉넉하게)
-        int baseSize = 100;
+        int baseSize = 100; // 병합용 후보 수
+
+        // 2. 키워드 검색 (POPULAR 기준, 병합용)
         SearchResult<BookResponse> keywordResult =
                 elasticRepository.search(keyword, BookSortType.POPULAR, 0, baseSize);
 
@@ -92,7 +89,7 @@ public class BookSearchServiceImpl implements BookSearchService {
         SearchResult<BookResponse> ragResult =
                 ragSearchable.searchByRag(keyword, 0, baseSize);
 
-        // 4. 두 결과 병합 (키워드 우선, RAG 추가)
+        // 4. 결과 병합 (키워드 우선, RAG 추가)
         LinkedHashMap<Long, BookResponse> merged = new LinkedHashMap<>();
         for (BookResponse book : keywordResult.content()) {
             merged.put(book.id(), book);
@@ -103,11 +100,10 @@ public class BookSearchServiceImpl implements BookSearchService {
 
         List<BookResponse> mergedList = new ArrayList<>(merged.values());
 
-        // ★★ 4-3. Fallback: 둘 다 비어 있으면 그냥 일반 검색 결과라도 리턴 ★★
+        // 4-1. 키워드/RAG 둘 다 비어 있으면 → 그냥 일반 검색 결과라도 리턴
         if (mergedList.isEmpty()) {
-            // 여기서는 실제 페이지/사이즈로 다시 검색
             SearchResult<BookResponse> fallback =
-                    elasticRepository.search(keyword, BookSortType.POPULAR, page, size);
+                    elasticRepository.search(keyword, sortType, page, size);
 
             return new PageImpl<>(
                     fallback.content(),
@@ -116,7 +112,41 @@ public class BookSearchServiceImpl implements BookSearchService {
             );
         }
 
-        // 5. 병합 리스트에서 페이징
+        // 5. 정렬 옵션 적용 (자바 레벨)
+        if (sortType != null) {
+            Comparator<BookResponse> comparator = null;
+            switch (sortType) {
+                case LOW_PRICE -> comparator = Comparator
+                        .comparing(BookResponse::price, Comparator.nullsLast(Integer::compareTo));
+                case HIGH_PRICE -> comparator = Comparator
+                        .comparing(BookResponse::price, Comparator.nullsLast(Integer::compareTo))
+                        .reversed();
+                case RATING -> comparator = Comparator
+                        .comparing(BookResponse::avgRating, Comparator.nullsLast(Double::compareTo))
+                        .reversed();
+                case REVIEW -> comparator = Comparator
+                        .comparing(BookResponse::reviewCount, Comparator.nullsLast(Long::compareTo))
+                        .reversed();
+                case NEW -> comparator = (b1, b2) -> {
+                    String d1 = b1.publishedDate();
+                    String d2 = b2.publishedDate();
+                    if (d1 == null && d2 == null) return 0;
+                    if (d1 == null) return 1;
+                    if (d2 == null) return -1;
+                    // 최신순 → 내림차순
+                    return d2.compareTo(d1);
+                };
+                case POPULAR -> {
+                    // 인기순 점수 필드는 따로 없으므로, 현재 병합 순서(키워드 우선)를 그대로 사용
+                }
+            }
+
+            if (comparator != null) {
+                mergedList.sort(comparator);
+            }
+        }
+
+        // 6. 병합 리스트에서 페이징
         long total = mergedList.size();
         int from = page * size;
         int to = Math.min(from + size, mergedList.size());
@@ -128,6 +158,4 @@ public class BookSearchServiceImpl implements BookSearchService {
         List<BookResponse> pageContent = mergedList.subList(from, to);
         return new PageImpl<>(pageContent, pageable, total);
     }
-
-
 }
