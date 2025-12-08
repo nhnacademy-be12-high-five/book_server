@@ -16,6 +16,12 @@ spring:
       enabled: true
       settings:
         web-allow-others: true
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: '*N2vya7H@muDTwdNMR!'
+      database: 15
 
 #  datasource:
 #    url: "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
@@ -67,7 +73,7 @@ minio:
   bucket-name: hi-five-bucket
 
 elasticsearch:
-  host: localhost
+  host: 220.67.216.14
   port: 9200
   username: elastic
   password: nhnacademy123!
@@ -80,7 +86,7 @@ springdoc:
 
 # 5. 서버 포트
 server:
-  port: 9003
+  port: 9002
 
 logging:
   file:
@@ -96,11 +102,3 @@ logging:
 
 aladin:
   ttb-key : ttbminnie9089971045001
-
-# 고민좀
-#    redis:
-#      host: s4.java21.net
-#      #      host: 10.116.64.14
-#      port: 6379
-#      password: '*N2vya7H@muDTwdNMR!'
-#      database: 400

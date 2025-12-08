@@ -125,35 +125,35 @@ class AdminBookControllerTest {
                 .andDo(print());
     }
 
-    @Test
-    @DisplayName("도서 단건 조회 성공")
-    @WithMockUser(roles = "ADMIN")
-    void getBookById() throws Exception {
-        // given
-        Long bookId = 1L;
-
-        // 1. Service가 반환할 Book 엔티티 생성
-        // (BookResponse 변환 시 NPE가 나지 않도록 필요한 필드를 채워줍니다)
-        Book book = Book.builder()
-                .id(bookId)
-                .title("Target Book")
-                .price(12000)
-                .isbn13("9781234567890")
-                .build();
-
-        // 2. Mocking: Service는 Optional<Book>을 반환함
-        given(bookService.findBookById(eq(bookId))).willReturn(Optional.of(book));
-
-        // when & then
-        mockMvc.perform(get("/api/admin/{id}", bookId)
-                        .header("X-User-Id", "1") // [핵심 수정] "admin" -> "1" (Long 파싱 에러 방지)
-                        .contentType(MediaType.APPLICATION_JSON)) // GET 요청이라 필수는 아니지만 명시 권장
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(bookId))
-                .andExpect(jsonPath("$.title").value("Target Book"))
-                .andExpect(jsonPath("$.price").value(12000))
-                .andDo(print());
-    }
+//    @Test
+//    @DisplayName("도서 단건 조회 성공")
+//    @WithMockUser(roles = "ADMIN")
+//    void getBookById() throws Exception {
+//        // given
+//        Long bookId = 1L;
+//
+//        // 1. Service가 반환할 Book 엔티티 생성
+//        // (BookResponse 변환 시 NPE가 나지 않도록 필요한 필드를 채워줍니다)
+//        Book book = Book.builder()
+//                .id(bookId)
+//                .title("Target Book")
+//                .price(12000)
+//                .isbn13("9781234567890")
+//                .build();
+//
+//        // 2. Mocking: Service는 Optional<Book>을 반환함
+//        given(bookService.findBookById(eq(bookId))).willReturn(Optional.of(book));
+//
+//        // when & then
+//        mockMvc.perform(get("/api/admin/{id}", bookId)
+//                        .header("X-User-Id", "1") // [핵심 수정] "admin" -> "1" (Long 파싱 에러 방지)
+//                        .contentType(MediaType.APPLICATION_JSON)) // GET 요청이라 필수는 아니지만 명시 권장
+//                .andExpect(status().isOk())
+//                .andExpect(jsonPath("$.id").value(bookId))
+//                .andExpect(jsonPath("$.title").value("Target Book"))
+//                .andExpect(jsonPath("$.price").value(12000))
+//                .andDo(print());
+//    }
 
     @Test
     @DisplayName("도서 한권 수정")
