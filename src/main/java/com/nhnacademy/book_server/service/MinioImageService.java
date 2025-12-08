@@ -10,6 +10,8 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -29,6 +31,34 @@ public class MinioImageService {
 
     @Value("${minio.url}") // yml에서 도메인 주입 받음
     private String minioUrl;
+
+    public String uploadImageFromUrl(String imageUrl) {
+        try {
+            URL url = new URL(imageUrl);
+
+            // 이미지 InputStream 가져오기
+            InputStream inputStream = url.openStream();
+
+            // 파일명 생성
+            String storedFileName = UUID.randomUUID() + "_" +
+                    imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
+
+            // 업로드 요청
+            PutObjectRequest request = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(storedFileName)
+                    .contentType("image/jpeg") // 필요시 추출 가능
+                    .build();
+
+            s3Client.putObject(request, RequestBody.fromInputStream(inputStream, inputStream.available()));
+
+            return String.format("%s/%s/%s", minioUrl, bucketName, storedFileName);
+
+        } catch (Exception e) {
+            throw new RuntimeException("URL 이미지 업로드 실패", e);
+        }
+    }
+
 
     public String uploadImage(MultipartFile file) {
         try {

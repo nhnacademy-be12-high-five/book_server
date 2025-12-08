@@ -32,6 +32,7 @@ public class BookService {
     private final PublisherRepository publisherRepository;
     private final AuthorRepository authorRepository;
     private final BookAuthorRepository bookAuthorRepository;
+    private final MinioImageService minioImageService;
 
     public Book createBook(ParsingDto dto){
         if (bookRepository.existsByIsbn13(dto.getIsbn())) {
@@ -46,13 +47,16 @@ public class BookService {
                             Publisher.builder().name(publisherName).build()
                     ));
         }
+
+        String finalUrl = minioImageService.uploadImageFromUrl(dto.getImageUrl());
+
         Book newBook = Book.builder()
                 .isbn13(dto.getIsbn())
                 .title(dto.getTitle())
                 .publisher(publisher)
                 .publishedDate(dto.getPubDate())
                 .price(parsePrice(dto.getPrice()))
-                .image(dto.getImageUrl())
+                .image(finalUrl)
                 .content(dto.getDescription())
                 .build();
 
@@ -106,11 +110,15 @@ public class BookService {
     public Book updateBook(Long id, BookUpdateRequest request){
         Book existingBook = bookRepository.findById(id).orElseThrow(()->new RuntimeException("아이디가 존재하지 않습니다."));
 
+        String finalUrl = minioImageService.uploadImageFromUrl(request.getImage());
+
+        minioImageService.deleteImages(List.of(existingBook.getImage()));
+
         existingBook.setIsbn13(request.getIsbn());
         existingBook.setTitle(request.getTitle());
         existingBook.setContent(request.getDescription());
         existingBook.setPrice(request.getPrice());
-        existingBook.setImage(request.getImage());
+        existingBook.setImage(finalUrl);
         existingBook.setPublishedDate(request.getPublishedDate());
 
         if (StringUtils.hasText(request.getPublisher())) {

@@ -18,6 +18,7 @@ import com.nhnacademy.book_server.service.ReviewService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -33,6 +34,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ReviewServiceImpl implements ReviewService {
 
     private final ReviewRepository reviewRepository;
@@ -100,32 +102,33 @@ public class ReviewServiceImpl implements ReviewService {
                 .distinct()
                 .toList();
 
-        Map<Long, String> memberMap;
+        Map<Long, String> memberMap = new HashMap<>();
 
-        if (memberIds.isEmpty()) {
-            memberMap = new HashMap<>(); // 빈 맵 할당
-        } else {
-            List<MemberResponse> memberResponses = memberFeignClient.getMembersInfo(memberIds);
-
-            // List -> Map 변환
-            memberMap = memberResponses.stream()
-                    .collect(Collectors.toMap(
-                            // key
-                            MemberResponse::memberId,
-                            // value
-                            MemberResponse::loginId,
-                            // 중복 무시
-                            (existing, replacement) -> existing
-                    ));
+        if (!memberIds.isEmpty()) {
+            try {
+                List<MemberResponse> memberResponses = memberFeignClient.getMembersInfo(memberIds);
+                memberMap = memberResponses.stream()
+                        .collect(Collectors.toMap(
+                                MemberResponse::memberId,
+                                MemberResponse::loginId,
+                                (existing, replacement) -> existing
+                        ));
+            } catch (Exception e) {
+                 log.error("Member Service 호출 실패: ", e);
+            }
         }
 
-        // default_batch_fetch_size 덕분에 여기서 이미지 조회 쿼리가 'IN' 절로 1번만 나감 (N+1 해결)
-        return reviews.map(review -> {
-            String loginId = memberMap.getOrDefault(review.getMemberId(), "알 수 없음"); // 탈퇴한 회원 처리
+        final Map<Long, String> finalMemberMap = memberMap;
 
-            List<String> urls = review.getReviewImages().stream()
-                    .map(ReviewImage::getFileUrl)
-                    .toList();
+        return reviews.map(review -> {
+            String loginId = finalMemberMap.getOrDefault(review.getMemberId(), "알 수 없음");
+
+            List<String> urls = new ArrayList<>();
+            if (review.getReviewImages() != null) {
+                urls = review.getReviewImages().stream()
+                        .map(ReviewImage::getFileUrl)
+                        .toList();
+            }
 
             return new BookReviewResponse(
                     loginId,
@@ -192,6 +195,7 @@ public class ReviewServiceImpl implements ReviewService {
 
     // 특수한 경우 리뷰를 삭제하기 위해 구현
     @Override
+    @Transactional
     public void removeReview(Long reviewId) {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new BusinessException((ErrorCode.REVIEW_NOT_FOUND)));
@@ -207,6 +211,7 @@ public class ReviewServiceImpl implements ReviewService {
 
     // 리뷰 수정
     @Override
+    @Transactional
     public UpdateReviewResponse updateReview(ReviewUpdateRequest request, Long bookId, Long reviewId,
                                            Long memberId, List<MultipartFile> images) {
         Review review = reviewRepository.findById(reviewId)
