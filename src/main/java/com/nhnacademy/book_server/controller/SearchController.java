@@ -35,9 +35,12 @@ public class SearchController implements SearchSwagger {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return ResponseEntity.ok(
-                bookSearchService.searchBooks(keyword, sort, page, size)
-        );
+        log.info("북서버가 받은 keyword = [{}]", keyword);
+
+        Page<BookResponse> result =
+                bookSearchService.searchBooks(keyword, sort, page, size);
+
+        return ResponseEntity.ok(result);
     }
 
     // 전체 도서를 ES book_index 에 다시 색인
@@ -63,18 +66,58 @@ public class SearchController implements SearchSwagger {
         }
     }
 
-
-
+    // ★ RAG 하이브리드 검색 + 정렬
     @GetMapping("/rag-search")
     public ResponseEntity<Page<BookResponse>> searchBooksByRag(
             @RequestParam String keyword,
+            @RequestParam(defaultValue = "POPULAR") BookSortType sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
     ) {
-        Page<BookResponse> result = bookSearchService.searchBooksByRag(keyword, page, size);
+        Page<BookResponse> result =
+                bookSearchService.searchBooksByRag(keyword, page, size, sort);
+
         return ResponseEntity.ok(result);
     }
 
+    // AI 요약/추천 문장
+    @GetMapping("/rag-answer")
+    public ResponseEntity<String> getRagAnswer(@RequestParam String keyword) {
+
+        // 상위 5권 정도만 가지고 문장 생성 (정렬은 POPULAR 고정)
+        Page<BookResponse> page =
+                bookSearchService.searchBooksByRag(keyword, 0, 5, BookSortType.POPULAR);
+
+        List<BookResponse> books = page.getContent();
+
+        String message;
+
+        if (books.isEmpty()) {
+            message = "현재 '" + keyword + "' 와(과) 관련된 도서를 찾지 못했습니다. "
+                    + "키워드를 조금 더 구체적으로 입력해 보시겠어요?";
+        } else {
+            StringBuilder sb = new StringBuilder();
+            sb.append("“").append(keyword).append("” 키워드와 관련해서는 ");
+
+            // 2~3권 정도만 제목을 뽑아서 소개
+            int limit = Math.min(3, books.size());
+            for (int i = 0; i < limit; i++) {
+                BookResponse b = books.get(i);
+                if (i > 0) {
+                    sb.append(i == limit - 1 ? " 그리고 " : ", ");
+                }
+                sb.append("「").append(b.title()).append("」");
+            }
+            sb.append(" 등 ").append(page.getTotalElements())
+                    .append("권의 도서가 검색되었습니다. ");
+
+            sb.append("유사한 주제의 도서를 더 보고 싶으시면 "
+                    + "좌측 정렬 옵션(인기순, 신간순, 가격순 등)을 함께 활용해 보세요.");
+
+            message = sb.toString();
+        }
+
+        return ResponseEntity.ok(message);
+    }
+
 }
-
-
