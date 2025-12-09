@@ -1,5 +1,6 @@
 //package com.nhnacademy.book_server.service;
 //
+//import com.nhnacademy.book_server.dto.BookResponse;
 //import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 //import com.nhnacademy.book_server.entity.*;
 //import com.nhnacademy.book_server.parser.ParsingDto;
@@ -13,7 +14,12 @@
 //import org.mockito.InjectMocks;
 //import org.mockito.Mock;
 //import org.mockito.junit.jupiter.MockitoExtension;
+//import org.springframework.data.domain.Page;
+//import org.springframework.data.domain.PageImpl;
+//import org.springframework.data.domain.PageRequest;
+//import org.springframework.data.domain.Pageable;
 //
+//import java.util.ArrayList;
 //import java.util.List;
 //import java.util.Optional;
 //
@@ -48,8 +54,8 @@
 //        dto.setPublisher("Publisher");
 //        dto.setAuthor("Author");
 //        // isbn 중복 체크
-//        given(bookRepository.existsByIsbn13(any())).willReturn(true);
 //
+//        given(bookRepository.existsByIsbn13(any())).willReturn(true);
 //        // 3. 책 저장시 반환될 객체
 //        Book savedBook = Book.builder()
 //                .id(1L)
@@ -85,24 +91,30 @@
 //        verify(authorRepository,times(1)).save(any(Author.class));
 //    }
 //
-////    @Test
-////    @DisplayName("도서 전체 조회")
-////    void findAllBooks() {
-////        // given
-////        List<Book> books = List.of(
-////                Book.builder().title("Book1").build(),
-////                Book.builder().title("Book2").build()
-////        );
-////        given(bookRepository.findAll()).willReturn(books);
-////
-////        // when
-////        List<Book> result = bookService.findAllBooks();
-////
-////        // then
-////        assertThat(result).hasSize(2);
-////        assertThat(result.get(0).getTitle()).isEqualTo("Book1");
-////    }
+//    @Test
+//    @DisplayName("도서 전체 조회")
+//    void findAllBooks() {
 //
+//        // given
+//        List<Book> books = List.of(
+//                Book.builder().title("Book1").build(),
+//                Book.builder().title("Book2").build()
+//        );
+//
+//        Pageable pageable = PageRequest.of(0,10);
+////        Page<BookResponse> bookPage = new PageImpl<>(books, pageable, books.size());
+//
+////        given(bookRepository.findAll(pageable)).willReturn(bookPage);
+//        given(bookRepository.findAll()).willReturn(books);
+//
+//        // when
+//        Page<BookResponse> result = bookService.findAllBooks(pageable);
+//        // then
+//        assertThat(result).hasSize(2);
+//        assertThat(result.getContent().get(0).id()).isEqualTo(1L);
+//        assertThat(result.getContent().get(0).title()).isEqualTo("Book1");
+//    }
+////
 //    @Test
 //    @DisplayName("도서 단건 조회 - 성공")
 //    void findBookById_Success() {
@@ -112,7 +124,9 @@
 //        given(bookRepository.findById(bookId)).willReturn(Optional.of(book));
 //
 //        // when
-//        Optional<Book> result = bookService.findBookById(bookId);
+//
+//        Page<BookResponse> result = bookService.findAllBooks(pageable);
+//
 //
 //        // then
 //        assertThat(result).isPresent();
@@ -120,31 +134,26 @@
 //    }
 //
 //    @Test
-//    @DisplayName("도서 업데이트 - 성공")
-//    void updateBook_Success() {
+//    @DisplayName("도서 업데이트 - 성공 (작가 포함 수정)")
+//    void updateBook_WithAuthors() {
 //        // given
 //        Long bookId = 1L;
-//        ParsingDto dto=new ParsingDto();
-//        dto.setIsbn("1234567789012");
-//        dto.setTitle("title");
-//        dto.setPrice("15000");
-//        dto.setPublisher("Publisher");
-//        BookUpdateRequest request = new BookUpdateRequest(); // 필드가 있다고 가정
-//         request.setTitle("Updated Title");
+//        BookUpdateRequest request = new BookUpdateRequest();
+//        request.setAuthors(List.of("New Author")); // 작가 추가
 //
-//        Book existingBook = Book.builder().id(bookId).title("Old Title").build();
+//        Book existingBook = Book.builder().id(bookId).bookAuthors(new ArrayList<>()).build();
+//        Author newAuthor = Author.builder().name("New Author").build();
 //
 //        given(bookRepository.findById(bookId)).willReturn(Optional.of(existingBook));
-//        given(bookRepository.save(any(Book.class))).willReturn(existingBook);
+//        // 작가 조회 Mock
+//        given(authorRepository.findByName("New Author")).willReturn(Optional.of(newAuthor));
 //
 //        // when
-//        Book result = bookService.updateBook(bookId, request);
+//        bookService.updateBook(bookId, request);
 //
 //        // then
-//        // 주의: 현재 Service 코드에는 DTO 내용을 Entity로 옮기는 로직(set)이 빠져있습니다.
-//        // 테스트는 로직이 실행되는지만 검증합니다.
-//        verify(bookRepository).findById(bookId);
-//        verify(bookRepository).save(existingBook);
+//        // 작가가 포함되면 save가 호출되므로 검증 가능
+//        verify(bookRepository, atLeastOnce()).save(existingBook);
 //    }
 //
 //    @Test
@@ -175,7 +184,7 @@
 //        given(bookRepository.existsById(bookId)).willReturn(true);
 //
 //        // when
-//        bookService.deleteBook(bookId, "user");
+//        bookService.deleteBook(bookId, 1L);
 //
 //        // then
 //        verify(bookRepository, times(1)).deleteById(bookId);
@@ -189,7 +198,7 @@
 //        given(bookRepository.existsById(bookId)).willReturn(false);
 //
 //        // when & then
-//        assertThatThrownBy(() -> bookService.deleteBook(bookId, "user"))
+//        assertThatThrownBy(() -> bookService.deleteBook(bookId, 1L))
 //                .isInstanceOf(RuntimeException.class)
 //                .hasMessage("삭제할 아이디가 없습니다.");
 //
