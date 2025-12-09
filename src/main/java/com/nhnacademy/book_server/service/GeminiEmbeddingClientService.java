@@ -25,14 +25,11 @@ public class GeminiEmbeddingClientService implements EmbeddingClientService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newHttpClient();
 
-    // 실제 호출할 엔드포인트
     private String endpoint() {
-        // https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=...
-        String modelName = geminiConfig.getEmbeddingModel().replace("models/", "");
+        // 정식 embedding endpoint
         return "https://generativelanguage.googleapis.com/v1beta/models/"
-                + modelName
-                + ":embedContent?key="
-                + geminiConfig.getApiKey();
+                + geminiConfig.getEmbeddingModel().replace("models/", "")
+                + ":embedContents?key=" + geminiConfig.getApiKey();
     }
 
     @Override
@@ -44,56 +41,52 @@ public class GeminiEmbeddingClientService implements EmbeddingClientService {
     @Override
     public List<List<Float>> embedAll(List<String> texts) {
         List<List<Float>> result = new ArrayList<>();
-
         if (texts == null || texts.isEmpty()) {
             return result;
         }
 
-        for (String text : texts) {
-            try {
-                // 요청 Body JSON
-                String bodyJson = """
-                        {
-                          "model": "%s",
-                          "content": {
-                            "parts": [
-                              { "text": %s }
-                            ]
-                          }
-                        }
-                        """.formatted(
-                        geminiConfig.getEmbeddingModel(),
-                        objectMapper.writeValueAsString(text)
-                );
+        try {
+            // 요청 Body = "requests" 배열
+            StringBuilder sb = new StringBuilder();
+            sb.append("{ \"model\": \"models/text-embedding-004\", \"requests\": [");
 
-                HttpRequest request = HttpRequest.newBuilder()
-                        .uri(URI.create(endpoint()))
-                        .header("Content-Type", "application/json")
-                        .POST(HttpRequest.BodyPublishers.ofString(bodyJson))
-                        .build();
+            for (int i = 0; i < texts.size(); i++) {
+                sb.append("{ \"content\": { \"parts\": [ { \"text\": ")
+                        .append(objectMapper.writeValueAsString(texts.get(i)))
+                        .append(" } ] } }");
+                if (i < texts.size() - 1) sb.append(",");
+            }
+            sb.append(" ] }");
 
-                HttpResponse<String> response =
-                        httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(endpoint()))
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(sb.toString()))
+                    .build();
 
-                if (response.statusCode() != 200) {
-                    log.error("Gemini embedding 실패 status={}, body={}",
-                            response.statusCode(), response.body());
-                    continue;
-                }
+            HttpResponse<String> response =
+                    httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-                JsonNode root = objectMapper.readTree(response.body());
-                JsonNode values = root.path("embedding").path("values");
+            if (response.statusCode() != 200) {
+                log.error("Gemini embedding 실패 status={}, body={}",
+                        response.statusCode(), response.body());
+                return result;
+            }
 
+            JsonNode root = objectMapper.readTree(response.body());
+            JsonNode embeddings = root.path("embeddings"); // 배열
+
+            for (JsonNode emb : embeddings) {
+                JsonNode values = emb.path("values");
                 List<Float> vector = new ArrayList<>();
                 for (JsonNode v : values) {
                     vector.add((float) v.asDouble());
                 }
                 result.add(vector);
-
-            } catch (IOException | InterruptedException e) {
-                log.error("Gemini embedding 예외", e);
-                Thread.currentThread().interrupt();
             }
+
+        } catch (Exception e) {
+            log.error("Gemini embedding 예외", e);
         }
 
         return result;
