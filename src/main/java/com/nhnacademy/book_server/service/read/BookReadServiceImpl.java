@@ -1,10 +1,14 @@
 package com.nhnacademy.book_server.service.read;
 
 import com.nhnacademy.book_server.dto.BookResponse;
+import com.nhnacademy.book_server.entity.Book;
+import com.nhnacademy.book_server.entity.Review;
+import com.nhnacademy.book_server.repository.BookRepository;
+import com.nhnacademy.book_server.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -12,16 +16,37 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class BookReadServiceImpl implements BookReadService {
 
-    //csv파서 준비되면 주입
+    private final BookRepository bookRepository;
+    private final ReviewRepository reviewRepository;
 
+    // 전체 도서 조회
     @Override
-    public List<BookResponse> findAllBooks(){
-        return Collections.emptyList(); //실제도서리스트 반환하도록 수정
+    public List<BookResponse> findAllBooks() {
+        List<Book> books = bookRepository.findAll();
+
+        return books.stream()
+                .map(book -> {
+                    // 해당 도서의 리뷰 전체 조회 (페이징 없이)
+                    List<Review> reviews = reviewRepository
+                            .findByBookId(book.getId(), Pageable.unpaged())
+                            .getContent();
+
+                    // 카테고리는 여기서는 신경 안 씀 → null
+                    return BookResponse.from(book, null, reviews);
+                })
+                .toList();
     }
 
+    // 도서 ID 1건 조회
     @Override
-    public Optional<BookResponse> findBookById(Long id){
-        return Optional.empty(); //도서 id기준 조회로 수정
-    }
+    public Optional<BookResponse> findBookById(Long id) {
+        return bookRepository.findById(id)
+                .map(book -> {
+                    List<Review> reviews = reviewRepository
+                            .findByBookId(id, Pageable.unpaged())
+                            .getContent();
 
+                    return BookResponse.from(book, null, reviews);
+                });
+    }
 }

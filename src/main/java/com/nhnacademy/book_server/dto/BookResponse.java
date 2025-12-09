@@ -18,7 +18,7 @@ public record BookResponse(Long id,
                            Long reviewCount
 ) {
 
-    // 서버가 클라이언트로 데이터를 전송할 때 사용되는 객체
+    //BookResponse DTO는 그 원본 데이터를 가공하고 포장하여 클라이언트에게 깔끔하게 전달하기 위한 응답용 객체입니다.
 
     // 1) 기본 팩토리: 평균평점·리뷰수까지 계산된 값이 넘어오는 경우
     public static BookResponse from(Book book,

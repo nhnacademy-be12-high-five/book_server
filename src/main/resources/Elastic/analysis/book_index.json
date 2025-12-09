@@ -1,0 +1,50 @@
+{
+  "settings": {
+    "analysis": {
+      "filter": {
+        "synonym_filter": {
+          "type": "synonym",
+          "synonyms": [
+            "자바, Java",
+            "스프링, Spring",
+            "엘라스틱서치, Elasticsearch, es",
+            "JPA, Hibernate, 하이버네이트"
+          ]
+        }
+      },
+      "analyzer": {
+        "synonym_analyzer": {
+          "tokenizer": "standard",
+          "filter": [
+            "lowercase",
+            "synonym_filter"
+          ]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "properties": {
+      "bookId": { "type": "keyword" },
+      "title": { "type": "text", "analyzer": "synonym_analyzer" },
+      "author": { "type": "text", "analyzer": "synonym_analyzer" },
+      "publisher": { "type": "text", "analyzer": "synonym_analyzer" },
+      "isbn": { "type": "keyword" },
+      "content": { "type": "text", "analyzer": "synonym_analyzer" },
+      "tags": { "type": "text", "analyzer": "synonym_analyzer" },
+
+      "publishedDate": { "type": "date" },
+      "price": { "type": "integer" },
+
+      "avgRating": { "type": "float" },
+      "reviewCount": { "type": "integer" },
+
+      "vector": {
+        "type": "dense_vector",
+        "dims": 1024,
+        "index": true,
+        "similarity": "cosine"
+      }
+    }
+  }
+}

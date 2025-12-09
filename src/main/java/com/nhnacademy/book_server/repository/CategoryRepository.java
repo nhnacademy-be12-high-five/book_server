@@ -11,5 +11,4 @@ public interface CategoryRepository extends JpaRepository<Category, Integer> {
     //하위 카테고리
     List<Category> findByParentId(int parentId);
 
-    int parentId(int parentId);
 }

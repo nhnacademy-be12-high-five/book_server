@@ -1,5 +1,5 @@
 ###
-POST localhost:9003/api/books/1/reviews
+POST localhost:9003/api/books/6/reviews
 Content-Type: application/json
 
 {

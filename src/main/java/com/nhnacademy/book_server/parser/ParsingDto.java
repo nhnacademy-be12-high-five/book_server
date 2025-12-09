@@ -3,8 +3,8 @@ package com.nhnacademy.book_server.parser;
 import com.opencsv.bean.CsvBindByName;
 import lombok.*;
 
-@Getter
-@Setter
+
+@Data
 @ToString
 @AllArgsConstructor
 @RequiredArgsConstructor
@@ -25,7 +25,7 @@ public class ParsingDto {
     @CsvBindByName(column = "PUBLISHER_NM")
     private String publisher;
 
-    @CsvBindByName(column = "PBLICTE_DE")
+    @CsvBindByName(column = "TWO_PBLICTE_DE")
     private String pubDate;
 
     @CsvBindByName(column = "PRC_VALUE")

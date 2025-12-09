@@ -53,6 +53,8 @@ public class Book {
     private List<BookAuthor> bookAuthors = new ArrayList<>(); // List 초기화는 @Builder에서 처리됨
     // AUTHR_NM : 저자이름
     // 도서와 저자는 1:N 관계 -> 한권의 책에 여러 저자가 있을 수 있음
+    //orphanRemoval = true: bookAuthors 리스트에서 요소를 제거(remove, clear)하면,
+    // DB에서도 해당 BookAuthor 데이터를 DELETE 해줌.
 
     // 출판사
     @ManyToOne(fetch = FetchType.LAZY)
@@ -102,7 +104,7 @@ public class Book {
 //    private String isbnNO;
 
     //    private String tag;
-//    private String bookLike;
+//    private String FbookLike;
     private Boolean isPortalSiteBookExist;
 
     @ManyToOne
@@ -110,4 +112,14 @@ public class Book {
     private Category category;
     //  도서와 카테고리는 1:N관계
 
+    public void updateBookInfo(String title, Publisher publisher, int price, String content, String image, String publishedDate) {
+        this.title = title;
+        this.publisher = publisher; // 변경된 출판사(영속 상태) 반영
+        this.price = price;
+        this.content = content;
+        this.image = image;
+        this.publishedDate = publishedDate;
+    }
+
+    private Integer stock;
 }

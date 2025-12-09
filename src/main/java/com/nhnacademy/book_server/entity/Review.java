@@ -52,6 +52,23 @@ public class Review {
     @Column(name = "member_id")
     private Long memberId;
 
+    private String loginId;
+
+    /**
+     * @Id
+     * private Long id;
+     *
+     * private String loginId;
+     *
+     * @Entity
+     * ReviewDetail
+     * - Review review (FK)
+     * - review.rating
+     * - review.getMemberId() -- 1 (= 사용자 ID를) -> Select m.loginId Member m where id = 1; = adada
+     */
+
+
+
     @OneToMany(mappedBy = "review", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<ReviewImage> reviewImages = new ArrayList<>();
 

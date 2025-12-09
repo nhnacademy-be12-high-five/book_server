@@ -4,6 +4,7 @@ import com.nhnacademy.book_server.annotation.CurrentMember;
 import com.nhnacademy.book_server.dto.request.ReviewCreateRequest;
 import com.nhnacademy.book_server.dto.request.ReviewUpdateRequest;
 import com.nhnacademy.book_server.dto.response.*;
+import com.nhnacademy.book_server.entity.MemberPrincipal;
 import com.nhnacademy.book_server.service.ReviewService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.HttpStatus;
@@ -29,9 +31,10 @@ public class ReviewController {
     @PostMapping("/books/{bookId}/reviews")
     public ResponseEntity<ReviewCreateResponse> createReview(@Valid @RequestBody ReviewCreateRequest request,
                                                               @PathVariable Long bookId,
-                                                              @CurrentMember Long memberId){
-
-        ReviewCreateResponse response = reviewService.saveReview(request, bookId, memberId);
+                                                             @AuthenticationPrincipal MemberPrincipal principal,
+                                                             List<MultipartFile> images){
+        Long memberId = principal.getMemberId();
+        ReviewCreateResponse response = reviewService.saveReview(request, bookId, memberId, images);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -49,6 +52,9 @@ public class ReviewController {
     public ResponseEntity<BookReviewResponse> getMyReview(@PathVariable Long bookId,
                                                           @CurrentMember Long memberId){
         BookReviewResponse response = reviewService.getMyReview(bookId, memberId);
+        if (response == null) {
+            return ResponseEntity.noContent().build();
+        }
         return ResponseEntity.status(200).body(response);
     }
 
@@ -67,7 +73,7 @@ public class ReviewController {
                                                               @CurrentMember Long memberId,
                                                               @RequestPart("review") ReviewUpdateRequest request,
                                                               @RequestPart(value = "images", required = false) List<MultipartFile> images){
-        UpdateReviewResponse response = reviewService.updateReview(request, reviewId, memberId, images);
+        UpdateReviewResponse response = reviewService.updateReview(request, bookId, reviewId, memberId, images);
 
         return ResponseEntity.status(200).body(response);
     }

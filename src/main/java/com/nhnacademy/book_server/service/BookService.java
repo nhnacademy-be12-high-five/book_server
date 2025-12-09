@@ -2,6 +2,7 @@ package com.nhnacademy.book_server.service;
 
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
+import com.nhnacademy.book_server.dto.response.GetBookResponse;
 import com.nhnacademy.book_server.entity.*;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.repository.AuthorRepository;
@@ -13,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class BookService {
+
     private final BookRepository bookRepository;
     private final PublisherRepository publisherRepository;
     private final AuthorRepository authorRepository;
@@ -85,21 +86,19 @@ public class BookService {
     // 모든 책 조회
     // list -> Pageable로 변환
     @Transactional(readOnly = true)
-    public Page<Book> findAllBooks(@PageableDefault(size = 10) Pageable pageable){
-        return bookRepository.findAll(pageable);
+    public Page<BookResponse> findAllBooks(Pageable pageable){
+        return bookRepository.findAll(pageable)
+                .map(BookResponse::from);
     }
 
     // 책 한권 조회
     @Transactional(readOnly = true)
-    public Optional<Book> findBookById(Long id) {
-        Optional<Book> book = bookRepository.findById(id);
+    public BookResponse findBookById(Long id) {
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("책을 찾을 수 없습니다."));
 
-        book.ifPresent(b -> {
-            // b.getBookAuthors()에 접근하고 size()를 호출하면, JPA가 DB에서 해당 데이터를 로드합니다.
-            b.getBookAuthors().size();
-        });
-
-        return book;
+        // Service 안에서 변환하므로 Lazy Loading 문제 없음 (이미 EntityGraph로 가져왔지만)
+        return BookResponse.from(book);
     }
 
     // 책 업데이트
@@ -124,22 +123,30 @@ public class BookService {
             existingBook.setPublisher(publisher);
         }
 
-        existingBook.getBookAuthors().clear();
-
         if (request.getAuthors() != null){
+            existingBook.getBookAuthors().clear();
+
             for (String authorName: request.getAuthors()){
-                authorRepository.findByName(authorName).orElseGet(()->authorRepository.save(Author.builder().name(authorName).build()));
+                String trimmedName = authorName.trim();
 
+                if(!StringUtils.hasText(trimmedName)) continue;
+                Author author=authorRepository.findByName(authorName).orElseGet(()->authorRepository.save(Author.builder().name(authorName).build()));
 
-                existingBook.getBookAuthors().add(new BookAuthor());
+                BookAuthor bookAuthor = BookAuthor.builder()
+                        .book(existingBook)  // 중요: 현재 책 정보 주입
+                        .author(author)      // 중요: 찾은 작가 정보 주입
+                        .build();
+
+                existingBook.getBookAuthors().add(bookAuthor);
+                bookRepository.save(existingBook);
             }
         }
 
-        return bookRepository.save(existingBook);
+        return existingBook;
     }
 
     // 책 삭제
-    public void deleteBook(Long id,String userId){
+    public void deleteBook(Long id,Long memberId){
         if (!bookRepository.existsById(id)) {
             throw new RuntimeException("삭제할 아이디가 없습니다.");
         }
@@ -159,14 +166,36 @@ public class BookService {
     // bulk api 조회
     // 장바구니에서 책을 조회할때 책을 1번만 호출하도록 하는 API
     // Service Layer
-    public List<BookResponse> getBooksBulk(List<Long> bookIds) {
+    public List<GetBookResponse> getBooksBulk(List<Long> bookIds) {
         List<Book> books = bookRepository.findAllById(bookIds);
 
         // List를 Map<BookId, Dto> 형태로 변환
         return books.stream()
-                .map(book -> BookResponse.from(book,book.getCategory()))
+                .map(book -> new GetBookResponse(
+                        book.getId(),
+                        book.getTitle(),
+                        book.getPrice(),
+                        book.getImage()                // 이미지
+                ))
                 .collect(Collectors.toList());
 
+    }
+
+    // 재고 확인 (단순 조회이므로 readOnly)
+    @Transactional(readOnly = true)
+    public int getBookStock(Long bookId) {
+        // 1. 전체 엔티티를 다 가져오는 건 낭비일 수 있음.
+        // 단순히 재고만 확인할 거라면 Repository에서 재고 컬럼만 가져오는 쿼리를 짜는 게 성능상 베스트.
+        // 하지만 일단 기존 로직을 유지하면서 Service로 옮긴다면:
+
+        return bookRepository.findById(bookId)
+                .map(book -> {
+                    // 만약 getStockCheckedAt이 Boolean이 아니라 날짜라거나 로직이 있다면 여기서 처리
+                    // 예시: 재고 필드가 따로 있다면 book.getStock() 반환
+                    boolean inStock = Boolean.TRUE.equals(book.getStockCheckedAt());
+                    return inStock ? 1 : 0;
+                })
+                .orElse(0); // 책이 없으면 재고 0 처리
     }
 
 }
