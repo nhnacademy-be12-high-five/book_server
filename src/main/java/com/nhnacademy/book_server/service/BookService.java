@@ -11,6 +11,7 @@ import com.nhnacademy.book_server.repository.AuthorRepository;
 import com.nhnacademy.book_server.repository.BookAuthorRepository;
 import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.PublisherRepository;
+import jakarta.servlet.http.Cookie;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -110,8 +111,10 @@ public class BookService {
 
         // 조회 카운트를 위함
         String cacheKey = "book:detail:" + id;
+        // 레디스에서 먼저 책의 아이디가 있는지 찾아봄
         String cachedData = redisTemplate.opsForValue().get(cacheKey);
 
+        // 레디스에 있으면 데이터베이스까지 가지 않음
         if (cachedData != null) {
             try {
                 // Cache Hit: DB 접근 없이 즉시 반환
@@ -122,6 +125,7 @@ public class BookService {
             }
         }
 
+        // 레디스에 없으면 데이터베이스에서 책을 찾음
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("책을 찾을 수 없습니다."));
         BookResponse response = BookResponse.from(book);
@@ -129,6 +133,7 @@ public class BookService {
         // 3. [Redis Cache 저장] (TTL: 30분)
         try {
             String jsonString = objectMapper.writeValueAsString(response);
+            // 데이터베이스에서 찾은 데이터를 레디스에 저장 (TTL : 30)
             redisTemplate.opsForValue().set(cacheKey, jsonString, Duration.ofMinutes(30));
         } catch (JsonProcessingException e) {
             log.error("Redis Data Saving Error", e);
@@ -235,7 +240,8 @@ public class BookService {
 
     public void incrementViewCount(Long bookId, Long memberId) {
 
-        // 비회원이면 카운트 안 함 // Todo 비회원은 쿠키로 저장하는 로직으로 수정
+//        // Todo 비회원은 쿠키로 저장하는 로직으로 수정
+//        Cookie cookie=new Cookie();
 
         if (memberId == null) {
             return;

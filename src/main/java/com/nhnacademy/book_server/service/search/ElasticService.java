@@ -2,6 +2,7 @@ package com.nhnacademy.book_server.service.search;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.nhnacademy.book_server.dto.BookResponse;
@@ -16,9 +17,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Elasticsearch 연동 구현체
- */
 @Service
 @RequiredArgsConstructor
 public class ElasticService implements ElasticRepository {
@@ -27,9 +25,6 @@ public class ElasticService implements ElasticRepository {
 
     private final ElasticsearchClient client;
 
-    /**
-     * ES book_index 검색
-     */
     @Override
     public SearchResult<BookResponse> search(String keyword, BookSortType sort, int page, int size) {
         if (keyword == null || keyword.isBlank()) {
@@ -38,7 +33,7 @@ public class ElasticService implements ElasticRepository {
 
         int from = page * size;
 
-        // 필드별 가중치 (SearchFieldType enum 사용)
+        // 필드별 가중치
         int titleBoost = SearchFieldType.TITLE.getWeight();
         int authorBoost = SearchFieldType.AUTHOR.getWeight();
         int tagBoost = SearchFieldType.TAG.getWeight();
@@ -51,6 +46,7 @@ public class ElasticService implements ElasticRepository {
                         s.index(INDEX)
                                 .from(from)
                                 .size(size)
+                                // ★ 키워드 기반 필수 검색 조건 (AND로 강하게 매칭)
                                 .query(q -> q.multiMatch(m -> m
                                         .query(keyword)
                                         .fields(
@@ -61,59 +57,53 @@ public class ElasticService implements ElasticRepository {
                                                 "publisher^" + publisherBoost,
                                                 "content^" + contentBoost
                                         )
+                                        // "만화" AND "스펀지" 처럼 모두 포함해야 매칭되도록
+                                        .operator(Operator.And)
                                 ));
 
-                        // 정렬 기준에 따라 sort 추가
-                        if (sort != null) {
-                            switch (sort) {
-                                case LOW_PRICE:
-                                    s.sort(so -> so
-                                            .field(f -> f.field("price").order(SortOrder.Asc)));
-                                    break;
+                // ★ 정렬 기준
+                if (sort != null) {
+                    switch (sort) {
+                        case LOW_PRICE -> s.sort(so -> so
+                                .field(f -> f.field("price").order(SortOrder.Asc)));
 
-                                case HIGH_PRICE:
-                                    s.sort(so -> so
-                                            .field(f -> f.field("price").order(SortOrder.Desc)));
-                                    break;
+                        case HIGH_PRICE -> s.sort(so -> so
+                                .field(f -> f.field("price").order(SortOrder.Desc)));
 
-                                case RATING:
-                                    s.sort(so -> so
-                                            .field(f -> f.field("avgRating").order(SortOrder.Desc)));
-                                    break;
+                        case RATING -> s.sort(so -> so
+                                .field(f -> f.field("avgRating").order(SortOrder.Desc)));
 
-                                case REVIEW:
-                                    s.sort(so -> so
-                                            .field(f -> f.field("reviewCount").order(SortOrder.Desc)));
-                                    break;
+                        case REVIEW -> s.sort(so -> so
+                                .field(f -> f.field("reviewCount").order(SortOrder.Desc)));
 
-                                case NEW:
-                                    s.sort(so -> so
-                                            .field(f -> f.field("publishedDate").order(SortOrder.Desc)));
-                                    break;
+                        case NEW -> s.sort(so -> so
+                                .field(f -> f.field("publishedDate").order(SortOrder.Desc)));
 
-                                case POPULAR:
-                                default:
-                                    // POPULAR는 기본 score(relevance) 기준 → 별도 sort 없음
-                                    break;
-                            }
+                        case POPULAR -> {
+                            // POPULAR / 기본: score(관련도) 순으로만 정렬
+                            // → 추가 sort 설정 안 함
                         }
 
+                        default -> {
+                            // 혹시 null 등 예외값이 들어오면 score 순
+                        }
+                    }
+                }
 
                         return s;
                     },
                     Map.class
             );
 
-            // 전체 건수(totalHits)
-            long totalHits = 0L;
+            // totalHits 계산
+            long totalHits;
             if (response.hits().total() != null) {
                 totalHits = response.hits().total().value();
             } else {
-                // total 정보가 없는 경우, 일단 현재 반환된 개수로 대체
                 totalHits = response.hits().hits().size();
             }
 
-            // 실제 도서 목록 변환
+            // Map → BookResponse 변환
             List<BookResponse> books = response.hits().hits().stream()
                     .map(Hit::source)
                     .map(this::toBookResponse)
@@ -126,9 +116,6 @@ public class ElasticService implements ElasticRepository {
         }
     }
 
-    /**
-     * ES 검색 결과 Map → BookResponse 변환
-     */
     private BookResponse toBookResponse(Map<String, Object> source) {
         if (source == null) {
             return null;
@@ -191,9 +178,6 @@ public class ElasticService implements ElasticRepository {
         );
     }
 
-    /**
-     * 여러 도서를 ES 인덱스에 저장 (reindex)
-     */
     @Override
     public void saveAll(List<BookResponse> books) {
         for (BookResponse book : books) {
