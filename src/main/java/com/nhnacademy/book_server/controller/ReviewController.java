@@ -41,7 +41,8 @@ public class ReviewController {
     // 책에 해당하는 리뷰 리스트를 조회
     @GetMapping("/books/{bookId}/reviews")
     public ResponseEntity<Page<BookReviewResponse>> getReviews(@PathVariable Long bookId,
-                                                               @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable){
+                                                               @PageableDefault(sort = "createdAt",
+                                                                       direction = Sort.Direction.DESC) Pageable pageable){
 
         Page<BookReviewResponse> responseList = reviewService.getReviewList(bookId, pageable);
         return ResponseEntity.status(200).body(responseList);
