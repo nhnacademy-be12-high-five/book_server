@@ -71,6 +71,11 @@ public class RagSearchService implements RagSearchable {
                 totalHits = response.hits().hits().size();
             }
 
+            // 4-> 유사도에 따른 조건 필요
+            // 검색된거 다 주는중
+
+            //ai->검증 확인 필요
+
             // 5. hit → BookResponse 변환
             List<BookResponse> books = response.hits().hits().stream()
                     .map(Hit::source)
