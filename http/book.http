@@ -12,7 +12,7 @@ Content-Type: application/json
 #
 
 #### 관리자 책 조회
-GET http://localhost:9002/api/admin/673525
+GET http://localhost:9002/api/admin/157119
 X-USER-ID: 1
 Content-Type: application/json
 
@@ -38,7 +38,7 @@ X-USER-ID: 1
 }
 
 #### 관리자 책 수정
-PUT http://localhost:9002/api/admin/673525
+PUT http://localhost:9002/api/admin/157119
 X-USER-ID: 1
 Content-Type: application/json
 
@@ -56,7 +56,7 @@ Content-Type: application/json
 }
 
 ### 관리자 책 삭제
-DELETE http://localhost:9002/api/admin/3
+DELETE http://localhost:9002/api/admin/157119
 X-USER-ID: 1
 Content-Type: application/json
 

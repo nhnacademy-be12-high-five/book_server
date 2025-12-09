@@ -23,9 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -118,7 +116,7 @@ public class BookService {
         if (cachedData != null) {
             try {
                 // Cache Hit: DB 접근 없이 즉시 반환
-                return objectMapper.readValue(cachedData, BookResponse.class);
+                return objectMapper.readValue(cachedData, BookResponse.class);  // json -> java
             } catch (JsonProcessingException e) {
                 // 파싱 실패 시 로그만 남기고 DB 조회로 진행 (서비스 장애 방지)
                 log.error("Redis Data Parsing Error", e);
@@ -274,9 +272,7 @@ public class BookService {
         return ChronoUnit.SECONDS.between(now, midnight);
     }
 
-    @Scheduled(cron = "0 0 * * * *")
-
-    // 조회수를 카운트 하는 로직이 매시간 반영
+    @Scheduled(cron = "0 0 0 * * *")    // 조회수를 카운트 하는 로직이 매시간 반영
     public void updateWeeklyRanking() {
         String weeklyKey = "weekly_ranking";
         // 1단계: "합쳐야 할 날짜 리스트 뽑기" (Key Collection)
@@ -301,7 +297,6 @@ public class BookService {
         }
         log.info("Weekly popular books updated.");
     }
-
 
     @Transactional(readOnly = true)
     public List<BookResponse> getWeeklyPopularBooks() {
@@ -333,5 +328,41 @@ public class BookService {
                 .collect(Collectors.toList());
     }
 
+
+//     신간 추천 로직
+    // 매 1일 자정에 신간이 바뀜
+    // ex) 오늘이 12월 1일이면 11/1 - 11/30일까지 나온 책중 좋아요 수가 많은 책 추천
+    @Transactional(readOnly = true)
+    @Scheduled(cron = "0 0 0 1 * *")
+    public void getNewBooks() throws JsonProcessingException {
+
+        String cacheKey = "recommendation:new_books"; // 키 이름 정의
+
+        LocalDate start=LocalDate.now().withDayOfMonth(1).minusMonths(1);  // 지난 달
+        LocalDate end=start.withDayOfMonth(start.lengthOfMonth());  // 지난달의 마지막 날짜 구하기
+
+
+        List<Book> books = bookRepository.findTop5ByPublishedDateBetweenOrderByPublishedDateDesc(
+                start.toString(),
+                end.toString()
+        );
+
+        // 🔍 로그 확인: 책을 몇 권 가져왔는지 확인
+        if (books.isEmpty()) {
+            log.warn("🚨 [TEST 실패] DB에 책이 단 한 권도 없습니다! DB에 데이터를 먼저 넣어주세요.");
+            return;
+        }
+
+        // 2. Entity -> DTO 변환
+        List<BookResponse> responses = books.stream()
+                .map(BookResponse::from)
+                .collect(Collectors.toList());
+
+        String str=objectMapper.writeValueAsString(responses);
+        redisTemplate.opsForValue().set(cacheKey,str);
+
+        log.info("✅ [TEST] Redis 갱신 완료! 기간: {} ~ {}, 개수: {}권", start, end, responses.size());
+        log.info("이번 달 신간 추천 목록이 갱신되었습니다. ({}권)", books.size());
+    }
 }
 

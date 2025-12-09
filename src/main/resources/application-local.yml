@@ -10,24 +10,18 @@ spring:
     restart:
       enabled: false
 
-  h2:
-    console:
-      path: /h2-console
-      enabled: true
-      settings:
-        web-allow-others: true
+#  h2:
+#    console:
+#      path: /h2-console
+#      enabled: true
+#      settings:
+#        web-allow-others: true
   data:
     redis:
       host: 127.0.0.1
       port: 6379
       password: '*N2vya7H@muDTwdNMR!'
       database: 15
-
-#  datasource:
-#    url: "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE"
-#    driver-class-name: org.h2.Driver
-#    username: sa
-#    password:
 
   datasource:
     # 예시: MySQL 연결 설정

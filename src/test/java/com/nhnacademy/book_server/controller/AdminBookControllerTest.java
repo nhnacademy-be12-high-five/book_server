@@ -86,45 +86,44 @@
 //                .andExpect(jsonPath("$.price").value(15000))
 //                .andDo(print());
 //
-//
 //        verify(bookService).createBook(eq(parsingDto));
 //    }
 //
-//    @Test
-//    @DisplayName("도서 전체 조회 성공")
-//    @WithMockUser(roles = "ADMIN")
-//    void getAllBooks() throws Exception {
-//
-//        // given
-//        // 1. 테스트용 Book 엔티티 생성
-//        Book book1 = Book.builder().id(1L).title("Book 1").price(10000).build();
-//        Book book2 = Book.builder().id(2L).title("Book 2").price(20000).build();
-//
-//        // 2. Service가 반환할 Page<BookResponse> 데이터 생성
-//        // (실제 Service 로직처럼 Book을 BookResponse로 변환해서 리스트에 담습니다)
-//        List<BookResponse> responseList = List.of(
-//                BookResponse.from(book1),
-//                BookResponse.from(book2)
-//        );
-//
-//        Page<BookResponse> responsePage = new PageImpl<>(responseList);
-//
-//        // 3. Mocking: Service가 호출되면 위에서 만든 responsePage를 리턴하도록 설정
-//        given(bookService.findAllBooks(any(Pageable.class))).willReturn(responsePage);
-//
-//        // when & then
-//        mockMvc.perform(get("/api/admin")
-//                        .header("X-USER-ID", "1") // [중요] Long 파싱 가능한 숫자 문자열
-//                        .param("page", "0")       // 페이징 파라미터 추가 (선택)
-//                        .param("size", "10")
-//                        .contentType(MediaType.APPLICATION_JSON))
-//                .andExpect(status().isOk())
-//                .andExpect(jsonPath("$.size()").value(2)) // 반환된 리스트 개수 확인
-//                .andExpect(jsonPath("$[0].id").value(1L))
-//                .andExpect(jsonPath("$[0].title").value("Book 1"))
-//                .andDo(print());
-//    }
-//
+////    @Test
+////    @DisplayName("도서 전체 조회 성공")
+////    @WithMockUser(roles = "ADMIN")
+////    void getAllBooks() throws Exception {
+////
+////        // given
+////        // 1. 테스트용 Book 엔티티 생성
+////        Book book1 = Book.builder().id(1L).title("Book 1").price(10000).build();
+////        Book book2 = Book.builder().id(2L).title("Book 2").price(20000).build();
+////
+////        // 2. Service가 반환할 Page<BookResponse> 데이터 생성
+////        // (실제 Service 로직처럼 Book을 BookResponse로 변환해서 리스트에 담습니다)
+////        List<BookResponse> responseList = List.of(
+////                BookResponse.from(book1),
+////                BookResponse.from(book2)
+////        );
+////
+////        Page<BookResponse> responsePage = new PageImpl<>(responseList);
+////
+////        // 3. Mocking: Service가 호출되면 위에서 만든 responsePage를 리턴하도록 설정
+////        given(bookService.findAllBooks(any(Pageable.class))).willReturn(responsePage);
+////
+////        // when & then
+////        mockMvc.perform(get("/api/admin")
+////                        .header("X-USER-ID", "1") // [중요] Long 파싱 가능한 숫자 문자열
+////                        .param("page", "0")       // 페이징 파라미터 추가 (선택)
+////                        .param("size", "10")
+////                        .contentType(MediaType.APPLICATION_JSON))
+////                .andExpect(status().isOk())
+////                .andExpect(jsonPath("$.size()").value(2)) // 반환된 리스트 개수 확인
+////                .andExpect(jsonPath("$[0].id").value(1L))
+////                .andExpect(jsonPath("$[0].title").value("Book 1"))
+////                .andDo(print());
+////    }
+////
 ////    @Test
 ////    @DisplayName("도서 단건 조회 성공")
 ////    @WithMockUser(roles = "ADMIN")
@@ -154,69 +153,66 @@
 ////                .andExpect(jsonPath("$.price").value(12000))
 ////                .andDo(print());
 ////    }
-//
-//    @Test
-//    @DisplayName("도서 한권 수정")
-//    @WithMockUser(roles = "ADMIN")
-//    void updateBook() throws Exception {
-//        // given
-//        Long bookId = 1L;
-//        String userId = "1";
-//
-//        BookUpdateRequest updateDto = new BookUpdateRequest();
-//
-//        updateDto.setTitle("Updated Title");
-//        updateDto.setPrice(20000);
-//        updateDto.setIsbn("1234567890123");
-//
-//        // Service가 리턴할 수정된 Book 객체
-//        Book updatedBook = Book.builder()
-//                .id(bookId)
-//                .title("Updated Title") // 수정된 제목 반영
-//                .price(20000)
-//                .isbn13("1234567890123")
-//                .build();
-//
-//        // setup 단계에서는 any()로 유연하게 설정
-//        given(bookService.updateBook(eq(bookId), any(BookUpdateRequest.class)))
-//                .willReturn(updatedBook);
-//
-//        // when & then
-//        mockMvc.perform(put("/api/admin/{id}", bookId)
-//                        .with(csrf()) // PUT 요청 필수
-//                        .header("X-User-Id", userId) // "1" 전송
-//                        .contentType(MediaType.APPLICATION_JSON)
-//                        .content(objectMapper.writeValueAsString(updateDto)))
-//                .andExpect(status().isOk())
-//                .andExpect(jsonPath("$.title").value("Updated Title")) // 응답 DTO 확인
-//                .andExpect(jsonPath("$.price").value(20000))
-//                .andDo(print());
-//
-//        // [수정 2] 검증 단계에서 refEq를 사용하여, 내가 보낸 DTO 값이 서비스까지 변질되지 않고 잘 도착했는지 확인
-//        verify(bookService).updateBook(eq(bookId), refEq(updateDto));
-//    }
-//
-//    //
-//
-//    /// /
-//    @Test
-//    @DisplayName("도서 삭제 실패 - 책 없음")
-//    @WithMockUser(roles = "ADMIN")
-//    void deleteBook_NotFound() throws Exception {
-//        // given
-//        Long bookId = 99L;
-//        String userId = "1";
-//
-//        // Service가 예외를 던지도록 설정 (void 메서드는 doThrow 사용)
-//        doThrow(new RuntimeException("삭제할 아이디가 없습니다."))
-//                .when(bookService).deleteBook(bookId, 1L);
-//
-//        // when & then
-//        mockMvc.perform(delete("/api/admin/{id}", bookId)
-//                        .with(csrf())
-//                        .header("X-User-Id", userId))
-//                .andExpect(status().isNotFound()) // 404 Not Found 확인
-//                .andDo(print());
-//    }
+////
+////    @Test
+////    @DisplayName("도서 한권 수정")
+////    @WithMockUser(roles = "ADMIN")
+////    void updateBook() throws Exception {
+////        // given
+////        Long bookId = 1L;
+////        String userId = "1";
+////
+////        BookUpdateRequest updateDto = new BookUpdateRequest();
+////
+////        updateDto.setTitle("Updated Title");
+////        updateDto.setPrice(20000);
+////        updateDto.setIsbn("1234567890123");
+////
+////        // Service가 리턴할 수정된 Book 객체
+////        Book updatedBook = Book.builder()
+////                .id(bookId)
+////                .title("Updated Title") // 수정된 제목 반영
+////                .price(20000)
+////                .isbn13("1234567890123")
+////                .build();
+////
+////        // setup 단계에서는 any()로 유연하게 설정
+////        given(bookService.updateBook(eq(bookId), any(BookUpdateRequest.class)))
+////                .willReturn(updatedBook);
+////
+////        // when & then
+////        mockMvc.perform(put("/api/admin/{id}", bookId)
+////                        .with(csrf()) // PUT 요청 필수
+////                        .header("X-User-Id", userId) // "1" 전송
+////                        .contentType(MediaType.APPLICATION_JSON)
+////                        .content(objectMapper.writeValueAsString(updateDto)))
+////                .andExpect(status().isOk())
+////                .andExpect(jsonPath("$.title").value("Updated Title")) // 응답 DTO 확인
+////                .andExpect(jsonPath("$.price").value(20000))
+////                .andDo(print());
+////
+////        // [수정 2] 검증 단계에서 refEq를 사용하여, 내가 보낸 DTO 값이 서비스까지 변질되지 않고 잘 도착했는지 확인
+////        verify(bookService).updateBook(eq(bookId), refEq(updateDto));
+////    }
+////
+////    @Test
+////    @DisplayName("도서 삭제 실패 - 책 없음")
+////    @WithMockUser(roles = "ADMIN")
+////    void deleteBook_NotFound() throws Exception {
+////        // given
+////        Long bookId = 99L;
+////        String userId = "1";
+////
+////        // Service가 예외를 던지도록 설정 (void 메서드는 doThrow 사용)
+////        doThrow(new RuntimeException("삭제할 아이디가 없습니다."))
+////                .when(bookService).deleteBook(bookId, 1L);
+////
+////        // when & then
+////        mockMvc.perform(delete("/api/admin/{id}", bookId)
+////                        .with(csrf())
+////                        .header("X-User-Id", userId))
+////                .andExpect(status().isNotFound()) // 404 Not Found 확인
+////                .andDo(print());
+////    }
 //}
 //
