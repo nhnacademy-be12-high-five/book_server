@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/books")
 @Tag(name = "도서 API - 사용자", description = "사용자를 위한 도서 API 입니다.")
 @RequiredArgsConstructor
 public class UserBookController implements UserBookSwagger {

@@ -96,7 +96,7 @@ public class AladinServiceImpl implements AladinService {
             return null;
         }
 
-        String finalUrl = minioImageService.uploadImageFromUrl(item.getLink());
+        String finalUrl = minioImageService.uploadImageFromUrl(item.getLink(), item.getIsbn13());
 
         // Builder를 사용하여 Book 객체 생성
         Book book = Book.builder()

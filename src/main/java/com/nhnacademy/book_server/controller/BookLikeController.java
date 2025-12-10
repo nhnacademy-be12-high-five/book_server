@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api")
 // 좋아요 컨트롤러
 public class BookLikeController implements UserBookLikeSwagger {
 
@@ -31,7 +30,7 @@ public class BookLikeController implements UserBookLikeSwagger {
 
     //  도서 좋아요 토글 (등록/취소)
     @Override
-    @PostMapping("/books/{bookId}/likes")
+    @PostMapping("/{bookId}/likes")
     public ResponseEntity<Void> toggleLike(@PathVariable Long bookId,
                                            @RequestHeader("X-USER-ID") Long memberId) {
 
@@ -40,9 +39,10 @@ public class BookLikeController implements UserBookLikeSwagger {
         return ResponseEntity.ok().build();
     }
 
-// 마이페이지 - 좋아요 누른 도서 목록 조회
+    // 마이페이지 - 좋아요 누른 도서 목록 조회
     @Override
     @GetMapping("/my-page/likes")
+    // /members/me/likes
     public ResponseEntity<List<BookResponse>> getMyLikedBooks( @RequestHeader("X-USER-ID") Long memberId, Pageable pageable) {
 
         List<BookResponse> likedBooks = bookLikeService.getMyLikedBooks(memberId, pageable);

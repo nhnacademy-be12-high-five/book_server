@@ -48,7 +48,7 @@ public class BookService {
                     ));
         }
 
-        String finalUrl = minioImageService.uploadImageFromUrl(dto.getImageUrl());
+        String finalUrl = minioImageService.uploadImageFromUrl(dto.getImageUrl(), dto.getIsbn());
 
         Book newBook = Book.builder()
                 .isbn13(dto.getIsbn())
@@ -110,7 +110,7 @@ public class BookService {
     public Book updateBook(Long id, BookUpdateRequest request){
         Book existingBook = bookRepository.findById(id).orElseThrow(()->new RuntimeException("아이디가 존재하지 않습니다."));
 
-        String finalUrl = minioImageService.uploadImageFromUrl(request.getImage());
+        String finalUrl = minioImageService.uploadImageFromUrl(request.getImage(), request.getIsbn());
 
         minioImageService.deleteImages(List.of(existingBook.getImage()));
 
