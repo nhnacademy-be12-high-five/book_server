@@ -16,7 +16,7 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("api/search")
+@RequestMapping("/api/search")
 @RequiredArgsConstructor
 public class SearchController implements SearchSwagger {
 
