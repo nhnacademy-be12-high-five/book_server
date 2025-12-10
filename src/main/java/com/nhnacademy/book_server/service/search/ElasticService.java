@@ -12,6 +12,8 @@ import com.nhnacademy.book_server.entity.SearchFieldType;
 import com.nhnacademy.book_server.repository.ElasticRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import co.elastic.clients.elasticsearch.core.BulkRequest;
+import co.elastic.clients.elasticsearch.core.BulkResponse;
 
 import java.io.IOException;
 import java.util.List;
@@ -122,10 +124,10 @@ public class ElasticService implements ElasticRepository {
         }
 
         Long id = null;
-        if (source.get("id") != null) {
-            id = ((Number) source.get("id")).longValue();
-        } else if (source.get("bookId") != null) {
-            id = ((Number) source.get("bookId")).longValue();
+        if (source.get("id") instanceof Number nId) {
+            id = nId.longValue();
+        } else if (source.get("bookId") instanceof Number nBookId) {
+            id = nBookId.longValue();
         }
 
         String title = (String) source.get("title");
@@ -133,15 +135,17 @@ public class ElasticService implements ElasticRepository {
         String isbn = (String) source.get("isbn");
 
         Integer price = null;
-        if (source.get("price") != null) {
-            price = ((Number) source.get("price")).intValue();
+        Object priceObj = source.get("price");
+        if (priceObj instanceof Number nPrice) {
+            price = nPrice.intValue();
         }
 
         String image = (String) source.get("image");
 
         Integer categoryId = null;
-        if (source.get("categoryId") != null) {
-            categoryId = ((Number) source.get("categoryId")).intValue();
+        Object catObj = source.get("categoryId");
+        if (catObj instanceof Number nCat) {
+            categoryId = nCat.intValue();
         }
 
         String content = (String) source.get("content");
@@ -153,13 +157,15 @@ public class ElasticService implements ElasticRepository {
         }
 
         Double avgRating = null;
-        if (source.get("avgRating") != null) {
-            avgRating = ((Number) source.get("avgRating")).doubleValue();
+        Object avgObj = source.get("avgRating");
+        if (avgObj instanceof Number nAvg) {
+            avgRating = nAvg.doubleValue();
         }
 
         Long reviewCount = 0L;
-        if (source.get("reviewCount") != null) {
-            reviewCount = ((Number) source.get("reviewCount")).longValue();
+        Object revObj = source.get("reviewCount");
+        if (revObj instanceof Number nRev) {
+            reviewCount = nRev.longValue();
         }
 
         return new BookResponse(
@@ -178,18 +184,45 @@ public class ElasticService implements ElasticRepository {
         );
     }
 
+
     @Override
     public void saveAll(List<BookResponse> books) {
-        for (BookResponse book : books) {
-            try {
-                client.index(i -> i
-                        .index(INDEX)
-                        .id(book.id().toString())
-                        .document(book)
+        if (books == null || books.isEmpty()) {
+            return;
+        }
+
+        try {
+            BulkRequest.Builder bulkBuilder = new BulkRequest.Builder();
+
+            for (BookResponse book : books) {
+                if (book == null || book.id() == null) {
+                    continue;
+                }
+
+                bulkBuilder.operations(op -> op
+                        .index(idx -> idx
+                                .index(INDEX)
+                                .id(book.id().toString())
+                                .document(book)
+                        )
                 );
-            } catch (IOException e) {
-                throw new RuntimeException("ES 인덱싱 실패: " + book.id(), e);
             }
+
+            BulkResponse response = client.bulk(bulkBuilder.build());
+
+            if (response.errors()) {
+                // 개별 실패 건 로깅
+                response.items().forEach(item -> {
+                    if (item.error() != null) {
+                        System.err.println("ES bulk 인덱싱 실패 - id=" +
+                                item.id() + " reason=" + item.error().reason());
+                    }
+                });
+                throw new RuntimeException("ES bulk 인덱싱 중 일부 문서 실패 발생");
+            }
+
+        } catch (IOException e) {
+            throw new RuntimeException("ES bulk 인덱싱 실패", e);
         }
     }
 }

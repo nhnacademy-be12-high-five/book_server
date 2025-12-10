@@ -6,6 +6,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
+
 public interface ReviewRepository extends JpaRepository<Review, Long> {
     Page<Review> findByBookId(Long bookId, Pageable pageable);
     Review findByMemberIdAndBookId(Long memberId, Long bookId);
@@ -14,4 +16,6 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     Page<Review> findByMemberId(Long memberId, Pageable pageable);
 
     boolean existsByBookIdAndMemberId(Long bookId, Long memberId);
+
+    List<Review> findByBookIdIn(List<Long> bookIds);
 }
