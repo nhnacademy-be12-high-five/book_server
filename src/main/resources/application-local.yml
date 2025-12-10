@@ -25,7 +25,7 @@ spring:
 
   datasource:
     # 예시: MySQL 연결 설정
-    url: jdbc:mysql://220.67.216.14:13306/project_be12_team5?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&rewriteBatchedStatements=true
+    url: jdbc:mysql://10.116.64.14:13306/project_be12_team5?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&rewriteBatchedStatements=true
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: project_be12_team5      # 실제 DB 아이디
     password: KFYUERgqkPF!r6    # 실제 DB 비밀번호
@@ -39,8 +39,9 @@ spring:
       hibernate:
         default_batch_fetch_size: 1000
     open-in-view: false
+
   rabbitmq:
-    host: s4.java21.net
+    host: localhost
     port: 5672
     username: admin
     password: nhnacademy123!
@@ -67,7 +68,7 @@ minio:
   bucket-name: hi-five-bucket
 
 elasticsearch:
-  host: 220.67.216.14
+  host: localhost
   port: 9200
   username: elastic
   password: nhnacademy123!
@@ -77,6 +78,24 @@ springdoc:
     version: openapi_3_0
   swagger-ui:
     path: /swagger-ui.html
+
+# RAG 벡터 검색을 위한 설정 추가
+rag:
+   index-name: book_embedding_index
+   dim: 768      # BGE-M3 모델 벡터 차원
+   similarity: cosine
+
+gemini:
+  api-key: "AIzaSyBqvri2bRcZBmpJSbKEZvTGNzmLgOBMSg4"
+  embedding-model: "models/text-embedding-004"
+
+rag-search:
+  top-k: 5
+  rerank: false
+  fields:
+     - title
+     - author
+     - content
 
 # 5. 서버 포트
 server:
