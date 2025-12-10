@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -28,6 +29,5 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     @EntityGraph(attributePaths = {"bookAuthors", "bookAuthors.author"})
     Optional<Book> findById(Long id);
 
-    List<Book> findTop5ByPublishedDateBetweenOrderByPublishedDateDesc(String string, String string1);
-
+    List<Book> findTop5ByPublishedDateBetweenOrderByPublishedDateDesc(String startDate, String endDate);
 }
