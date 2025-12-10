@@ -1,6 +1,7 @@
 package com.nhnacademy.book_server.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
@@ -11,9 +12,11 @@ import com.nhnacademy.book_server.repository.AuthorRepository;
 import com.nhnacademy.book_server.repository.BookAuthorRepository;
 import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.PublisherRepository;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.converters.ResponseSupportConverter;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -41,8 +44,10 @@ public class BookService {
     private final BookAuthorRepository bookAuthorRepository;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final ResponseSupportConverter responseSupportConverter;
 
-    public Book createBook(ParsingDto dto){
+
+    public Book createBook(ParsingDto dto) {
         if (bookRepository.existsByIsbn13(dto.getIsbn())) {
             log.warn("이미 존재하는 ISBN입니다: {}", dto.getIsbn());
         }
@@ -96,7 +101,7 @@ public class BookService {
     // 모든 책 조회
     // list -> Pageable로 변환
     @Transactional(readOnly = true)
-    public Page<BookResponse> findAllBooks(Pageable pageable){
+    public Page<BookResponse> findAllBooks(Pageable pageable) {
         return bookRepository.findAll(pageable)
                 .map(BookResponse::from);
     }
@@ -142,8 +147,8 @@ public class BookService {
 
     // 책 업데이트
     @Transactional // 💡 트랜잭션 적용
-    public Book updateBook(Long id, BookUpdateRequest request){
-        Book existingBook = bookRepository.findById(id).orElseThrow(()->new RuntimeException("아이디가 존재하지 않습니다."));
+    public Book updateBook(Long id, BookUpdateRequest request) {
+        Book existingBook = bookRepository.findById(id).orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다."));
 
         existingBook.setIsbn13(request.getIsbn());
         existingBook.setTitle(request.getTitle());
@@ -162,14 +167,14 @@ public class BookService {
             existingBook.setPublisher(publisher);
         }
 
-        if (request.getAuthors() != null){
+        if (request.getAuthors() != null) {
             existingBook.getBookAuthors().clear();
 
-            for (String authorName: request.getAuthors()){
+            for (String authorName : request.getAuthors()) {
                 String trimmedName = authorName.trim();
 
-                if(!StringUtils.hasText(trimmedName)) continue;
-                Author author=authorRepository.findByName(authorName).orElseGet(()->authorRepository.save(Author.builder().name(authorName).build()));
+                if (!StringUtils.hasText(trimmedName)) continue;
+                Author author = authorRepository.findByName(authorName).orElseGet(() -> authorRepository.save(Author.builder().name(authorName).build()));
 
                 BookAuthor bookAuthor = BookAuthor.builder()
                         .book(existingBook)  // 중요: 현재 책 정보 주입
@@ -185,7 +190,7 @@ public class BookService {
     }
 
     // 책 삭제
-    public void deleteBook(Long id,Long memberId){
+    public void deleteBook(Long id, Long memberId) {
         if (!bookRepository.existsById(id)) {
             throw new RuntimeException("삭제할 아이디가 없습니다.");
         }
@@ -329,40 +334,42 @@ public class BookService {
     }
 
 
-//     신간 추천 로직
+    //     신간 추천 로직
     // 매 1일 자정에 신간이 바뀜
     // ex) 오늘이 12월 1일이면 11/1 - 11/30일까지 나온 책중 좋아요 수가 많은 책 추천
+    @PostConstruct
+//    @Scheduled(cron = "0 0 0 1 * *")
     @Transactional(readOnly = true)
-    @Scheduled(cron = "0 0 0 1 * *")
-    public void getNewBooks() throws JsonProcessingException {
+    public List<BookResponse> refreshNewBooksCache() {
+        String cacheKey = "recommendation:new_books";
+        log.info("🔄 [Cache Refresh] 신간 도서 캐시 갱신 시작...");
 
-        String cacheKey = "recommendation:new_books"; // 키 이름 정의
+        try {  // <--- [추가] 예외 발생해도 서버는 켜지도록 감싸기
 
-        LocalDate start=LocalDate.now().withDayOfMonth(1).minusMonths(1);  // 지난 달
-        LocalDate end=start.withDayOfMonth(start.lengthOfMonth());  // 지난달의 마지막 날짜 구하기
+            // 1. 날짜 설정 (테스트용)
+            LocalDate start = LocalDate.of(2020, 1, 1);
+            LocalDate end = LocalDate.now().plusYears(1);
 
+            // 2. DB 조회
+            List<Book> books = bookRepository.findTop5ByOrderByPublishedDateDesc();
 
-        List<Book> books = bookRepository.findTop5ByPublishedDateBetweenOrderByPublishedDateDesc(
-                start.toString(),
-                end.toString()
-        );
+            // 3. DTO 변환 및 Redis 저장
+            List<BookResponse> responses = books.stream()
+                    .map(BookResponse::from)
+                    .collect(Collectors.toList());
 
-        // 🔍 로그 확인: 책을 몇 권 가져왔는지 확인
-        if (books.isEmpty()) {
-            log.warn("🚨 [TEST 실패] DB에 책이 단 한 권도 없습니다! DB에 데이터를 먼저 넣어주세요.");
-            return;
+            String jsonStr = objectMapper.writeValueAsString(responses);
+            redisTemplate.opsForValue().set(cacheKey, jsonStr);
+
+            log.info("✅ [Cache Refresh] 완료! Redis에 {}권 저장됨.", responses.size());
+
+            return responses;
+
+        } catch (Exception e) { // <--- [추가] 에러 로그만 찍고 넘어감
+            log.error("⚠️ 서버 시작 중 캐시 갱신 실패 (서버 실행은 계속됩니다): {}", e.getMessage());
         }
 
-        // 2. Entity -> DTO 변환
-        List<BookResponse> responses = books.stream()
-                .map(BookResponse::from)
-                .collect(Collectors.toList());
-
-        String str=objectMapper.writeValueAsString(responses);
-        redisTemplate.opsForValue().set(cacheKey,str);
-
-        log.info("✅ [TEST] Redis 갱신 완료! 기간: {} ~ {}, 개수: {}권", start, end, responses.size());
-        log.info("이번 달 신간 추천 목록이 갱신되었습니다. ({}권)", books.size());
+        return null;
     }
 }
 

@@ -1,9 +1,9 @@
 package com.nhnacademy.book_server.repository;
 
 import com.nhnacademy.book_server.entity.Book;
-import com.nhnacademy.book_server.parser.ParsingDto;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -30,4 +30,12 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     Optional<Book> findById(Long id);
 
     List<Book> findTop5ByPublishedDateBetweenOrderByPublishedDateDesc(String startDate, String endDate);
+
+// 테스트 용으로 최신 신간 가져오기
+@Query("SELECT DISTINCT b FROM Book b " +
+        "LEFT JOIN FETCH b.bookAuthors ba " +
+        "LEFT JOIN FETCH ba.author " +
+        "LEFT JOIN FETCH b.publisher " +
+        "ORDER BY b.publishedDate DESC LIMIT 10")
+    List<Book> findTop5ByOrderByPublishedDateDesc();
 }
