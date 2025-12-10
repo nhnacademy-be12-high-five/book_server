@@ -23,9 +23,10 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
 
         try {
             String url =
-                    "https://generativelanguage.googleapis.com/v1beta/models/"
-                            + "gemini-1.5-flash:generateContent"
+                    "https://generativelanguage.googleapis.com/v1/models/"
+                            + "gemini-2.5-flash:generateContent"
                             + "?key=" + apiKey;
+
 
             // 요청 바디 만들기
             GeminiRequest request = new GeminiRequest(
