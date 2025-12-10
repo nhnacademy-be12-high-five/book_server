@@ -1,10 +1,13 @@
 package com.nhnacademy.book_server.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.nhnacademy.book_server.controller.swagger.UserBookSwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
+import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.service.BookService;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -12,6 +15,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.http.HttpResponse;
 import java.util.List;
 
 @RestController
@@ -21,6 +25,7 @@ import java.util.List;
 public class UserBookController implements UserBookSwagger {
 
     private final BookService bookService;
+    private final BookRepository bookRepository;
 
     // 도서 전체 조회 (GET /api/books)
     @Override
@@ -40,7 +45,10 @@ public class UserBookController implements UserBookSwagger {
         // [수정 2] Service가 이미 DTO를 반환하므로 .map() 제거
         // 앞서 BookService.findBookById를 BookResponse 반환으로 수정했기 때문입니다.
         try {
+
+            // 1. 조회수 집계 (회원인 경우에만)
             BookResponse response = bookService.findBookById(bookId);
+
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
@@ -61,5 +69,12 @@ public class UserBookController implements UserBookSwagger {
     public ResponseEntity<List<GetBookResponse>> getBooksBulk(@RequestBody List<Long> bookIds) {
         List<GetBookResponse> response = bookService.getBooksBulk(bookIds);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/new")
+    // [수정 1] 반환 타입을 Void -> List<BookResponse>로 변경
+    public ResponseEntity<List<BookResponse>> getNew() {
+        List<BookResponse> responses = bookService.getNewBooks();
+        return ResponseEntity.ok(responses);
     }
 }
