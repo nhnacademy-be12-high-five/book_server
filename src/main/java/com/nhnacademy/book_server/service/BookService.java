@@ -1,5 +1,7 @@
 package com.nhnacademy.book_server.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
@@ -9,17 +11,22 @@ import com.nhnacademy.book_server.repository.AuthorRepository;
 import com.nhnacademy.book_server.repository.BookAuthorRepository;
 import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.PublisherRepository;
+import jakarta.servlet.http.Cookie;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import java.util.List;
-import java.util.Optional;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,7 +39,8 @@ public class BookService {
     private final PublisherRepository publisherRepository;
     private final AuthorRepository authorRepository;
     private final BookAuthorRepository bookAuthorRepository;
-    private final MinioImageService minioImageService;
+    private final StringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
 
     public Book createBook(ParsingDto dto){
         if (bookRepository.existsByIsbn13(dto.getIsbn())) {
@@ -48,15 +56,13 @@ public class BookService {
                     ));
         }
 
-        String finalUrl = minioImageService.uploadImageFromUrl(dto.getImageUrl(), dto.getIsbn());
-
         Book newBook = Book.builder()
                 .isbn13(dto.getIsbn())
                 .title(dto.getTitle())
                 .publisher(publisher)
                 .publishedDate(dto.getPubDate())
                 .price(parsePrice(dto.getPrice()))
-                .image(finalUrl)
+                .image(dto.getImageUrl())
                 .content(dto.getDescription())
                 .build();
 
@@ -98,11 +104,40 @@ public class BookService {
     // 책 한권 조회
     @Transactional(readOnly = true)
     public BookResponse findBookById(Long id) {
+
+        // 1. [Redis Cache 확인]
+
+        // 조회 카운트를 위함
+        String cacheKey = "book:detail:" + id;
+        // 레디스에서 먼저 책의 아이디가 있는지 찾아봄
+        String cachedData = redisTemplate.opsForValue().get(cacheKey);
+
+        // 레디스에 있으면 데이터베이스까지 가지 않음
+        if (cachedData != null) {
+            try {
+                // Cache Hit: DB 접근 없이 즉시 반환
+                return objectMapper.readValue(cachedData, BookResponse.class);  // json -> java
+            } catch (JsonProcessingException e) {
+                // 파싱 실패 시 로그만 남기고 DB 조회로 진행 (서비스 장애 방지)
+                log.error("Redis Data Parsing Error", e);
+            }
+        }
+
+        // 레디스에 없으면 데이터베이스에서 책을 찾음
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("책을 찾을 수 없습니다."));
+        BookResponse response = BookResponse.from(book);
 
-        // Service 안에서 변환하므로 Lazy Loading 문제 없음 (이미 EntityGraph로 가져왔지만)
-        return BookResponse.from(book);
+        // 3. [Redis Cache 저장] (TTL: 30분)
+        try {
+            String jsonString = objectMapper.writeValueAsString(response);
+            // 데이터베이스에서 찾은 데이터를 레디스에 저장 (TTL : 30)
+            redisTemplate.opsForValue().set(cacheKey, jsonString, Duration.ofMinutes(30));
+        } catch (JsonProcessingException e) {
+            log.error("Redis Data Saving Error", e);
+        }
+
+        return response;
     }
 
     // 책 업데이트
@@ -110,15 +145,11 @@ public class BookService {
     public Book updateBook(Long id, BookUpdateRequest request){
         Book existingBook = bookRepository.findById(id).orElseThrow(()->new RuntimeException("아이디가 존재하지 않습니다."));
 
-        String finalUrl = minioImageService.uploadImageFromUrl(request.getImage(), request.getIsbn());
-
-        minioImageService.deleteImages(List.of(existingBook.getImage()));
-
         existingBook.setIsbn13(request.getIsbn());
         existingBook.setTitle(request.getTitle());
         existingBook.setContent(request.getDescription());
         existingBook.setPrice(request.getPrice());
-        existingBook.setImage(finalUrl);
+        existingBook.setImage(request.getImage());
         existingBook.setPublishedDate(request.getPublishedDate());
 
         if (StringUtils.hasText(request.getPublisher())) {
@@ -186,7 +217,6 @@ public class BookService {
                         book.getImage()                // 이미지
                 ))
                 .collect(Collectors.toList());
-
     }
 
     // 재고 확인 (단순 조회이므로 readOnly)
@@ -206,5 +236,133 @@ public class BookService {
                 .orElse(0); // 책이 없으면 재고 0 처리
     }
 
+    public void incrementViewCount(Long bookId, Long memberId) {
+
+//        // Todo 비회원은 쿠키로 저장하는 로직으로 수정
+//        Cookie cookie=new Cookie();
+
+        if (memberId == null) {
+            return;
+        }
+
+        String logKey = "view_log:" + memberId + ":" + bookId;
+
+        // B. 일간 랭킹 키: "daily_ranking:20241208" (날짜별로 점수 저장)
+        String todayDate = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        String dailyRankingKey = "daily_ranking:" + todayDate;
+
+        // 사용자가 현재 조회한 순간부터 00:00 까지
+        long secondsUntilMidnight = getSecondsDay();
+
+        Boolean isFirstView = redisTemplate.opsForValue()
+                .setIfAbsent(logKey, "1", Duration.ofSeconds(secondsUntilMidnight));
+
+        // E. 오늘 처음 조회한 경우에만 점수 증가
+        if (Boolean.TRUE.equals(isFirstView)) {
+            redisTemplate.opsForZSet().incrementScore(dailyRankingKey, String.valueOf(bookId), 1.0);
+
+            // 8일뒤 랭킹 키 자동 삭제
+            redisTemplate.expire(dailyRankingKey, Duration.ofDays(8));
+        }
+    }
+
+    private long getSecondsDay() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime midnight = now.toLocalDate().plusDays(1).atStartOfDay();
+        return ChronoUnit.SECONDS.between(now, midnight);
+    }
+
+    @Scheduled(cron = "0 0 0 * * *")    // 조회수를 카운트 하는 로직이 매시간 반영
+    public void updateWeeklyRanking() {
+        String weeklyKey = "weekly_ranking";
+        // 1단계: "합쳐야 할 날짜 리스트 뽑기" (Key Collection)
+        List<String> keysToUnion = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+
+        // 오늘 포함 최근 7일간의 날짜 키 수집
+        for (int i = 0; i < 7; i++) {
+            String dateStr = today.minusDays(i).format(DateTimeFormatter.BASIC_ISO_DATE);
+            keysToUnion.add("daily_ranking:" + dateStr);
+        }
+
+        // Redis UNION: 여러 키의 점수를 합산하여 weeklyKey에 저장
+        if (!keysToUnion.isEmpty()) {
+            redisTemplate.opsForZSet().unionAndStore(
+                    keysToUnion.get(0),
+                    keysToUnion.subList(1, keysToUnion.size()),
+                    weeklyKey
+            );
+            // 랭킹 키 유효기간 설정 (1일)
+            redisTemplate.expire(weeklyKey, Duration.ofDays(1));
+        }
+        log.info("Weekly popular books updated.");
+    }
+
+    @Transactional(readOnly = true)
+    public List<BookResponse> getWeeklyPopularBooks() {
+        String weeklyKey = "weekly_ranking";
+
+        // 1. 점수가 높은 순(Reverse)으로 상위 5개(0~4) ID 추출
+        Set<String> topBookIds = redisTemplate.opsForZSet().reverseRange(weeklyKey, 0, 4);
+
+        if (topBookIds == null || topBookIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> bookIds = topBookIds.stream()
+                .map(Long::valueOf)
+                .collect(Collectors.toList());
+
+        // 2. DB에서 책 정보 조회 (순서 보장 안됨)
+        List<Book> books = bookRepository.findAllById(bookIds);
+
+        // 3. Redis 랭킹 순서대로 정렬하기 위해 Map 변환
+        Map<Long, Book> bookMap = books.stream()
+                .collect(Collectors.toMap(Book::getId, book -> book));
+
+        // 4. 순서대로 매핑하여 반환
+        return bookIds.stream()
+                .map(bookMap::get)
+                .filter(Objects::nonNull) // DB에 삭제된 책이 있을 경우 대비
+                .map(BookResponse::from)
+                .collect(Collectors.toList());
+    }
+
+
+//     신간 추천 로직
+    // 매 1일 자정에 신간이 바뀜
+    // ex) 오늘이 12월 1일이면 11/1 - 11/30일까지 나온 책중 좋아요 수가 많은 책 추천
+    @Transactional(readOnly = true)
+    @Scheduled(cron = "0 0 0 1 * *")
+    public void getNewBooks() throws JsonProcessingException {
+
+        String cacheKey = "recommendation:new_books"; // 키 이름 정의
+
+        LocalDate start=LocalDate.now().withDayOfMonth(1).minusMonths(1);  // 지난 달
+        LocalDate end=start.withDayOfMonth(start.lengthOfMonth());  // 지난달의 마지막 날짜 구하기
+
+
+        List<Book> books = bookRepository.findTop5ByPublishedDateBetweenOrderByPublishedDateDesc(
+                start.toString(),
+                end.toString()
+        );
+
+        // 🔍 로그 확인: 책을 몇 권 가져왔는지 확인
+        if (books.isEmpty()) {
+            log.warn("🚨 [TEST 실패] DB에 책이 단 한 권도 없습니다! DB에 데이터를 먼저 넣어주세요.");
+            return;
+        }
+
+        // 2. Entity -> DTO 변환
+        List<BookResponse> responses = books.stream()
+                .map(BookResponse::from)
+                .collect(Collectors.toList());
+
+        String str=objectMapper.writeValueAsString(responses);
+        redisTemplate.opsForValue().set(cacheKey,str);
+
+        log.info("✅ [TEST] Redis 갱신 완료! 기간: {} ~ {}, 개수: {}권", start, end, responses.size());
+        log.info("이번 달 신간 추천 목록이 갱신되었습니다. ({}권)", books.size());
+    }
 }
 

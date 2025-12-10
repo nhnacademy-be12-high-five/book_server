@@ -1,4 +1,5 @@
 package com.nhnacademy.book_server.dto;
+
 import com.nhnacademy.book_server.entity.*;
 
 import java.util.List;
@@ -15,16 +16,19 @@ public record BookResponse(Long id,
                            String publisher,
                            String publishedDate,
                            Double avgRating,
-                           Long reviewCount
+                           Long reviewCount,
+                           //  AI 검색 설명(책별 요약) – AI 검색일 때만 채움, 그 외에는 null
+                           String aiSummary
 ) {
 
     //BookResponse DTO는 그 원본 데이터를 가공하고 포장하여 클라이언트에게 깔끔하게 전달하기 위한 응답용 객체입니다.
 
-    // 1) 기본 팩토리: 평균평점·리뷰수까지 계산된 값이 넘어오는 경우
+    // 1) 기본 팩토리: 평균평점·리뷰수까지 계산된 값이 넘어오는 경우 (일반 검색용)
     public static BookResponse from(Book book,
                                     Category category,
                                     Double avgRating,
                                     Long reviewCount) {
+
         // 저자 이름 문자열로 변환 (예: "홍길동, 이몽룡")
         String authorNames = null;
         if (book.getBookAuthors() != null && !book.getBookAuthors().isEmpty()) {
@@ -35,7 +39,6 @@ public record BookResponse(Long id,
                     .filter(name -> !name.isBlank())
                     .distinct()
                     .collect(Collectors.joining(", "));
-
         }
 
         String publisherName = null;
@@ -57,7 +60,51 @@ public record BookResponse(Long id,
                 publisherName,
                 book.getPublishedDate(),
                 avgRating,
-                reviewCount
+                reviewCount,
+                null   //  일반 검색에서는 aiSummary 없음
+        );
+    }
+
+    // 1-1) AI 검색(RAG)용 팩토리: 책별 AI 설명까지 함께 세팅
+    public static BookResponse fromWithAiSummary(Book book,
+                                                 Category category,
+                                                 Double avgRating,
+                                                 Long reviewCount,
+                                                 String aiSummary) {
+
+        // 기존 로직 재사용을 위해 공통 부분 먼저 계산
+        String authorNames = null;
+        if (book.getBookAuthors() != null && !book.getBookAuthors().isEmpty()) {
+            authorNames = book.getBookAuthors().stream()
+                    .map(BookAuthor::getAuthor)
+                    .filter(author -> author != null && author.getName() != null)
+                    .map(a -> a.getName().trim())
+                    .filter(name -> !name.isBlank())
+                    .distinct()
+                    .collect(Collectors.joining(", "));
+        }
+
+        String publisherName = null;
+        if (book.getPublisher() != null) {
+            publisherName = book.getPublisher().getName();
+        }
+
+        Integer categoryIdValue = (category != null) ? category.getCategoryId() : null;
+
+        return new BookResponse(
+                book.getId(),
+                book.getTitle(),
+                authorNames,
+                book.getIsbn13(),
+                book.getPrice(),
+                book.getImage(),
+                categoryIdValue,
+                book.getContent(),
+                publisherName,
+                book.getPublishedDate(),
+                avgRating,
+                reviewCount,
+                aiSummary   // 🔹 여기만 다름
         );
     }
 

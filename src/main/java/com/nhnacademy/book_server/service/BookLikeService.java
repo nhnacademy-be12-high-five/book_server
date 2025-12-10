@@ -42,7 +42,9 @@ public class BookLikeService{
         if (bookLikeRepository.existsByBookIdAndMemberId(bookId, memberId)) {
             // 이미 좋아요가 있다면 -> 삭제
             bookLikeRepository.deleteByBookIdAndMemberId(bookId, memberId);
-        } else {
+        }
+
+        else {
             // 좋아요가 없다면 -> 생성 및 저장
             BookLike bookLike = BookLike.builder()
                     .book(book)
@@ -54,7 +56,6 @@ public class BookLikeService{
     }
 
 // // 마이페이지 - 좋아요 누른 도서 목록 조회
-
     @Transactional(readOnly = true)
     public List<BookResponse> getMyLikedBooks(Long memberId, Pageable pageable) {
 
