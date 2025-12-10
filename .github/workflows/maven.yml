@@ -12,7 +12,7 @@ jobs:
     with:
       project-key: team5-book-service
       docker-image: fbxogns123/book-server
-      container-name: book_server
+      container-name: book-server
       maven-args: "-B -DskipTests"
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
