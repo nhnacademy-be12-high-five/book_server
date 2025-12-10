@@ -28,6 +28,7 @@ import java.util.Optional;
 public class AdminBookController implements bookSwagger{
 
     private final BookService bookService;
+
 //    private final DataParsingService dataParsingService; // [1] 대용량 저장 서비스 주입
 //    private final CsvBookParser csvBookParser;           // [2] 파서 주입
 //
@@ -72,7 +73,6 @@ public class AdminBookController implements bookSwagger{
     }
 
 //    // 도서 전체 조회
-// [전체 조회]
     @GetMapping
     public ResponseEntity<List<BookResponse>> getAllBooks(@PageableDefault(size = 10) Pageable pageable) {
         Page<BookResponse> bookPage = bookService.findAllBooks(pageable);
@@ -81,7 +81,7 @@ public class AdminBookController implements bookSwagger{
 //
 //    // 책 한권 조회
     @GetMapping("/{id}")
-    public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId) {
+    public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId,  @RequestHeader("X-User-Id") Long memberId) {
         try {
             BookResponse response = bookService.findBookById(bookId);
             return ResponseEntity.ok(response);
@@ -89,7 +89,7 @@ public class AdminBookController implements bookSwagger{
             return ResponseEntity.notFound().build();
         }
     }
-//
+
     // 책 한권 수정
     @PutMapping("/{id}")
     public ResponseEntity<BookResponse> updateBook(@PathVariable("id") Long bookId,
@@ -110,7 +110,7 @@ public class AdminBookController implements bookSwagger{
                                            @RequestHeader("X-User-Id") Long memberId){
         try {
             bookService.deleteBook(bookId,memberId);
-            return ResponseEntity.ok().build();
+            return ResponseEntity.status(204).build();
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build(); // 404 Not Found (책을 찾을 수 없을 때)
         }
