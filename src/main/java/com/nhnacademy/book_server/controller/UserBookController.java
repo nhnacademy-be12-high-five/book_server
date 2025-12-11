@@ -1,8 +1,10 @@
 package com.nhnacademy.book_server.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.nhnacademy.book_server.controller.swagger.UserBookSwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
+import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.service.BookService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ import java.util.List;
 public class UserBookController implements UserBookSwagger {
 
     private final BookService bookService;
+    private final BookRepository bookRepository;
 
     // 도서 전체 조회 (GET /api/books)
     @Override
