@@ -39,11 +39,11 @@ public class BookReadServiceImpl implements BookReadService {
 
     // 도서 ID 1건 조회
     @Override
-    public Optional<BookResponse> findBookById(Long id) {
-        return bookRepository.findById(id)
+    public Optional<BookResponse> findBookById(Long bookId) {
+        return bookRepository.findById(bookId)
                 .map(book -> {
                     List<Review> reviews = reviewRepository
-                            .findByBookId(id, Pageable.unpaged())
+                            .findByBookId(bookId, Pageable.unpaged())
                             .getContent();
 
                     return BookResponse.from(book, null, reviews);

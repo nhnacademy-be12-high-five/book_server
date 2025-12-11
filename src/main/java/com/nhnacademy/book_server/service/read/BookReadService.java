@@ -9,5 +9,5 @@ public interface BookReadService {
 
     //도서 데이터를 가져오는 서비스
     List<BookResponse> findAllBooks();
-    Optional<BookResponse> findBookById(Long id);
+    Optional<BookResponse> findBookById(Long bookId);
 }

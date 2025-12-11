@@ -96,12 +96,13 @@ public class RagSearchService implements RagSearchable {
             return null;
         }
 
-        Long id = null;
+        Long bookId = null;
         if (source.get("id") != null) {
-            id = ((Number) source.get("id")).longValue();
+            bookId = ((Number) source.get("id")).longValue();
         } else if (source.get("bookId") != null) {
-            id = ((Number) source.get("bookId")).longValue();
+            bookId = ((Number) source.get("bookId")).longValue();
         }
+        //id: 기존 es에 저장된 문서 , bookId: 새로 저장하는문서 (리팩토링하면서 분화됨)
 
         String title = (String) source.get("title");
         String author = (String) source.get("author");
@@ -141,7 +142,7 @@ public class RagSearchService implements RagSearchable {
         String aiSummary = (String) source.get("aiSummary");
 
         return new BookResponse(
-                id,
+                bookId,
                 title,
                 author,
                 isbn,
