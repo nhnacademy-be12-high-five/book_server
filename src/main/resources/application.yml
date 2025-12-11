@@ -1,10 +1,6 @@
 spring:
   application:
-<<<<<<< Updated upstream
-    name: team5-book-server
-=======
     name: TEAM5-BOOK-SERVER
->>>>>>> Stashed changes
   config:
     name: TEAM5-BOOK-SERVER
     import: "optional:configserver:"
