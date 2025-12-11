@@ -186,19 +186,19 @@ public class RagSearchService implements RagSearchable {
                     List<Float> embeddingVector = embeddingClientService.embed(embeddingText);
 
                     if (embeddingVector == null || embeddingVector.isEmpty()) {
-                        log.warn("RAG reindex: 임베딩 생성 실패, 도서 건너뜀 bookId={}", book.id());
+                        log.warn("RAG reindex: 임베딩 생성 실패, 도서 건너뜀 bookId={}", book.bookId());
                         continue;
                     }
 
                     if (embeddingVector.size() != 768) { // 필요 시 설정값으로 변경 가능
                         log.warn("RAG reindex: 임베딩 차원 불일치, 도서 건너뜀 bookId={} expected=768 actual={}",
-                                book.id(), embeddingVector.size());
+                                book.bookId(), embeddingVector.size());
                         continue;
                     }
 
                     // 3-3. ES에 저장할 문서 구성
                     Map<String, Object> document = new HashMap<>();
-                    document.put("bookId", book.id());
+                    document.put("bookId", book.bookId());
                     document.put("title", book.title());
                     document.put("author", book.author());
                     document.put("isbn", book.isbn());
@@ -219,12 +219,12 @@ public class RagSearchService implements RagSearchable {
                     // 3-4. ES 인덱스에 도큐먼트 저장
                     client.index(i -> i
                             .index(INDEX)
-                            .id(String.valueOf(book.id()))
+                            .id(String.valueOf(book.bookId()))
                             .document(document)
                     );
 
                 } catch (Exception exception) {
-                    log.error("RAG reindex: 개별 도서 인덱싱 실패 bookId={}", book.id(), exception);
+                    log.error("RAG reindex: 개별 도서 인덱싱 실패 bookId={}", book.bookId(), exception);
                 }
             }
 

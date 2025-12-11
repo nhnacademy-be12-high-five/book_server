@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,12 +27,13 @@ public class ReviewController {
 
     // 리뷰 작성
     @PostMapping("/{book-id}/reviews")
-    public ResponseEntity<ReviewCreateResponse> createReview(@Valid @RequestPart("request") ReviewCreateRequest request,
+    public ResponseEntity<ReviewCreateResponse> createReview(@RequestParam Integer rating,
+                                                             @RequestParam String content,
                                                              @PathVariable("book-id") Long bookId,
                                                              @RequestHeader("x-user-id") Long memberId,
                                                              @RequestPart(value = "images", required = false) List<MultipartFile> images) {
-
-        ReviewCreateResponse response = reviewService.saveReview(request, bookId, memberId, images);
+        ReviewCreateRequest req = new ReviewCreateRequest(rating, content);
+        ReviewCreateResponse response = reviewService.saveReview(req, bookId, memberId, images);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -64,15 +66,19 @@ public class ReviewController {
     }
 
     // 리뷰 수정
-    @PutMapping("/{book-id}/reviews/{review-id}")
-    public ResponseEntity<UpdateReviewResponse> updateMyReview(@PathVariable("book-id") Long bookId,
-                                                               @PathVariable("review-id") Long reviewId,
-                                                               @RequestHeader("x-user-id") Long memberId,
-                                                               @RequestPart("review") ReviewUpdateRequest request,
-                                                               @RequestPart(value = "images", required = false) List<MultipartFile> images) {
-        UpdateReviewResponse response = reviewService.updateReview(request, bookId, reviewId, memberId, images);
+    @PostMapping(value = "/{book-id}/reviews/{review-id}",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<UpdateReviewResponse> updateReview(
+            @PathVariable("book-id") Long bookId,
+            @PathVariable("review-id") Long reviewId,
+            @RequestHeader("x-user-id") Long memberId,
+            @RequestPart("request") ReviewUpdateRequest request,
+            @RequestPart(value = "images", required = false) List<MultipartFile> images
+    ) {
+        UpdateReviewResponse response =
+                reviewService.updateReview(request, bookId, reviewId, memberId, images);
 
-        return ResponseEntity.status(200).body(response);
+        return ResponseEntity.ok(response);
     }
 
     // 요구사항에 삭제는 못하게 하지만 특별한 경우(환불) 관리자가 삭제 할 수 있게 하기 위해 구현

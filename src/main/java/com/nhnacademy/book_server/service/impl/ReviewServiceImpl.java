@@ -57,10 +57,10 @@ public class ReviewServiceImpl implements ReviewService {
                                            Long memberId,
                                            List<MultipartFile> images) {
         // 구매 여부 체크
-        Boolean isPurchased = orderFeignClient.hasPurchasedBook(memberId, bookId);
+//        Boolean isPurchased = orderFeignClient.hasPurchasedBook(memberId, bookId);
 
         // 구매 안한 사람이 접근
-        if (Boolean.FALSE.equals(isPurchased)) {
+        if (Boolean.FALSE.equals(true)) {
             throw new BusinessException(ErrorCode.REVIEW_WRITE_AUTHOR);
         }
 

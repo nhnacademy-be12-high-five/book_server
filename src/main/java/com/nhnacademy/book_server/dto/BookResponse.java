@@ -1,11 +1,13 @@
 package com.nhnacademy.book_server.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.nhnacademy.book_server.entity.*;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
-public record BookResponse(Long id,
+public record BookResponse(@JsonProperty("id")
+                           Long bookId,
                            String title,
                            String author,
                            String isbn,
