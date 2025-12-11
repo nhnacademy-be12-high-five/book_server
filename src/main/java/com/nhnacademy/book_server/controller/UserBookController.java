@@ -1,11 +1,12 @@
 package com.nhnacademy.book_server.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.nhnacademy.book_server.controller.swagger.UserBookSwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
+import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.service.BookService;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -13,16 +14,16 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.net.http.HttpResponse;
 import java.util.List;
 
 @RestController
+@RequestMapping("/api")
 @Tag(name = "도서 API - 사용자", description = "사용자를 위한 도서 API 입니다.")
 @RequiredArgsConstructor
-@RequestMapping("/api/books")
 public class UserBookController implements UserBookSwagger {
 
     private final BookService bookService;
+    private final BookRepository bookRepository;
 
     // 도서 전체 조회 (GET /api/books)
     @Override
@@ -36,16 +37,14 @@ public class UserBookController implements UserBookSwagger {
     }
 
     // 도서 한 권 상세 조회 (GET /api/books/{bookId})
+
     @Override
-    @GetMapping("/{bookId}")
-    public ResponseEntity<BookResponse> getBookById(@PathVariable("bookId") Long bookId) {
+    @GetMapping("/books/{book-Id}")
+    public ResponseEntity<BookResponse> getBookById(@PathVariable("book-Id") Long bookId) {
         // [수정 2] Service가 이미 DTO를 반환하므로 .map() 제거
         // 앞서 BookService.findBookById를 BookResponse 반환으로 수정했기 때문입니다.
         try {
-
-            // 1. 조회수 집계 (회원인 경우에만)
             BookResponse response = bookService.findBookById(bookId);
-
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
@@ -54,7 +53,7 @@ public class UserBookController implements UserBookSwagger {
 
     // 사용자의 재고 조회
     // todo 재고 설정을 해야할것같은데
-    @GetMapping("/{bookId}/stock")
+    @GetMapping("/books/{book-Id}/stock")
     public ResponseEntity<Integer> getBookStock(@PathVariable Long bookId) {
         // [수정 3] 비즈니스 로직을 Service로 이동
         // 컨트롤러는 "요청 받고 응답 주는" 역할만 해야 합니다.
@@ -62,11 +61,15 @@ public class UserBookController implements UserBookSwagger {
         return ResponseEntity.ok(stock);
     }
 
-    @PostMapping("/bulk")
+    @PostMapping("/books/bulk")
     public ResponseEntity<List<GetBookResponse>> getBooksBulk(@RequestBody List<Long> bookIds) {
         List<GetBookResponse> response = bookService.getBooksBulk(bookIds);
         return ResponseEntity.ok(response);
     }
 
-
+    @GetMapping("/books/new")
+    public ResponseEntity<List<BookResponse>> getNewBooks() {
+        List<BookResponse> books = bookService.getNewBooks();
+        return ResponseEntity.ok(books);
+    }
 }

@@ -1,7 +1,10 @@
 package com.nhnacademy.book_server.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
@@ -11,9 +14,11 @@ import com.nhnacademy.book_server.repository.AuthorRepository;
 import com.nhnacademy.book_server.repository.BookAuthorRepository;
 import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.PublisherRepository;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cglib.core.Local;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -41,6 +46,13 @@ public class BookService {
     private final BookAuthorRepository bookAuthorRepository;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+
+
+    @PostConstruct
+    public void initObjectMapper() {
+        objectMapper.registerModule(new JavaTimeModule());
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    }
 
     public Book createBook(ParsingDto dto){
         if (bookRepository.existsByIsbn13(dto.getIsbn())) {
@@ -329,40 +341,55 @@ public class BookService {
     }
 
 
-//     신간 추천 로직
+    //신간 추천 로직
     // 매 1일 자정에 신간이 바뀜
     // ex) 오늘이 12월 1일이면 11/1 - 11/30일까지 나온 책중 좋아요 수가 많은 책 추천
     @Transactional(readOnly = true)
-    @Scheduled(cron = "0 0 0 1 * *")
-    public void getNewBooks() throws JsonProcessingException {
+//    @Scheduled(cron = "0 0 0 1 * *")
+    public List<BookResponse> getNewBooks() {
+        String cacheKey = "recommendation:new_books_ids_1_5";
 
-        String cacheKey = "recommendation:new_books"; // 키 이름 정의
+        // 1. Redis에서 먼저 조회
+        String cachedData = redisTemplate.opsForValue().get(cacheKey);
+        if (StringUtils.hasText(cachedData)) {
 
-        LocalDate start=LocalDate.now().withDayOfMonth(1).minusMonths(1);  // 지난 달
-        LocalDate end=start.withDayOfMonth(start.lengthOfMonth());  // 지난달의 마지막 날짜 구하기
-
-
-        List<Book> books = bookRepository.findTop5ByPublishedDateBetweenOrderByPublishedDateDesc(
-                start.toString(),
-                end.toString()
-        );
-
-        // 🔍 로그 확인: 책을 몇 권 가져왔는지 확인
-        if (books.isEmpty()) {
-            log.warn("🚨 [TEST 실패] DB에 책이 단 한 권도 없습니다! DB에 데이터를 먼저 넣어주세요.");
-            return;
+            try {
+                // 캐시가 있으면 JSON -> List 객체로 변환하여 즉시 반환
+                return objectMapper.readValue(cachedData, new TypeReference<List<BookResponse>>() {});
+            } catch (JsonProcessingException e) {
+                log.error("Redis 파싱 오류, DB에서 다시 조회합니다.", e);
+            }
         }
 
-        // 2. Entity -> DTO 변환
+        // 레디스에 없으면 db로 조회
+//        LocalDate start=LocalDate.now().withDayOfMonth(1).minusMonths(1);  // 지난 달
+//        LocalDate end=start.withDayOfMonth(start.lengthOfMonth());  // 지난달의 마지막 날짜 구하기
+
+        LocalDate start=LocalDate.of(2020,1,1);
+        LocalDate end=LocalDate.of(2025,12,31);
+
+        // 시작날짜부터 마지막날짜까지의 책을 찾음
+//        List<Book> books = bookRepository.findTop5ByPublishedDateBetweenOrderByPublishedDateDesc(
+//                start.toString(),end.toString()
+//        );
+
+//        List<Book> books=bookRepository.findTop5ByPublishedDateBetweenOrderByIdAsc(start.toString(),end.toString());
+
+        List<Book> books=bookRepository.findTop5ByOrderByIdAsc();
+
         List<BookResponse> responses = books.stream()
                 .map(BookResponse::from)
                 .collect(Collectors.toList());
 
-        String str=objectMapper.writeValueAsString(responses);
-        redisTemplate.opsForValue().set(cacheKey,str);
+        // 3. Redis에 저장 (하루 동안 캐시 유지)
+        try {
+            // 객체 -> json
+            String jsonString = objectMapper.writeValueAsString(responses);
+            redisTemplate.opsForValue().set(cacheKey, jsonString, Duration.ofDays(1));
+        } catch (JsonProcessingException e) {
+            log.error("Redis 저장 오류", e);
+        }
 
-        log.info("✅ [TEST] Redis 갱신 완료! 기간: {} ~ {}, 개수: {}권", start, end, responses.size());
-        log.info("이번 달 신간 추천 목록이 갱신되었습니다. ({}권)", books.size());
+        return responses; // 데이터 반환
     }
 }
-

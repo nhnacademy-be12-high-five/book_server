@@ -29,5 +29,9 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     @EntityGraph(attributePaths = {"bookAuthors", "bookAuthors.author"})
     Optional<Book> findById(Long id);
 
-    List<Book> findTop5ByPublishedDateBetweenOrderByPublishedDateDesc(String startDate, String endDate);
+//    List<Book> findTop5ByPublishedDateBetweenOrderByPublishedDateDesc(String startDate, String endDate);
+
+    List<Book> findTop5ByPublishedDateBetweenOrderByIdAsc(String start,String end);
+
+    List<Book> findTop5ByOrderByIdAsc();
 }
