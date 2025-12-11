@@ -19,6 +19,7 @@ import java.util.List;
 @RestController
 @Tag(name = "도서 API - 사용자", description = "사용자를 위한 도서 API 입니다.")
 @RequiredArgsConstructor
+@RequestMapping("/api/books")
 public class UserBookController implements UserBookSwagger {
 
     private final BookService bookService;
