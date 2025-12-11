@@ -131,6 +131,7 @@ public class ReviewServiceImpl implements ReviewService {
             }
 
             return new BookReviewResponse(
+                    review.getId(),
                     loginId,
                     review.getReviewContent(),
                     review.getRating(),
@@ -164,6 +165,7 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         return new BookReviewResponse(
+                myReview.getId(),
                 loginId,
                 myReview.getReviewContent(),
                 myReview.getRating(),

@@ -19,15 +19,16 @@ import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
+@RequestMapping("/api/books")
 public class ReviewController {
 
     private final ReviewService reviewService;
 
     // 리뷰 작성
-    @PostMapping("/{bookId}/reviews")
+    @PostMapping("/{book-id}/reviews")
     public ResponseEntity<ReviewCreateResponse> createReview(@Valid @RequestPart("request") ReviewCreateRequest request,
-                                                             @PathVariable Long bookId,
-                                                             @RequestHeader("X-USER-ID") Long memberId,
+                                                             @PathVariable("book-id") Long bookId,
+                                                             @RequestHeader("x-user-id") Long memberId,
                                                              @RequestPart(value = "images", required = false) List<MultipartFile> images) {
 
         ReviewCreateResponse response = reviewService.saveReview(request, bookId, memberId, images);
@@ -35,8 +36,8 @@ public class ReviewController {
     }
 
     // 책에 해당하는 리뷰 리스트를 조회
-    @GetMapping("/{bookId}/reviews")
-    public ResponseEntity<Page<BookReviewResponse>> getReviews(@PathVariable Long bookId,
+    @GetMapping("/{book-id}/reviews")
+    public ResponseEntity<Page<BookReviewResponse>> getReviews(@PathVariable("book-id") Long bookId,
                                                                @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
 
         Page<BookReviewResponse> responseList = reviewService.getReviewList(bookId, pageable);
@@ -44,9 +45,9 @@ public class ReviewController {
     }
 
     // 책 리뷰들 페이지에서 보여줄 나의 리뷰 단건 조회
-    @GetMapping("/{bookId}/reviews/me")
-    public ResponseEntity<BookReviewResponse> getMyReview(@PathVariable Long bookId,
-                                                          @RequestHeader("X-USER-ID") Long memberId) {
+    @GetMapping("/{book-id}/reviews/me")
+    public ResponseEntity<BookReviewResponse> getMyReview(@PathVariable("book-id") Long bookId,
+                                                          @RequestHeader("x-user-id") Long memberId) {
         BookReviewResponse response = reviewService.getMyReview(bookId, memberId);
         if (response == null) {
             return ResponseEntity.noContent().build();
@@ -56,17 +57,17 @@ public class ReviewController {
 
     // 마이 페이지에서 보여줄 나의 리뷰 리스트 조회
     @GetMapping("/members/me/reviews")
-    public ResponseEntity<Page<MyPageReviewResponse>> getMyReviews(@RequestHeader("X-USER-ID") Long memberId,
+    public ResponseEntity<Page<MyPageReviewResponse>> getMyReviews(@RequestHeader("x-user-id") Long memberId,
                                                                    @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<MyPageReviewResponse> responseList = reviewService.getMyReviewList(memberId, pageable);
         return ResponseEntity.status(200).body(responseList);
     }
 
     // 리뷰 수정
-    @PutMapping("/{bookId}/reviews/{reviewId}")
-    public ResponseEntity<UpdateReviewResponse> updateMyReview(@PathVariable Long bookId,
-                                                               @PathVariable Long reviewId,
-                                                               @RequestHeader("X-USER-ID") Long memberId,
+    @PutMapping("/{book-id}/reviews/{review-id}")
+    public ResponseEntity<UpdateReviewResponse> updateMyReview(@PathVariable("book-id") Long bookId,
+                                                               @PathVariable("review-id") Long reviewId,
+                                                               @RequestHeader("x-user-id") Long memberId,
                                                                @RequestPart("review") ReviewUpdateRequest request,
                                                                @RequestPart(value = "images", required = false) List<MultipartFile> images) {
         UpdateReviewResponse response = reviewService.updateReview(request, bookId, reviewId, memberId, images);
