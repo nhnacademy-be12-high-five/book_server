@@ -1,8 +1,10 @@
 package com.nhnacademy.book_server.controller;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.nhnacademy.book_server.controller.swagger.UserBookSwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
+import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.service.BookService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ import java.util.List;
 public class UserBookController implements UserBookSwagger {
 
     private final BookService bookService;
+    private final BookRepository bookRepository;
 
     // 도서 전체 조회 (GET /api/books)
     @Override
@@ -64,9 +67,8 @@ public class UserBookController implements UserBookSwagger {
     }
 
     @GetMapping("/new")
-    public ResponseEntity<List<BookResponse>> getNewBooks() {
-        // 서비스의 getNewBooks() 호출 (이제 여기서 캐시 확인 로직이 돕니다)
-        List<BookResponse> books = bookService.refreshNewBooksCache();
-        return ResponseEntity.ok(books);
+    public ResponseEntity<List<BookResponse>> getNew() {
+        List<BookResponse> responses = bookService.getNewBooks();
+        return ResponseEntity.ok(responses);
     }
 }

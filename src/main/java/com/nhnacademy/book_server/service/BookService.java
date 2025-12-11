@@ -340,11 +340,19 @@ public class BookService {
     @PostConstruct
 //    @Scheduled(cron = "0 0 0 1 * *")
     @Transactional(readOnly = true)
-    public List<BookResponse> refreshNewBooksCache() {
-        String cacheKey = "recommendation:new_books";
-        log.info("🔄 [Cache Refresh] 신간 도서 캐시 갱신 시작...");
+    public List<BookResponse> getNewBooks() {
+        String cacheKey = "recommendation:new_books_ids_1_5";
 
-        try {  // <--- [추가] 예외 발생해도 서버는 켜지도록 감싸기
+        // 1. Redis에서 먼저 조회
+        String cachedData = redisTemplate.opsForValue().get(cacheKey);
+        if (StringUtils.hasText(cachedData)) {
+            try {
+                // 캐시가 있으면 JSON -> List 객체로 변환하여 즉시 반환
+                return objectMapper.readValue(cachedData, new TypeReference<List<BookResponse>>() {});
+            } catch (JsonProcessingException e) {
+                log.error("Redis 파싱 오류, DB에서 다시 조회합니다.", e);
+            }
+        }
 
             // 1. 날짜 설정 (테스트용)
             LocalDate start = LocalDate.of(2020, 1, 1);
@@ -370,6 +378,22 @@ public class BookService {
         }
 
         return null;
+        List<Book> books = bookRepository.findTop5ByPublishedDateBetweenOrderByPublishedDateDesc(
+                start.toString(),end.toString()
+        );
+
+        List<BookResponse> responses = books.stream()
+                .map(BookResponse::from)
+                .collect(Collectors.toList());
+
+        // 3. Redis에 저장 (하루 동안 캐시 유지)
+        try {
+            String jsonString = objectMapper.writeValueAsString(responses);
+            redisTemplate.opsForValue().set(cacheKey, jsonString, Duration.ofDays(1));
+        } catch (JsonProcessingException e) {
+            log.error("Redis 저장 오류", e);
+        }
+
+        return responses; // 데이터 반환
     }
 }
-
