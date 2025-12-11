@@ -19,6 +19,9 @@ public record BookResponse(Long id,
                            Long reviewCount,
                            //  AI 검색 설명(책별 요약) – AI 검색일 때만 채움, 그 외에는 null
                            String aiSummary
+
+
+
 ) {
 
     //BookResponse DTO는 그 원본 데이터를 가공하고 포장하여 클라이언트에게 깔끔하게 전달하기 위한 응답용 객체입니다.
