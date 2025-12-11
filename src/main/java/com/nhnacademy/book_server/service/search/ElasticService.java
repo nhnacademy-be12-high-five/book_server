@@ -26,6 +26,7 @@ public class ElasticService implements ElasticRepository {
     private static final String INDEX = "book_index";
 
     private final ElasticsearchClient client;
+    private final GeminiTextClientService geminiTextClientService;
 
     @Override
     public SearchResult<BookResponse> search(String keyword, BookSortType sort, int page, int size) {
@@ -168,6 +169,11 @@ public class ElasticService implements ElasticRepository {
             reviewCount = nRev.longValue();
         }
 
+        String aiSummary = null;
+        if (content != null && !content.isBlank()) {
+            aiSummary = geminiTextClientService.generateAnswer(content);
+        }
+
         return new BookResponse(
                 bookId,
                 title,
@@ -180,9 +186,11 @@ public class ElasticService implements ElasticRepository {
                 publisher,
                 publishedDate,
                 avgRating,
-                reviewCount
+                reviewCount,
+                aiSummary
         );
     }
+
 
 
     @Override
