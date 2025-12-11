@@ -10,12 +10,12 @@ spring:
     restart:
       enabled: false
 
-#  h2:
-#    console:
-#      path: /h2-console
-#      enabled: true
-#      settings:
-#        web-allow-others: true
+  #  h2:
+  #    console:
+  #      path: /h2-console
+  #      enabled: true
+  #      settings:
+  #        web-allow-others: true
   data:
     redis:
       host: 127.0.0.1
@@ -31,7 +31,7 @@ spring:
     password: KFYUERgqkPF!r6    # 실제 DB 비밀번호
 
   jpa:
-    show-sql: true
+    show-sql: false
     hibernate:
       ddl-auto: update
 
@@ -39,14 +39,12 @@ spring:
       hibernate:
         default_batch_fetch_size: 1000
     open-in-view: false
-
   rabbitmq:
     host: s4.java21.net
     port: 5672
     username: admin
     password: nhnacademy123!
 
-# 2. Eureka Client 끄기
 eureka:
   client:
     service-url:
@@ -68,7 +66,7 @@ minio:
   bucket-name: hi-five-bucket
 
 elasticsearch:
-  host: localhost
+  host: 220.67.216.14
   port: 9200
   username: elastic
   password: nhnacademy123!
@@ -78,24 +76,6 @@ springdoc:
     version: openapi_3_0
   swagger-ui:
     path: /swagger-ui.html
-
-# RAG 벡터 검색을 위한 설정 추가
-rag:
-   index-name: book_embedding_index
-   dim: 768      # BGE-M3 모델 벡터 차원
-   similarity: cosine
-
-gemini:
-  api-key: "AIzaSyBqvri2bRcZBmpJSbKEZvTGNzmLgOBMSg4"
-  embedding-model: "models/text-embedding-004"
-
-rag-search:
-  top-k: 5
-  rerank: false
-  fields:
-     - title
-     - author
-     - content
 
 # 5. 서버 포트
 server:
@@ -110,3 +90,7 @@ logging:
 
 aladin:
   ttb-key : ttbminnie9089971045001
+
+gemini:
+  api-key: "AIzaSyBqvri2bRcZBmpJSbKEZvTGNzmLgOBMSg4"
+  embedding-model: "models/text-embedding-004"
