@@ -76,12 +76,8 @@ public class UserBookController implements UserBookSwagger {
     @GetMapping("/books/popular")
     public ResponseEntity<List<BookResponse>> getWeeklyPopular(){
         List<BookResponse> books = bookService.getWeeklyPopularBooks();
+        System.out.println("컨트롤러 호출됨! 찾은 책 개수: " + books.size());
         return ResponseEntity.ok(books);
     }
 
-//    @PostMapping("/books/Wrapper")
-//    public ResponseEntity<Boolean> getWrapper(@PathVariable("book-Id") Long bookId){
-//        Boolean boo=bookService.getWrapper(bookId);
-//        return ResponseEntity.ok(boo);
-//    }
 }

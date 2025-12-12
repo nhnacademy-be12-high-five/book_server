@@ -122,11 +122,4 @@ public class Book {
     }
 
     private Integer stock;
-
-    // 포자 여부
-    private boolean Wrapper;
-
-    // 포장 가격 = 500원
-    private int WrapperCost;
-
 }
