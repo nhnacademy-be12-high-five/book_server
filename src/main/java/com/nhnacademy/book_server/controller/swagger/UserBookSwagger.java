@@ -37,7 +37,7 @@ public interface UserBookSwagger {
     })
     @GetMapping("/api/books") // 사용자용 API 경로 예시
     ResponseEntity<Page<BookResponse>> getAllBooks(@RequestHeader(value = "X-USER-ID", required = false) Long memberId,
-                                                          @PageableDefault(size = 10) Pageable pageable);
+                                                   @PageableDefault(size = 10) Pageable pageable);
 
     /**
      * 도서 한 권 상세 조회
