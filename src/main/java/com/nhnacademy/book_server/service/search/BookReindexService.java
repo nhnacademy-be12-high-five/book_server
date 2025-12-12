@@ -42,6 +42,7 @@ public class BookReindexService {
             log.warn("일반 검색 인덱스 재색인: 도서가 0권입니다.");
             return 0L;
         }
+        //등록 시에 문제가 생길거 고려
 
         int totalPages = (int) Math.ceil((double) totalBooks / PAGE_SIZE);
         log.info("일반 검색 인덱스 재색인 시작 - 총 도서 수: {}, 페이지 수: {}", totalBooks, totalPages);
@@ -61,6 +62,8 @@ public class BookReindexService {
 
             // 해당 페이지의 모든 리뷰를 한 번에 조회 (N+1 방지)
             List<Review> reviews = reviewRepository.findByBookIdIn(bookIds);
+            //1번 도서: 리뷰10개 식의 dto 생성해서 붙이기 (리뷰 다 가져올 필요없음)
+            //리뷰 인덱싱하는 주기 생각해야함 (업데이트)
 
             // bookId -> 리뷰 리스트 매핑
             Map<Long, List<Review>> reviewMap = reviews.stream()

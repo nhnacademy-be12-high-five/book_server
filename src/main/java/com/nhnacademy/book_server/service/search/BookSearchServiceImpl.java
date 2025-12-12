@@ -58,9 +58,9 @@ public class BookSearchServiceImpl implements BookSearchService {
 
     // -------------------- 단일 도서 조회 --------------------
     @Override
-    public BookResponse getBookById(Long id) {
-        return bookReadService.findBookById(id)
-                .orElseThrow(() -> new IllegalArgumentException("해당 ID의 도서를 찾을 수 없습니다: " + id));
+    public BookResponse getBookById(Long bookId) {
+        return bookReadService.findBookById(bookId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 ID의 도서를 찾을 수 없습니다: " + bookId));
     }
 
     // -------------------- RAG 하이브리드 검색 --------------------
