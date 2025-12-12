@@ -92,10 +92,10 @@ public class BookSearchServiceImpl implements BookSearchService {
         // 4. 결과 병합 (키워드 우선, RAG 추가)
         LinkedHashMap<Long, BookResponse> merged = new LinkedHashMap<>();
         for (BookResponse book : keywordResult.content()) {
-            merged.put(book.id(), book);
+            merged.put(book.bookId(), book);
         }
         for (BookResponse book : ragResult.content()) {
-            merged.putIfAbsent(book.id(), book);
+            merged.putIfAbsent(book.bookId(), book);
         }
 
         List<BookResponse> mergedList = new ArrayList<>(merged.values());

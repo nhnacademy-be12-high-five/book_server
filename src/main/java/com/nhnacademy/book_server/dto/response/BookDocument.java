@@ -40,7 +40,7 @@ public class BookDocument {
         }
 
         return BookDocument.builder()
-                .id(response.id())
+                .id(response.bookId())
                 .title(response.title())
                 .author(response.author())
                 .isbn13(response.isbn())

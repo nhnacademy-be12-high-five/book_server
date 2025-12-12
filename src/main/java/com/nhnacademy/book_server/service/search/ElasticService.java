@@ -27,6 +27,11 @@ public class ElasticService implements ElasticRepository {
 
     private final ElasticsearchClient client;
 
+    /**
+     * ======================
+     * 일반 검색 서비스
+     * ======================
+     */
     @Override
     public SearchResult<BookResponse> search(String keyword, BookSortType sort, int page, int size) {
         if (keyword == null || keyword.isBlank()) {
@@ -35,7 +40,7 @@ public class ElasticService implements ElasticRepository {
 
         int from = page * size;
 
-        // 필드별 가중치
+        // 가중치 로딩
         int titleBoost = SearchFieldType.TITLE.getWeight();
         int authorBoost = SearchFieldType.AUTHOR.getWeight();
         int tagBoost = SearchFieldType.TAG.getWeight();
@@ -48,7 +53,8 @@ public class ElasticService implements ElasticRepository {
                         s.index(INDEX)
                                 .from(from)
                                 .size(size)
-                                // ★ 키워드 기반 필수 검색 조건 (AND로 강하게 매칭)
+
+                                // --- 필수 multiMatch 검색 ---
                                 .query(q -> q.multiMatch(m -> m
                                         .query(keyword)
                                         .fields(
@@ -59,51 +65,42 @@ public class ElasticService implements ElasticRepository {
                                                 "publisher^" + publisherBoost,
                                                 "content^" + contentBoost
                                         )
-                                        // "만화" AND "스펀지" 처럼 모두 포함해야 매칭되도록
                                         .operator(Operator.And)
                                 ));
 
-                // ★ 정렬 기준
-                if (sort != null) {
-                    switch (sort) {
-                        case LOW_PRICE -> s.sort(so -> so
-                                .field(f -> f.field("price").order(SortOrder.Asc)));
+                        // --- 정렬 조건 ---
+                        if (sort != null) {
+                            switch (sort) {
+                                case LOW_PRICE -> s.sort(so -> so
+                                        .field(f -> f.field("price").order(SortOrder.Asc)));
 
-                        case HIGH_PRICE -> s.sort(so -> so
-                                .field(f -> f.field("price").order(SortOrder.Desc)));
+                                case HIGH_PRICE -> s.sort(so -> so
+                                        .field(f -> f.field("price").order(SortOrder.Desc)));
 
-                        case RATING -> s.sort(so -> so
-                                .field(f -> f.field("avgRating").order(SortOrder.Desc)));
+                                case RATING -> s.sort(so -> so
+                                        .field(f -> f.field("avgRating").order(SortOrder.Desc)));
 
-                        case REVIEW -> s.sort(so -> so
-                                .field(f -> f.field("reviewCount").order(SortOrder.Desc)));
+                                case REVIEW -> s.sort(so -> so
+                                        .field(f -> f.field("reviewCount").order(SortOrder.Desc)));
 
-                        case NEW -> s.sort(so -> so
-                                .field(f -> f.field("publishedDate").order(SortOrder.Desc)));
+                                case NEW -> s.sort(so -> so
+                                        .field(f -> f.field("publishedDate").order(SortOrder.Desc)));
 
-                        case POPULAR -> {
-                            // POPULAR / 기본: score(관련도) 순으로만 정렬
-                            // → 추가 sort 설정 안 함
+                                case POPULAR -> { /* score 기본 */ }
+                                default -> { /* score 기본 */ }
+                            }
                         }
-
-                        default -> {
-                            // 혹시 null 등 예외값이 들어오면 score 순
-                        }
-                    }
-                }
 
                         return s;
                     },
                     Map.class
             );
 
-            // totalHits 계산
-            long totalHits;
-            if (response.hits().total() != null) {
-                totalHits = response.hits().total().value();
-            } else {
-                totalHits = response.hits().hits().size();
-            }
+            // 검색 결과 수
+            long totalHits =
+                    response.hits().total() != null
+                            ? response.hits().total().value()
+                            : response.hits().hits().size();
 
             // Map → BookResponse 변환
             List<BookResponse> books = response.hits().hits().stream()
@@ -118,36 +115,28 @@ public class ElasticService implements ElasticRepository {
         }
     }
 
+
+    /**
+     * ============================================
+     * ES _source → BookResponse 변환
+     *  (프론트 카드 UI에서 사용하는 필드만 정확히 매핑)
+     * ============================================
+     */
     private BookResponse toBookResponse(Map<String, Object> source) {
-        if (source == null) {
-            return null;
-        }
+        if (source == null) return null;
 
+        // ID
         Long id = null;
-        if (source.get("id") instanceof Number nId) {
+        Object idObj = source.get("id") != null ? source.get("id") : source.get("bookId");
+        if (idObj instanceof Number nId) {
             id = nId.longValue();
-        } else if (source.get("bookId") instanceof Number nBookId) {
-            id = nBookId.longValue();
         }
 
+        // 문자열 필드
         String title = (String) source.get("title");
         String author = (String) source.get("author");
         String isbn = (String) source.get("isbn");
-
-        Integer price = null;
-        Object priceObj = source.get("price");
-        if (priceObj instanceof Number nPrice) {
-            price = nPrice.intValue();
-        }
-
         String image = (String) source.get("image");
-
-        Integer categoryId = null;
-        Object catObj = source.get("categoryId");
-        if (catObj instanceof Number nCat) {
-            categoryId = nCat.intValue();
-        }
-
         String content = (String) source.get("content");
         String publisher = (String) source.get("publisher");
 
@@ -156,17 +145,29 @@ public class ElasticService implements ElasticRepository {
             publishedDate = source.get("publishedDate").toString();
         }
 
+        // 숫자 필드
+        Integer price = null;
+        if (source.get("price") instanceof Number nPrice) {
+            price = nPrice.intValue();
+        }
+
+        Integer categoryId = null;
+        if (source.get("categoryId") instanceof Number nCat) {
+            categoryId = nCat.intValue();
+        }
+
         Double avgRating = null;
-        Object avgObj = source.get("avgRating");
-        if (avgObj instanceof Number nAvg) {
+        if (source.get("avgRating") instanceof Number nAvg) {
             avgRating = nAvg.doubleValue();
         }
 
         Long reviewCount = 0L;
-        Object revObj = source.get("reviewCount");
-        if (revObj instanceof Number nRev) {
+        if (source.get("reviewCount") instanceof Number nRev) {
             reviewCount = nRev.longValue();
         }
+
+        // ⭐ 일반 검색이므로 aiSummary = null
+        String aiSummary = null;
 
         return new BookResponse(
                 id,
@@ -180,11 +181,17 @@ public class ElasticService implements ElasticRepository {
                 publisher,
                 publishedDate,
                 avgRating,
-                reviewCount
+                reviewCount,
+                aiSummary
         );
     }
 
 
+    /**
+     * ===================================
+     * saveAll → book_index 초기 인덱싱
+     * ===================================
+     */
     @Override
     public void saveAll(List<BookResponse> books) {
         if (books == null || books.isEmpty()) {
@@ -195,14 +202,13 @@ public class ElasticService implements ElasticRepository {
             BulkRequest.Builder bulkBuilder = new BulkRequest.Builder();
 
             for (BookResponse book : books) {
-                if (book == null || book.id() == null) {
-                    continue;
-                }
+                if (book == null || book.bookId() == null) continue;
 
+                // ES 문서로 그대로 BookResponse를 저장
                 bulkBuilder.operations(op -> op
                         .index(idx -> idx
                                 .index(INDEX)
-                                .id(book.id().toString())
+                                .id(book.bookId().toString())
                                 .document(book)
                         )
                 );
@@ -211,7 +217,6 @@ public class ElasticService implements ElasticRepository {
             BulkResponse response = client.bulk(bulkBuilder.build());
 
             if (response.errors()) {
-                // 개별 실패 건 로깅
                 response.items().forEach(item -> {
                     if (item.error() != null) {
                         System.err.println("ES bulk 인덱싱 실패 - id=" +

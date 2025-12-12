@@ -50,7 +50,7 @@ public interface bookSwagger{
     })
 
     @GetMapping("/{id}")
-    public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId);
+    public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId,@RequestHeader("X-User-Id") Long memberId);
 
     // 책 한권 수정
     @Operation(summary = "관리자 도서 수정",description = "도서를 조회합니다.")
