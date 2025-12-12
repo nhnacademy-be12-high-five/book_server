@@ -7,14 +7,15 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.http.urlconnection.UrlConnectionHttpClient;
 
 import java.net.URI;
 
 @Configuration
-public class S3Config {
+public class MinioConfig {
 
     @Value("${minio.url}")
-    private String url;
+    private String minioUrl;
 
     @Value("${minio.access-key}")
     private String accessKey;
@@ -25,14 +26,12 @@ public class S3Config {
     @Bean
     public S3Client s3Client() {
         return S3Client.builder()
-                .endpointOverride(URI.create(url))
+                .endpointOverride(URI.create(minioUrl))
                 .region(Region.US_EAST_1)
-                .credentialsProvider(
-                        StaticCredentialsProvider.create(
-                                AwsBasicCredentials.create(accessKey, secretKey)
-                        )
-                )
                 .forcePathStyle(true)
+                .credentialsProvider(StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(accessKey, secretKey)))
+                .httpClient(UrlConnectionHttpClient.builder().build())
                 .build();
     }
 }

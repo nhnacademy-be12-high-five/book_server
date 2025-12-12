@@ -4,6 +4,7 @@ import com.nhnacademy.book_server.entity.AladinItem;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.dto.response.AladinSearchResponse;
+import com.nhnacademy.book_server.service.MinioImageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +25,7 @@ public class AladinServiceImpl implements AladinService {
 
     private final RestTemplate restTemplate;
     private final BookRepository bookRepository; // Repository 필수 사용
+    private final MinioImageService minioImageService;
 
     @Value("${aladin.ttb-key}")
     private String ttbKey;
@@ -94,6 +96,8 @@ public class AladinServiceImpl implements AladinService {
             return null;
         }
 
+        String finalUrl = minioImageService.uploadImageFromUrl(item.getLink(), item.getIsbn13());
+
         // Builder를 사용하여 Book 객체 생성
         Book book = Book.builder()
                 .isbn13(item.getIsbn13())
@@ -101,7 +105,7 @@ public class AladinServiceImpl implements AladinService {
                 .price(item.getPriceStandard()) // 정가
                 .publishedDate(item.getPubDate()) // String -> String 매핑
                 .content(item.getDescription() != null ? item.getDescription() : "") // null 방지
-                .image(item.getLink()) // 링크나 이미지 URL 매핑
+                .image(finalUrl) // 링크나 이미지 URL 매핑
                 // .dateTime(LocalDate.parse(item.getPubDate(), DateTimeFormatter.ofPattern("yyyy-MM-dd"))) // 날짜 변환 필요시
 
                 // ⚠️ 주의: 연관 관계 매핑

@@ -202,13 +202,13 @@ public class ElasticService implements ElasticRepository {
             BulkRequest.Builder bulkBuilder = new BulkRequest.Builder();
 
             for (BookResponse book : books) {
-                if (book == null || book.id() == null) continue;
+                if (book == null || book.bookId() == null) continue;
 
                 // ES 문서로 그대로 BookResponse를 저장
                 bulkBuilder.operations(op -> op
                         .index(idx -> idx
                                 .index(INDEX)
-                                .id(book.id().toString())
+                                .id(book.bookId().toString())
                                 .document(book)
                         )
                 );

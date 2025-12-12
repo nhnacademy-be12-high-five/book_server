@@ -22,13 +22,13 @@ Content-Type: application/json
 X-USER-ID: 1
 
 {
-  "id": 2,
+  "id": 4,
   "isbn": "978-8960773400",
   "title": "예시 책 제목",
   "publisher": "예시 출판사",
   "pubDate": "2024-01-01",
   "price": 25000,
-  "imageUrl": "http://example.com/image.jpg",
+  "imageUrl": "https://image.aladin.co.kr/product/28415/8/cover/k652835115_1.jpg",
   "description": "이 책은 예시를 위한 책입니다.",
   "publishedDate": "2020-12-12",
   "authors": [

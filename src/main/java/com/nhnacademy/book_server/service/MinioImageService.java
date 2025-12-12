@@ -4,12 +4,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.*;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -29,6 +33,59 @@ public class MinioImageService {
 
     @Value("${minio.url}") // yml에서 도메인 주입 받음
     private String minioUrl;
+
+    @Value("${minio.default-image-url}")
+    private String defaultImageUrl;
+
+    public String uploadImageFromUrl(String imageUrl, String isbn) {
+        // 1. 애초에 주소가 없으면 -> 기본 이미지 반환
+        if (!StringUtils.hasText(imageUrl)) {
+            return defaultImageUrl;
+        }
+
+        try {
+            URL url = new URL(imageUrl);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0...");
+            connection.setConnectTimeout(5000);
+            connection.setReadTimeout(5000);
+
+            int responseCode = connection.getResponseCode();
+
+            // 2. 접속했는데 404(없음)나 500(에러)이면 -> 기본 이미지 반환
+            if (responseCode != 200) {
+                log.warn("이미지 없음 (HTTP {}): {} -> 기본 이미지로 대체", responseCode, imageUrl);
+                return defaultImageUrl;
+            }
+
+            try (InputStream inputStream = connection.getInputStream()) {
+                byte[] imageBytes = inputStream.readAllBytes();
+
+                // 파일명: ISBN.확장자 (중복 방지)
+                String ext = imageUrl.substring(imageUrl.lastIndexOf(".") + 1);
+                if (ext.length() > 4 || !ext.matches("^[a-zA-Z0-9]*$")) ext = "jpg";
+
+                String storedFileName = isbn.trim() + "." + ext;
+
+                PutObjectRequest request = PutObjectRequest.builder()
+                        .bucket(bucketName)
+                        .key(storedFileName)
+                        .contentType("image/jpeg") // 혹은 유동적으로 설정
+                        .build();
+
+                s3Client.putObject(request, RequestBody.fromBytes(imageBytes));
+
+                return String.format("%s/%s/%s", minioUrl, bucketName, storedFileName);
+            }
+
+        } catch (Exception e) {
+            // 3. 타임아웃, 연결 끊김 등 에러 발생 시 -> 기본 이미지 반환
+            log.warn("이미지 업로드 실패: {} (원인: {}) -> 기본 이미지로 대체", imageUrl, e.getMessage());
+            return defaultImageUrl;
+        }
+    }
+
 
     public String uploadImage(MultipartFile file) {
         try {

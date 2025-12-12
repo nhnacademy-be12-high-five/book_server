@@ -21,7 +21,6 @@ public class ReviewImage {
 
     private String fileName;
 
-    @NotNull
     @CreationTimestamp
     private Timestamp createdAt;
 

@@ -15,7 +15,6 @@ import java.util.List;
 
 @Tag(name = "검색 로그", description = "인기 검색어 조회 API")
 @RestController
-@RequestMapping("/api/search")
 @RequiredArgsConstructor
 public class SearchLogController {
 
