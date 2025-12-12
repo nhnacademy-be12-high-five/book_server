@@ -47,12 +47,11 @@ public class BookService {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
-
-    @PostConstruct
-    public void initObjectMapper() {
-        objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-    }
+//    @PostConstruct
+//    public void initObjectMapper() {
+//        objectMapper.registerModule(new JavaTimeModule());
+//        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+//    }
 
     public Book createBook(ParsingDto dto){
         if (bookRepository.existsByIsbn13(dto.getIsbn())) {

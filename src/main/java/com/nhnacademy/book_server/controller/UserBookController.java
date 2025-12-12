@@ -40,7 +40,7 @@ public class UserBookController implements UserBookSwagger {
 
     @Override
     @GetMapping("/books/{id}")
-    public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId,@RequestHeader("X-USER-ID") Long memberId) {
+    public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId,@RequestHeader(value = "X-USER-ID",required = false) Long memberId) {
         // [수정 2] Service가 이미 DTO를 반환하므로 .map() 제거
         // 앞서 BookService.findBookById를 BookResponse 반환으로 수정했기 때문입니다.
         try {
