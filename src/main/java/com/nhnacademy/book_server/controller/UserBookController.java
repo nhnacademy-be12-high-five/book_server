@@ -79,12 +79,9 @@ public class UserBookController implements UserBookSwagger {
         return ResponseEntity.ok(books);
     }
 
-    // todo 테스트
-
-    // 개발용: 강제로 주간 랭킹 집계 실행
-    @GetMapping("/test/update-ranking")
-    public ResponseEntity<String> forceUpdateRanking() {
-        bookService.updateWeeklyRanking();
-        return ResponseEntity.ok("주간 랭킹 집계 완료!");
-    }
+//    @PostMapping("/books/Wrapper")
+//    public ResponseEntity<Boolean> getWrapper(@PathVariable("book-Id") Long bookId){
+//        Boolean boo=bookService.getWrapper(bookId);
+//        return ResponseEntity.ok(boo);
+//    }
 }

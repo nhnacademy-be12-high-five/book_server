@@ -18,6 +18,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.iterators.CartesianProductIterator;
 import org.springframework.cglib.core.Local;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +28,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -393,4 +395,30 @@ public class BookService {
 
         return responses; // 데이터 반환
     }
+
+
+//    // 포장 여부
+//    public Boolean getWrapper(Long bookId) {
+//        // 1. 책 조회 (없으면 예외 발생)
+//        Book book = bookRepository.findById(bookId)
+//                .orElseThrow(() -> new IllegalArgumentException("책 번호가 없습니다."));
+//
+//        // 2. 책 엔티티의 포장 가능 여부 필드를 반환 (필드명이 wrapper라고 가정)
+//        // [중요] Book 엔티티에 getter 메서드가 있어야 합니다 (예: isWrapper() 또는 getWrapper())
+//        return book.isWrapper();
+//    }
+//
+//    // 단순히 true/false가 아니라, 포장 가격을 반환하도록 변경
+//    public Integer getWrapperCost(Long bookId) {
+//        Book book = bookRepository.findById(bookId)
+//                .orElseThrow(() -> new IllegalArgumentException("책이 없습니다."));
+//
+//        // 포장이 안 되는 책이면 0원 반환
+//        if (!book.isWrapper()) {
+//            return 0;
+//        }
+//
+//        // 포장이 되면 포장 가격 반환 (예: 500원)
+//        return book.getWrapperCost();
+//    }
 }

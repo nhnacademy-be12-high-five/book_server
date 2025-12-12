@@ -128,4 +128,5 @@ public class Book {
 
     // 포장 가격 = 500원
     private int WrapperCost;
+
 }
