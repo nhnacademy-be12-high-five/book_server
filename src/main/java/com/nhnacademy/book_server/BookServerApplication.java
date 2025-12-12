@@ -24,6 +24,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class BookServerApplication {
 
 	public static void main(String[] args) {
+
 		SpringApplication.run(BookServerApplication.class, args);
 	}
 }

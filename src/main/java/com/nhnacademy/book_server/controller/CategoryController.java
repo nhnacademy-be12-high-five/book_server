@@ -20,7 +20,6 @@ public class CategoryController implements CategorySwagger {
 
     private final CategoryService categoryService;
 
-
     @Override
     @GetMapping("/parent")
     public ResponseEntity<List<CategoryResponse>> getParents() {
@@ -38,6 +37,4 @@ public class CategoryController implements CategorySwagger {
     public ResponseEntity<List<BookResponse>> getBooksByCategory(@PathVariable int categoryId) {
         return ResponseEntity.ok(categoryService.getBooksByCategory(categoryId));
     }
-
-
 }

@@ -3,7 +3,6 @@ package com.nhnacademy.book_server.controller;
 import com.nhnacademy.book_server.controller.swagger.SearchSwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.BookSortType;
-import com.nhnacademy.book_server.service.read.BookReadService;
 import com.nhnacademy.book_server.service.search.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
