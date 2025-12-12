@@ -49,7 +49,7 @@ public class ReviewController {
     // 책 리뷰들 페이지에서 보여줄 나의 리뷰 단건 조회
     @GetMapping("/{book-id}/reviews/me")
     public ResponseEntity<BookReviewResponse> getMyReview(@PathVariable("book-id") Long bookId,
-                                                          @RequestHeader("x-user-id") Long memberId) {
+                                                          @RequestHeader(value = "x-user-id") Long memberId) {
         BookReviewResponse response = reviewService.getMyReview(bookId, memberId);
         if (response == null) {
             return ResponseEntity.noContent().build();
