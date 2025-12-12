@@ -46,7 +46,7 @@ public class SearchController implements SearchSwagger {
     }
 
     /**
-     * 전체 도서를 ES 에 다시 색인 (book_index + emb-high-five)
+     * 전체 도서를 ES 에 다시 색인 (high-five + emb-high-five)
      * POST /api/search/reindex
      */
     @PostMapping("/reindex")

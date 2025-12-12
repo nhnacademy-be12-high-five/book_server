@@ -35,13 +35,15 @@ public class CategoryService {
 
     // 카테고리별 도서 조회
     public List<BookResponse> getBooksByCategory(int categoryID) {
-        Category category = categoryRepository.findById(categoryID)
-                .orElseThrow();
-
-        return bookCategoryRepository.findByCategory(category)
-                .stream()
-                .map(BookCategory::getBook)
-                .map(book -> BookResponse.from(book, category))
-                .toList();
+        return categoryRepository.findById(categoryID)
+                .map(category ->
+                        bookCategoryRepository.findByCategory(category)
+                                .stream()
+                                .map(BookCategory::getBook)
+                                .map(book -> BookResponse.from(book, category))
+                                .toList()
+                )
+                .orElse(List.of());  // 카테고리가 없으면 빈 리스트
     }
+
 }

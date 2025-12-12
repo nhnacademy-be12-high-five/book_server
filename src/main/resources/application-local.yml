@@ -64,6 +64,7 @@ management:
 
 minio:
   url: "http://storage.java21.net:8000"
+  default-image-url: https://example.com/default-image.jpg
   access-key: "iiRcN2oAPop4ezp3ZvmR"
   secret-key: "2wVro40kcE1s3w8kAOpc1uTyCwYKBV7LSraiKAuD"
   bucket-name: hi-five-bucket

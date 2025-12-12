@@ -234,7 +234,7 @@ public class RagSearchService implements RagSearchable {
 
                         // 4-3. ES에 저장할 문서 구성
                         Map<String, Object> document = new HashMap<>();
-                        document.put("bookId", bookResponse.id());
+                        document.put("bookId", bookResponse.bookId());
                         document.put("title", bookResponse.title());
                         document.put("author", bookResponse.author());
                         document.put("isbn", bookResponse.isbn());
@@ -256,7 +256,7 @@ public class RagSearchService implements RagSearchable {
                                 co.elastic.clients.elasticsearch.core.bulk.BulkOperation.of(o -> o
                                         .index(i -> i
                                                 .index(INDEX)
-                                                .id(String.valueOf(bookResponse.id()))
+                                                .id(String.valueOf(bookResponse.bookId()))
                                                 .document(document)
                                         )
                                 );
