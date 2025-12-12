@@ -23,7 +23,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ElasticService implements ElasticRepository {
 
-    private static final String INDEX = "book_index";
+    private static final String INDEX = "high-five";
 
     private final ElasticsearchClient client;
     private final GeminiTextClientService geminiTextClientService;

@@ -5,28 +5,42 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.SearchResult;
-import com.nhnacademy.book_server.service.read.BookReadService;
+import com.nhnacademy.book_server.entity.Book;
+import com.nhnacademy.book_server.entity.Review;
+import com.nhnacademy.book_server.repository.BookRepository;
+import com.nhnacademy.book_server.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class RagSearchService implements RagSearchable {
 
-    private static final String INDEX = "book_embedding_index";
+    //  RAG용 임베딩 인덱스 이름
+    // 필요시 "high-five-embedding" 등으로 변경
+    private static final String INDEX = "em-high-five";
+
+    //  DB에서 읽어올 도서 페이지 크기 (일반 리인덱스와 맞추고 싶으면 1000 사용)
+    private static final int PAGE_SIZE = 1000;
 
     private final ElasticsearchClient client;
     private final EmbeddingClientService embeddingClientService;
-    private final BookReadService bookReadService;
 
+    //  RAG 재색인을 위해 직접 Book / Review를 주입받아 사용
+    private final BookRepository bookRepository;
+    private final ReviewRepository reviewRepository;
+
+    // =========================
+    // 1. RAG 검색 (기존 그대로)
+    // =========================
     @Override
     public SearchResult<BookResponse> searchByRag(String keyword, int page, int size) {
         // 1. 키워드 검증
@@ -36,7 +50,7 @@ public class RagSearchService implements RagSearchable {
         }
 
         try {
-            // 2. 쿼리 벡터 생성 (Gemini 임베딩)
+            // 2. 쿼리 벡터 생성 (임베딩)
             List<Float> queryVector = embeddingClientService.embed(keyword);
 
             if (queryVector == null || queryVector.isEmpty()) {
@@ -44,14 +58,14 @@ public class RagSearchService implements RagSearchable {
                 return new SearchResult<>(List.of(), 0L);
             }
 
-            int topK = size;              // 우선 페이지 size만큼
-            int numCandidates = topK * 3; // 후보는 넉넉하게
+            int topK = size;
+            int numCandidates = topK * 3;
 
             // 3. KNN 검색 실행
             SearchResponse<Map> response = client.search(
                     s -> s.index(INDEX)
                             .knn(knn -> knn
-                                    .field("embedding")          // ES dense_vector 필드명
+                                    .field("embedding")
                                     .queryVector(queryVector)
                                     .k(topK)
                                     .numCandidates(numCandidates)
@@ -69,9 +83,7 @@ public class RagSearchService implements RagSearchable {
                 totalHits = response.hits().hits().size();
             }
 
-            // TODO: 필요 시 hit.score()를 활용한 유사도 threshold 적용 가능
-
-            // 5. hit → BookResponse 변환
+            // 5. hit → BookResponse 매핑
             List<BookResponse> books = response.hits().hits().stream()
                     .map(Hit::source)
                     .filter(Objects::nonNull)
@@ -82,14 +94,12 @@ public class RagSearchService implements RagSearchable {
 
         } catch (Exception exception) {
             log.error("RAG 검색 중 예외 발생 keyword={}", keyword, exception);
-            // 500으로 올리지 말고, 일단 빈 결과 반환
             return new SearchResult<>(List.of(), 0L);
         }
     }
 
     /**
      * ES _source -> BookResponse 매핑
-     * (book_embedding_index 에 저장해 둔 필드 기준)
      */
     private BookResponse toBookResponse(Map<String, Object> source) {
         if (source == null) {
@@ -102,7 +112,6 @@ public class RagSearchService implements RagSearchable {
         } else if (source.get("bookId") != null) {
             bookId = ((Number) source.get("bookId")).longValue();
         }
-        //id: 기존 es에 저장된 문서 , bookId: 새로 저장하는문서 (리팩토링하면서 분화됨)
 
         String title = (String) source.get("title");
         String author = (String) source.get("author");
@@ -138,7 +147,6 @@ public class RagSearchService implements RagSearchable {
             reviewCount = ((Number) source.get("reviewCount")).longValue();
         }
 
-        // 🔹 ES에 저장된 AI 요약(없으면 null)
         String aiSummary = (String) source.get("aiSummary");
 
         return new BookResponse(
@@ -158,78 +166,126 @@ public class RagSearchService implements RagSearchable {
         );
     }
 
-    /**
-     * 전체 도서를 읽어서 book_embedding_index 에
-     * 임베딩 + 메타데이터 + 간단 요약(aiSummary)까지 인덱싱
-     */
+    // =========================
+    // 2. RAG 재색인 (개선 버전)
+    // =========================
     @Override
     @Transactional(readOnly = true)
     public void reindexBooks() {
         log.info("RAG reindex 시작 - {} 전체 재색인", INDEX);
 
         try {
-            // 2. 전체 도서 목록 조회
-            List<BookResponse> books = bookReadService.findAllBooks();
-            if (books == null || books.isEmpty()) {
-                log.warn("RAG reindex: 인덱싱할 도서가 없습니다.");
-                return;
-            }
+            int pageNumber = 0;
+            long totalIndexed = 0;
 
-            log.info("RAG reindex: 총 {}권 도서 임베딩 및 인덱싱 시작", books.size());
+            while (true) {
+                PageRequest pageRequest = PageRequest.of(pageNumber, PAGE_SIZE);
+                Page<Book> bookPage = bookRepository.findAll(pageRequest);
+                List<Book> books = bookPage.getContent();
 
-            // 3. 각 도서별로 임베딩 생성 + 인덱싱
-            for (BookResponse book : books) {
-                try {
-                    // 3-1. 임베딩 생성에 사용할 텍스트 구성
-                    String embeddingText = buildEmbeddingText(book);
-
-                    // 3-2. 임베딩 벡터 생성
-                    List<Float> embeddingVector = embeddingClientService.embed(embeddingText);
-
-                    if (embeddingVector == null || embeddingVector.isEmpty()) {
-                        log.warn("RAG reindex: 임베딩 생성 실패, 도서 건너뜀 bookId={}", book.bookId());
-                        continue;
-                    }
-
-                    if (embeddingVector.size() != 768) { // 필요 시 설정값으로 변경 가능
-                        log.warn("RAG reindex: 임베딩 차원 불일치, 도서 건너뜀 bookId={} expected=768 actual={}",
-                                book.bookId(), embeddingVector.size());
-                        continue;
-                    }
-
-                    // 3-3. ES에 저장할 문서 구성
-                    Map<String, Object> document = new HashMap<>();
-                    document.put("bookId", book.bookId());
-                    document.put("title", book.title());
-                    document.put("author", book.author());
-                    document.put("isbn", book.isbn());
-                    document.put("price", book.price());
-                    document.put("image", book.image());
-                    document.put("categoryId", book.categoryId());
-                    document.put("content", book.content());
-                    document.put("publisher", book.publisher());
-                    document.put("publishedDate", book.publishedDate());
-                    document.put("avgRating", book.avgRating());
-                    document.put("reviewCount", book.reviewCount());
-                    document.put("embedding", embeddingVector);
-
-                    // 🔹 간단한 요약을 미리 만들어 ES에 같이 저장 (프론트에서 book.aiSummary 로 사용)
-                    String aiSummary = buildSimpleSummary(book);
-                    document.put("aiSummary", aiSummary);
-
-                    // 3-4. ES 인덱스에 도큐먼트 저장
-                    client.index(i -> i
-                            .index(INDEX)
-                            .id(String.valueOf(book.bookId()))
-                            .document(document)
-                    );
-
-                } catch (Exception exception) {
-                    log.error("RAG reindex: 개별 도서 인덱싱 실패 bookId={}", book.bookId(), exception);
+                if (books.isEmpty()) {
+                    log.info("RAG reindex: 더 이상 인덱싱할 도서가 없습니다. 종료.");
+                    break;
                 }
+
+                // 1) 현재 페이지 도서 ID 목록
+                List<Long> bookIds = books.stream()
+                        .map(Book::getId)
+                        .toList();
+
+                // 2) 해당 도서들의 리뷰를 한 번에 조회
+                List<Review> allReviews = reviewRepository.findByBookIdIn(bookIds);
+
+                // 3) bookId -> 리뷰 목록 매핑
+                Map<Long, List<Review>> reviewMap = allReviews.stream()
+                        .collect(Collectors.groupingBy(review -> review.getBook().getId()));
+
+                // 4) BulkOperation 리스트
+                List<co.elastic.clients.elasticsearch.core.bulk.BulkOperation> operations =
+                        new ArrayList<>();
+
+                for (Book book : books) {
+                    try {
+                        List<Review> reviewsForBook =
+                                reviewMap.getOrDefault(book.getId(), List.of());
+
+                        // Book + Review → BookResponse (카테고리는 null)
+                        BookResponse bookResponse =
+                                BookResponse.from(book, null, reviewsForBook);
+
+                        // 4-1. 임베딩용 텍스트 구성
+                        String embeddingText = buildEmbeddingText(bookResponse);
+
+                        // 4-2. 임베딩 생성
+                        List<Float> embeddingVector =
+                                embeddingClientService.embed(embeddingText);
+
+                        if (embeddingVector == null || embeddingVector.isEmpty()) {
+                            log.warn("RAG reindex: 임베딩 생성 실패, 도서 건너뜀 bookId={}", book.getId());
+                            continue;
+                        }
+
+                        // 필요 시 차원 체크 (예: 768, 1024 등)
+                        if (embeddingVector.size() != 768) {
+                            log.warn("RAG reindex: 임베딩 차원 불일치, 도서 건너뜀 bookId={} expected=768 actual={}",
+                                    book.getId(), embeddingVector.size());
+                            continue;
+                        }
+
+                        // 4-3. ES에 저장할 문서 구성
+                        Map<String, Object> document = new HashMap<>();
+                        document.put("bookId", bookResponse.id());
+                        document.put("title", bookResponse.title());
+                        document.put("author", bookResponse.author());
+                        document.put("isbn", bookResponse.isbn());
+                        document.put("price", bookResponse.price());
+                        document.put("image", bookResponse.image());
+                        document.put("categoryId", bookResponse.categoryId());
+                        document.put("content", bookResponse.content());
+                        document.put("publisher", bookResponse.publisher());
+                        document.put("publishedDate", bookResponse.publishedDate());
+                        document.put("avgRating", bookResponse.avgRating());
+                        document.put("reviewCount", bookResponse.reviewCount());
+                        document.put("embedding", embeddingVector);
+
+                        String aiSummary = buildSimpleSummary(bookResponse);
+                        document.put("aiSummary", aiSummary);
+
+                        // 4-4. BulkOperation 생성
+                        co.elastic.clients.elasticsearch.core.bulk.BulkOperation op =
+                                co.elastic.clients.elasticsearch.core.bulk.BulkOperation.of(o -> o
+                                        .index(i -> i
+                                                .index(INDEX)
+                                                .id(String.valueOf(bookResponse.id()))
+                                                .document(document)
+                                        )
+                                );
+                        operations.add(op);
+
+                    } catch (Exception e) {
+                        log.error("RAG reindex: 개별 도서 인덱싱 실패 bookId={}", book.getId(), e);
+                    }
+                }
+
+                // 5) 현재 페이지 bulk 인덱싱 실행
+                if (!operations.isEmpty()) {
+                    client.bulk(b -> b
+                            .index(INDEX)
+                            .operations(operations)
+                    );
+                }
+
+                totalIndexed += books.size();
+                log.info("RAG reindex 진행 상황: page={} ({}권 처리 누적 {}권)",
+                        pageNumber, books.size(), totalIndexed);
+
+                if (!bookPage.hasNext()) {
+                    break;
+                }
+                pageNumber++;
             }
 
-            log.info("RAG reindex 완료 - {} 인덱싱 종료", INDEX);
+            log.info("RAG reindex 완료 - {} 인덱싱 종료 (총 {}권)", INDEX, totalIndexed);
 
         } catch (Exception exception) {
             log.error("RAG reindex 중 예외 발생", exception);
@@ -238,7 +294,6 @@ public class RagSearchService implements RagSearchable {
 
     /**
      * 임베딩용 텍스트 구성
-     * (제목 + 저자 + 출판사 + 내용)
      */
     private String buildEmbeddingText(BookResponse book) {
         StringBuilder builder = new StringBuilder();
@@ -261,14 +316,11 @@ public class RagSearchService implements RagSearchable {
 
     /**
      * 프론트에 보여줄 간단 요약용 문자열
-     * (나중에 LLM으로 대체 가능)
      */
     private String buildSimpleSummary(BookResponse book) {
-        // 제목 + 내용 앞부분만 잘라서 요약 형식으로 생성
         String title = book.title() != null ? book.title() : "";
         String content = book.content() != null ? book.content() : "";
 
-        // 너무 길면 잘라주기
         String trimmedContent = content.length() > 220
                 ? content.substring(0, 220) + "..."
                 : content;
@@ -279,5 +331,4 @@ public class RagSearchService implements RagSearchable {
 
         return "『" + title + "』 " + trimmedContent;
     }
-
 }

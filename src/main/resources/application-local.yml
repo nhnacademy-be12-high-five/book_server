@@ -25,7 +25,7 @@ spring:
 
   datasource:
     # 예시: MySQL 연결 설정
-    url: jdbc:mysql://10.116.64.14:13306/project_be12_team5?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&rewriteBatchedStatements=true
+    url: jdbc:mysql://220.67.216.14:13306/project_be12_team5?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&rewriteBatchedStatements=true
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: project_be12_team5      # 실제 DB 아이디
     password: KFYUERgqkPF!r6    # 실제 DB 비밀번호
@@ -41,7 +41,7 @@ spring:
     open-in-view: false
 
   rabbitmq:
-    host: localhost
+    host: s4.java21.net
     port: 5672
     username: admin
     password: nhnacademy123!
@@ -49,9 +49,10 @@ spring:
 # 2. Eureka Client 끄기
 eureka:
   client:
-    enabled: false
-    register-with-eureka: false
-    fetch-registry: false
+    service-url:
+      defaultZone: http://localhost:8761/eureka/ # 유레카 서버 주소 필수
+    register-with-eureka: true # 유레카에 등록하겠다는 설정 (기본값이 true지만 명시 확인)
+    fetch-registry: true
 
 management:
   health:
@@ -68,7 +69,7 @@ minio:
   bucket-name: hi-five-bucket
 
 elasticsearch:
-  host: localhost
+  host: s4.java21.net
   port: 9200
   username: elastic
   password: nhnacademy123!
@@ -81,7 +82,7 @@ springdoc:
 
 # RAG 벡터 검색을 위한 설정 추가
 rag:
-   index-name: book_embedding_index
+   index-name: emb-high-five
    dim: 768      # BGE-M3 모델 벡터 차원
    similarity: cosine
 
