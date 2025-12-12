@@ -114,9 +114,11 @@ public class BookService {
 
     // 책 한권 조회
     @Transactional(readOnly = true)
-    public BookResponse findBookById(Long id) {
+    public BookResponse findBookById(Long id,Long memberId) {
 
         // 1. [Redis Cache 확인]
+
+        incrementViewCount(id,memberId);
 
         // 조회 카운트를 위함
         String cacheKey = "book:detail:" + id;

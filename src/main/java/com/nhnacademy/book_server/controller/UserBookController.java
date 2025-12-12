@@ -44,7 +44,7 @@ public class UserBookController implements UserBookSwagger {
         // [수정 2] Service가 이미 DTO를 반환하므로 .map() 제거
         // 앞서 BookService.findBookById를 BookResponse 반환으로 수정했기 때문입니다.
         try {
-            BookResponse response = bookService.findBookById(bookId);
+            BookResponse response = bookService.findBookById(bookId,memberId);
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
