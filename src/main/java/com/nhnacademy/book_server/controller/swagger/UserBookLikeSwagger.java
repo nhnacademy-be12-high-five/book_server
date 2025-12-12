@@ -51,6 +51,7 @@ public interface UserBookLikeSwagger {
                             schema = @Schema(implementation = List.class))), // List<BookResponse>
             @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
     })
+
     @GetMapping("/api/my-page/likes") // GET 매핑 예시
     ResponseEntity<List<BookResponse>> getMyLikedBooks(
             @Parameter(description = "사용자 식별 ID (헤더)", required = true, hidden = true)
