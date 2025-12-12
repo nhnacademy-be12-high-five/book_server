@@ -39,8 +39,8 @@ public class UserBookController implements UserBookSwagger {
     // 도서 한 권 상세 조회 (GET /api/books/{bookId})
 
     @Override
-    @GetMapping("/books/{book-Id}")
-    public ResponseEntity<BookResponse> getBookById(@PathVariable("book-Id") Long bookId) {
+    @GetMapping("/books/{id}")
+    public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId,@RequestHeader("X-USER-ID") Long memberId) {
         // [수정 2] Service가 이미 DTO를 반환하므로 .map() 제거
         // 앞서 BookService.findBookById를 BookResponse 반환으로 수정했기 때문입니다.
         try {
@@ -54,7 +54,7 @@ public class UserBookController implements UserBookSwagger {
     // 사용자의 재고 조회
     // todo 재고 설정을 해야할것같은데
     @GetMapping("/books/{book-Id}/stock")
-    public ResponseEntity<Integer> getBookStock(@PathVariable Long bookId) {
+    public ResponseEntity<Integer> getBookStock(@PathVariable("book-Id") Long bookId) {
         // [수정 3] 비즈니스 로직을 Service로 이동
         // 컨트롤러는 "요청 받고 응답 주는" 역할만 해야 합니다.
         int stock = bookService.getBookStock(bookId);
@@ -71,5 +71,20 @@ public class UserBookController implements UserBookSwagger {
     public ResponseEntity<List<BookResponse>> getNewBooks() {
         List<BookResponse> books = bookService.getNewBooks();
         return ResponseEntity.ok(books);
+    }
+
+    @GetMapping("/books/popular")
+    public ResponseEntity<List<BookResponse>> getWeeklyPopular(){
+        List<BookResponse> books = bookService.getWeeklyPopularBooks();
+        return ResponseEntity.ok(books);
+    }
+
+    // todo 테스트
+
+    // 개발용: 강제로 주간 랭킹 집계 실행
+    @GetMapping("/test/update-ranking")
+    public ResponseEntity<String> forceUpdateRanking() {
+        bookService.updateWeeklyRanking();
+        return ResponseEntity.ok("주간 랭킹 집계 완료!");
     }
 }
