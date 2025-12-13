@@ -88,4 +88,15 @@ public class UserBookController implements UserBookSwagger {
         bookService.updateWeeklyRanking();
         return ResponseEntity.ok("주간 랭킹 집계 완료!");
     }
+
+
+    // Order Server가 호출하는 api/books/{bookId}/stock/hold
+    @PostMapping("/books/{bookId}/stock/hold")
+    public ResponseEntity<Void> holdStock(@PathVariable Long bookId,
+                                          @RequestParam Integer quantity,
+                                          @RequestHeader("Idempotency-Key") String idempotencyKey) {
+        bookService.holdStock(bookId, quantity);
+
+        return ResponseEntity.ok().build();
+    }
 }
