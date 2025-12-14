@@ -81,9 +81,9 @@ public class AdminBookController implements bookSwagger{
 //
 //    // 책 한권 조회
     @GetMapping("/{id}")
-    public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId,  @RequestHeader("X-User-Id") Long memberId) {
+    public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId) {
         try {
-            BookResponse response = bookService.findBookById(bookId,memberId);
+            BookResponse response = bookService.findBookById(bookId);
             return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();

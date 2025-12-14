@@ -38,11 +38,11 @@ public interface UserBookLikeSwagger {
             @Parameter(description = "사용자 식별 ID (헤더)", required = true, hidden = true)
             @RequestHeader("X-USER-ID") Long memberId
     );
-
-    /**
-     * 2.  마이페이지 - 좋아요 누른 도서 목록 조회
-     * 사용자가 좋아요를 누른 도서들의 리스트를 페이징하여 반환합니다.
-     */
+//
+//    /**
+//     * 2.  마이페이지 - 좋아요 누른 도서 목록 조회
+//     * 사용자가 좋아요를 누른 도서들의 리스트를 페이징하여 반환합니다.
+//     */
 
     @Operation(summary = "내가 좋아요 누른 도서 목록 조회", description = "마이페이지에서 사용자가 좋아요를 누른 도서 리스트를 페이징하여 조회합니다.")
     @ApiResponses(value = {
@@ -52,7 +52,7 @@ public interface UserBookLikeSwagger {
             @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
     })
 
-    @GetMapping("/api/my-page/likes") // GET 매핑 예시
+    @GetMapping("/api/books/my-page/likes") // GET 매핑 예시
     ResponseEntity<List<BookResponse>> getMyLikedBooks(
             @Parameter(description = "사용자 식별 ID (헤더)", required = true, hidden = true)
             @RequestHeader("X-USER-ID") Long memberId,

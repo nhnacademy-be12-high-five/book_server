@@ -116,11 +116,11 @@ public class BookService {
 
     // 책 한권 조회
     @Transactional(readOnly = true)
-    public BookResponse findBookById(Long id,Long memberId) {
+    public BookResponse findBookById(Long id) {
 
         // 1. [Redis Cache 확인]
 
-        incrementViewCount(id,memberId);
+        incrementViewCount(id);
 
         // 조회 카운트를 위함
         String cacheKey = "book:detail:" + id;
@@ -251,16 +251,16 @@ public class BookService {
                 .orElse(0); // 책이 없으면 재고 0 처리
     }
 
-    public void incrementViewCount(Long bookId, Long memberId) {
+    public void incrementViewCount(Long bookId) {
 
-//        // Todo 비회원은 쿠키로 저장하는 로직으로 수정
-//        Cookie cookie=new Cookie();
+////        // Todo 비회원은 쿠키로 저장하는 로직으로 수정
+////        Cookie cookie=new Cookie();
+//
+//        if (memberId == null) {
+//            return;
+//        }
 
-        if (memberId == null) {
-            return;
-        }
-
-        String logKey = "view_log:" + memberId + ":" + bookId;
+        String logKey = "view_log:" + bookId;
 
         // B. 일간 랭킹 키: "daily_ranking:20241208" (날짜별로 점수 저장)
         String todayDate = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
