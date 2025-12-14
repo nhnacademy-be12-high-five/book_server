@@ -23,7 +23,7 @@ public class ElasticSearchConfig {
 
     @PostConstruct
     public void createBookIndex() throws Exception {
-        String index = "book_index";
+        String index = "high-five";
 
         try {
             // 1) 인덱스 존재 여부 확인
@@ -32,13 +32,13 @@ public class ElasticSearchConfig {
                     .value();
 
             if (exists) {
-            System.out.println("ES: book_index 이미 존재");
+            System.out.println("ES: high-five 이미 존재");
             return;
         }
 
         // [수정된 부분] ClassPathResource 사용
         // 경로는 "src/main/resources/" 를 빼고 그 뒷부분부터 적어야 합니다.
-        ClassPathResource resource = new ClassPathResource("Elastic/book_index.json");
+        ClassPathResource resource = new ClassPathResource("Elastic/high-five.json");
 
         // 파일을 InputStream으로 바로 가져옵니다. (String 변환 불필요)
         try (InputStream jsonStream = resource.getInputStream()) {
@@ -46,17 +46,17 @@ public class ElasticSearchConfig {
             // 인덱스 생성
             client.indices().create(c -> c.index(index).withJson(jsonStream));
 
-            System.out.println("ES: book_index 생성 완료");
+            System.out.println("ES: high-five 생성 완료");
         }
 
             if (exists) {
-                log.info("ES: book_index 이미 존재");
+                log.info("ES: high-five 이미 존재");
                 return;
             }
 
             // 2) Json 파일 읽기
             String mappingJson = Files.readString(
-                    Paths.get("src/main/resources/Elastic/book_index.json")
+                    Paths.get("src/main/resources/Elastic/high-five.json")
             );
 
             // 3) Json 문자열 -> InputStream 변환
@@ -66,7 +66,7 @@ public class ElasticSearchConfig {
             // 4) 인덱스 생성
             client.indices().create(c -> c.index(index).withJson(jsonStream));
 
-            log.info("ES: book_index 생성 완료");
+            log.info("ES: high-five 생성 완료");
 
         } catch (Exception e) {
             // 🔥 여기서 예외를 먹어버리기 때문에

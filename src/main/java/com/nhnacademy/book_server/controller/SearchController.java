@@ -46,7 +46,7 @@ public class SearchController implements SearchSwagger {
     }
 
     /**
-     * 전체 도서를 ES 에 다시 색인 (book_index + book_embedding_index)
+     * 전체 도서를 ES 에 다시 색인 (high-five + emb-high-five)
      * POST /api/search/reindex
      */
     @PostMapping("/reindex")
@@ -64,7 +64,7 @@ public class SearchController implements SearchSwagger {
     }
 
     /**
-     * RAG용 임베딩 인덱스(book_embedding_index) 재색인
+     * RAG용 임베딩 인덱스(emb-high-five) 재색인
      * → 비용이 크므로 일반 인덱스와 분리
      * POST /api/search/reindex-rag
      */
