@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Configuration;
 @Getter
 @Setter
 public class RagConfig {
-    private String indexName; //book_embedding_index
+    private String indexName; //emb-high-five
     private int dim; //1024
     private String similarity; //cosine
 }

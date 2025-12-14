@@ -71,7 +71,7 @@ public interface SearchSwagger {
     @Operation(
             summary = "도서 검색 인덱스 재구축",
             description = """
-                    DB/파싱된 도서 전체를 Elasticsearch book_index에 다시 색인합니다.
+                    DB/파싱된 도서 전체를 Elasticsearch high-five에 다시 색인합니다.
                     - CSV/알라딘 파서가 먼저 실행되어 DB에 도서가 들어가 있어야 합니다.
                     - 검색 가중치/정렬은 BookSearchServiceImpl에서 처리합니다.
                     """
