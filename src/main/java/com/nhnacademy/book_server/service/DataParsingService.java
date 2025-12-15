@@ -11,6 +11,7 @@ import com.nhnacademy.book_server.repository.PublisherRepository;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -41,6 +42,8 @@ public class DataParsingService {
 
     private static final int BATCH_SIZE = 1000;
 
+    @Value("${minio.default-image-url}")
+    private String defaultImageUrl;
 
     /**
      * 파싱된 데이터를 DB에 저장 (Insert + Update)
@@ -98,16 +101,18 @@ public class DataParsingService {
             log.info("🖼️ 이미지 업로드 시작 (배치 {} ~ {})...", i, end);
             batchDtos.parallelStream().forEach(dto -> {
                 try {
-                    // 원본 URL이 있고, 아직 MinIO URL로 안 바뀐 경우만 수행
-                    if (StringUtils.hasText(dto.getImageUrl()) && !dto.getImageUrl().contains("hi-five-bucket")) {
+                    if (StringUtils.hasText(dto.getImageUrl())) {
                         String newUrl = minioImageService.uploadImageFromUrl(dto.getImageUrl(), dto.getIsbn());
-                        dto.setImageUrl(newUrl); // DTO의 URL을 MinIO 주소로 교체
+                        dto.setImageUrl(newUrl);
+                    } else {
+                        dto.setImageUrl(defaultImageUrl);
                     }
                 } catch (Exception e) {
-                    log.warn("이미지 업로드 실패 (ISBN: {}): {}", dto.getIsbn(), e.getMessage());
-                    // 실패시 원본 URL 유지하거나 null 처리 (정책에 따라 결정)
+                    log.warn("이미지 처리 실패 (ISBN: {}): {}", dto.getIsbn(), e.getMessage());
+                    dto.setImageUrl(defaultImageUrl);
                 }
             });
+
             log.info("🖼️ 이미지 업로드 완료!");
 
 
@@ -188,7 +193,7 @@ public class DataParsingService {
                 String pubName = dto.getPublisher() != null ? dto.getPublisher().trim() : "";
                 Publisher pub = publisherMap.get(pubName);
 
-                String finalUrl = minioImageService.uploadImageFromUrl(dto.getImageUrl(), dto.getIsbn());
+                String finalUrl = convertToFrontendImageUrl(dto.getImageUrl());
 
                 ps.setString(1, dto.getIsbn().trim());
                 ps.setString(2, dto.getTitle());
@@ -203,7 +208,7 @@ public class DataParsingService {
 
                 ps.setInt(4, parsePrice(dto.getPrice()));
                 ps.setString(5, dto.getDescription());
-                ps.setString(6, finalUrl);
+                ps.setString(6, convertToFrontendImageUrl(dto.getImageUrl()));
                 ps.setString(7, parseDate(dto.getPubDate()).toString());
             }
 
@@ -388,4 +393,38 @@ public class DataParsingService {
         }
         log.info("🎉 모든 날짜 복구 작업 완료!");
     }
+
+    private String convertToFrontendImageUrl(String imageUrl) {
+        // 기본값이면서 null/blank이면 기본 이미지
+        if (!StringUtils.hasText(imageUrl)) {
+            return defaultImageUrl;
+        }
+
+        String trimmed = imageUrl.trim();
+
+        // 1. 외부 HTTPS 이미지는 그대로
+        if (trimmed.startsWith("https://")) {
+            return trimmed;
+        }
+
+        // 2. MinIO HTTP 내부 주소를 프록시 HTTPS로 변환
+        // proxy base path: https://nhnbook.shop/hi-five-bucket/
+        // 예: http://storage.java21.net:8000/hi-five-bucket/xxxx.jpg
+        String minioHttpPrefix = "http://storage.java21.net:8000/hi-five-bucket/";
+        if (trimmed.startsWith(minioHttpPrefix)) {
+            String fileName = trimmed.substring(minioHttpPrefix.length());
+            return "https://nhnbook.shop/hi-five-bucket/" + fileName;
+        }
+
+        // 3. MinIO URL이 다른 형태라도 bucket 부분이 포함돼 있다면 대응
+        if (trimmed.contains("/hi-five-bucket/")) {
+            String fileName = trimmed.substring(trimmed.lastIndexOf("/hi-five-bucket/") + "/hi-five-bucket/".length());
+            return "https://nhnbook.shop/hi-five-bucket/" + fileName;
+        }
+
+        // 그 외는 그대로
+        return trimmed;
+    }
+
 }
+

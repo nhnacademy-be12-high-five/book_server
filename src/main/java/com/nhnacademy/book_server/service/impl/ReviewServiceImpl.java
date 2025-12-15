@@ -11,14 +11,15 @@ import com.nhnacademy.book_server.exception.BusinessException;
 import com.nhnacademy.book_server.exception.ErrorCode;
 import com.nhnacademy.book_server.feign.MemberFeignClient;
 import com.nhnacademy.book_server.feign.OrderFeignClient;
+import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.ReviewImageRepository;
 import com.nhnacademy.book_server.repository.ReviewRepository;
 import com.nhnacademy.book_server.service.MinioImageService;
 import com.nhnacademy.book_server.service.ReviewService;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -43,15 +44,15 @@ public class ReviewServiceImpl implements ReviewService {
     private final ApplicationEventPublisher eventPublisher;
     private final OrderFeignClient orderFeignClient;
     private final MemberFeignClient memberFeignClient;
+    private final BookRepository bookRepository;
+
 
     private static final int MAX_IMAGE_COUNT = 5;
-
-    @PersistenceContext
-    private EntityManager em;
 
     // 리뷰 생성 기능
     @Override
     @Transactional
+    @CacheEvict(value = "bookReviews", key = "#bookId + '_*'", allEntries = true)
     public ReviewCreateResponse saveReview(ReviewCreateRequest request,
                                            Long bookId,
                                            Long memberId,
@@ -69,11 +70,11 @@ public class ReviewServiceImpl implements ReviewService {
             throw new BusinessException(ErrorCode.REVIEW_DUP);
         }
 
-        // 책 Id만 가진 proxy Book 객체 생성
-        Book bookRef = em.getReference(Book.class, bookId);
+        Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_NOT_FOUND));
 
         Review review = new Review(request.rating(), request.content(),
-                bookRef, memberId);
+                book, memberId);
 
         reviewRepository.save(review);
 
@@ -86,13 +87,17 @@ public class ReviewServiceImpl implements ReviewService {
         imageSave(images, review);
 
         // 리뷰 포인트 증가
-        eventPublisher.publishEvent(new ReviewCreatedEvent(memberId, "EARN_REVIEW"));
+        eventPublisher.publishEvent(new ReviewCreatedEvent(memberId, bookId,"EARN_REVIEW"));
+        if(newImageCount > 0){
+            eventPublisher.publishEvent(new ReviewCreatedEvent(memberId, bookId,"EARN_PHOTO_REVIEW"));
+        }
 
         return new ReviewCreateResponse(review.getId(), request.rating(), request.content());
     }
 
     // 전체 리뷰 조회
     @Override
+    @Cacheable(value = "bookReviews", key = "#bookId + '_' + #pageable.pageNumber", unless = "#result.isEmpty()")
     @Transactional(readOnly = true)
     public Page<BookReviewResponse> getReviewList(Long bookId, Pageable pageable) {
         Page<Review> reviews = reviewRepository.findByBookId(bookId, pageable);
@@ -106,13 +111,15 @@ public class ReviewServiceImpl implements ReviewService {
 
         if (!memberIds.isEmpty()) {
             try {
-                List<MemberResponse> memberResponses = memberFeignClient.getMembersInfo(memberIds);
-                memberMap = memberResponses.stream()
-                        .collect(Collectors.toMap(
-                                MemberResponse::memberId,
-                                MemberResponse::loginId,
-                                (existing, replacement) -> existing
-                        ));
+                List<MemberResponse> responses = memberFeignClient.getMembersInfo(memberIds);
+                if (responses != null) {
+                    memberMap = responses.stream()
+                            .collect(Collectors.toMap(
+                                    MemberResponse::memberId,
+                                    MemberResponse::name,
+                                    (existing, replacement) -> existing
+                            ));
+                }
             } catch (Exception e) {
                  log.error("Member Service 호출 실패: ", e);
             }
@@ -161,7 +168,7 @@ public class ReviewServiceImpl implements ReviewService {
         List<MemberResponse> memberResponses = memberFeignClient.getMembersInfo(List.of(memberId));
 
         if (memberResponses != null && !memberResponses.isEmpty()) {
-            loginId = memberResponses.get(0).loginId();
+            loginId = memberResponses.getFirst().name();
         }
 
         return new BookReviewResponse(
@@ -214,6 +221,7 @@ public class ReviewServiceImpl implements ReviewService {
     // 리뷰 수정
     @Override
     @Transactional
+    @CacheEvict(value = "bookReviews", key = "#bookId + '_*'", allEntries = true)
     public UpdateReviewResponse updateReview(ReviewUpdateRequest request, Long bookId, Long reviewId,
                                            Long memberId, List<MultipartFile> images) {
         Review review = reviewRepository.findById(reviewId)
@@ -246,15 +254,21 @@ public class ReviewServiceImpl implements ReviewService {
         review.update(request.rating(), request.content());
 
         if (!imagesToDelete.isEmpty()) {
-            List<String> fileUrls = imagesToDelete.stream()
-                    .map(ReviewImage::getFileUrl)
-                    .toList();
-
-            imageUploadService.deleteImages(fileUrls);
             reviewImageRepository.deleteAll(imagesToDelete);
         }
 
         imageSave(images, review);
+
+        if (!imagesToDelete.isEmpty()) {
+            List<String> fileUrls = imagesToDelete.stream()
+                    .map(ReviewImage::getFileUrl)
+                    .toList();
+            try {
+                imageUploadService.deleteImages(fileUrls);
+            } catch (Exception e) {
+                log.error("DB 갱신은 성공했으나 S3 이미지 삭제 실패. 고아 객체 발생 가능. URLs: {}", fileUrls, e);
+            }
+        }
 
         return new UpdateReviewResponse(request.content(), request.rating());
     }
