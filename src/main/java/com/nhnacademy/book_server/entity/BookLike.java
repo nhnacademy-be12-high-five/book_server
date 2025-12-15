@@ -21,8 +21,8 @@ public class BookLike {
     private Long id; // 좋아요 아이디
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "book_id")
     @JsonIgnore
+    @JoinColumn(name = "book_id")
     private Book book; // 책 아이디
 
     // 멤버 아이디 추가
