@@ -2,17 +2,13 @@ package com.nhnacademy.book_server.controller;
 
 import com.nhnacademy.book_server.controller.swagger.UserBookLikeSwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
-import com.nhnacademy.book_server.entity.BookLike;
-import com.nhnacademy.book_server.repository.BookLikeRepository;
 import com.nhnacademy.book_server.service.BookLikeService;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")

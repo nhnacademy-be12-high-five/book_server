@@ -1,21 +1,12 @@
 package com.nhnacademy.book_server.entity;
-
-import com.opencsv.bean.CsvBindByName;
-import com.opencsv.bean.CsvDate;
-import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
-import org.hibernate.annotations.BatchSize;
-
-import java.sql.Date;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Entity
@@ -113,4 +104,10 @@ public class Book {
     //  도서와 카테고리는 1:N관계
 
     private Integer stock;
+
+    @Column(nullable = false)
+    private Integer reviewCount = 0;
+
+    @Column(nullable = false)
+    private Double averageRating = 0.0;
 }
