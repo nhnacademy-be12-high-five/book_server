@@ -13,9 +13,9 @@ public interface BookLikeRepository extends JpaRepository<BookLike,Long> {
 //    boolean existsBookLikeByIdAndMemberId(Long bookId, Long memberId);
 
     // 좋아요 취소 메서드 추가
-    void deleteByBook_BookIdAndMemberId(Long bookId, Long memberId);
+    void deleteByBook_IdAndMemberId(Long bookId, Long memberId);
 
     Page<BookLike> findAllByMemberId(Long memberId, Pageable pageable);
 
-    boolean existsByBook_BookIdAndMemberId(Long bookId, Long memberId);
+    boolean existsByBook_IdAndMemberId(Long bookId, Long memberId);
 }

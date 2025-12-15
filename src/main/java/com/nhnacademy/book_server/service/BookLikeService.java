@@ -38,9 +38,9 @@ public class BookLikeService{
                 .orElseThrow(() -> new RuntimeException("책의 아이디가 존재하지 않습니다."));
 
         // 3. 토글 로직
-        if (bookLikeRepository.existsByBook_BookIdAndMemberId(bookId, memberId)) {
+        if (bookLikeRepository.existsByBook_IdAndMemberId(bookId, memberId)) {
             // 이미 좋아요가 있다면 -> 삭제
-            bookLikeRepository.deleteByBook_BookIdAndMemberId(bookId, memberId);
+            bookLikeRepository.deleteByBook_IdAndMemberId(bookId, memberId);
         }
 
         else {
@@ -69,6 +69,6 @@ public class BookLikeService{
 
     @Transactional(readOnly = true)
     public boolean isLiked(Long bookId, Long memberId) {
-        return bookLikeRepository.existsByBook_BookIdAndMemberId(bookId, memberId);
+        return bookLikeRepository.existsByBook_IdAndMemberId(bookId, memberId);
     }
 }

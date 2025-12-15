@@ -1,5 +1,6 @@
 package com.nhnacademy.book_server.controller;
 
+import com.example.high_five.common.annotation.LoginRequired;
 import com.nhnacademy.book_server.controller.swagger.UserBookLikeSwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.entity.BookLike;
@@ -45,7 +46,12 @@ public class BookLikeController implements UserBookLikeSwagger {
     // 상세페이지에서 좋아요를 기억하기 위한 메서드
     @GetMapping("/books/{book-id}/likes/status")
     public ResponseEntity<Boolean> getLikeStatus(@PathVariable("book-id") Long bookId,
-                                                 @RequestHeader(value = "X-USER-ID", required = true) Long memberId) {
+                                                 @RequestHeader(value = "X-USER-ID", required = false) Long memberId) {
+
+        if (memberId == null){
+            return ResponseEntity.ok(false);
+        }
+
         boolean isLiked = bookLikeService.isLiked(bookId, memberId);
         return ResponseEntity.ok(isLiked);
     }
