@@ -36,7 +36,7 @@ public interface BookRepository extends JpaRepository<Book, Long> {
 
     List<Book> findTop5ByPublishedDateBetweenOrderByIdAsc(String start,String end);
 
-    List<Book> findTop5ByOrderByIdAsc();
+    List<Book> findTop5ByOrderByIdDesc();
 
     @Modifying(clearAutomatically = true)
     @Transactional

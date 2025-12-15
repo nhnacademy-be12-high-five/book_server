@@ -178,7 +178,7 @@
 			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
 
-    </dependencies>
+	</dependencies>
 	<dependencyManagement>
 		<dependencies>
 			<dependency>
