@@ -1,6 +1,5 @@
 package com.nhnacademy.book_server.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.nhnacademy.book_server.controller.swagger.UserBookSwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
@@ -37,7 +36,6 @@ public class UserBookController implements UserBookSwagger {
     }
 
     // 도서 한 권 상세 조회 (GET /api/books/{bookId})
-
     @Override
     @GetMapping("/books/{id}")
     public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId) {
@@ -78,6 +76,20 @@ public class UserBookController implements UserBookSwagger {
         List<BookResponse> books = bookService.getWeeklyPopularBooks();
         System.out.println("컨트롤러 호출됨! 찾은 책 개수: " + books.size());
         return ResponseEntity.ok(books);
+    }
+
+    // 판매량 반영 API
+    @PostMapping("/books/{bookId}/best-seller")
+    public ResponseEntity<Void> updateBestSellerScore(@PathVariable("bookId") Long bookId,
+                                                      @RequestBody Integer quantity) {
+        bookService.incrementBestSellerScore(bookId, quantity);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/books/best-seller")
+    public ResponseEntity<List<BookResponse>> getBestSeller(){
+        List<BookResponse> BestSellers=bookService.getBestSeller();
+        return ResponseEntity.ok(BestSellers);
     }
 
 }
