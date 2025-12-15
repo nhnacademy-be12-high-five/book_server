@@ -18,6 +18,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.iterators.CartesianProductIterator;
 import org.springframework.cglib.core.Local;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +28,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -47,12 +49,11 @@ public class BookService {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
-
-    @PostConstruct
-    public void initObjectMapper() {
-        objectMapper.registerModule(new JavaTimeModule());
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-    }
+//    @PostConstruct
+//    public void initObjectMapper() {
+//        objectMapper.registerModule(new JavaTimeModule());
+//        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+//    }
 
     public Book createBook(ParsingDto dto){
         if (bookRepository.existsByIsbn13(dto.getIsbn())) {
@@ -118,6 +119,8 @@ public class BookService {
     public BookResponse findBookById(Long id) {
 
         // 1. [Redis Cache 확인]
+
+        incrementViewCount(id);
 
         // 조회 카운트를 위함
         String cacheKey = "book:detail:" + id;
@@ -248,16 +251,16 @@ public class BookService {
                 .orElse(0); // 책이 없으면 재고 0 처리
     }
 
-    public void incrementViewCount(Long bookId, Long memberId) {
+    public void incrementViewCount(Long bookId) {
 
-//        // Todo 비회원은 쿠키로 저장하는 로직으로 수정
-//        Cookie cookie=new Cookie();
+////        // Todo 비회원은 쿠키로 저장하는 로직으로 수정
+////        Cookie cookie=new Cookie();
+//
+//        if (memberId == null) {
+//            return;
+//        }
 
-        if (memberId == null) {
-            return;
-        }
-
-        String logKey = "view_log:" + memberId + ":" + bookId;
+        String logKey = "view_log:" + bookId;
 
         // B. 일간 랭킹 키: "daily_ranking:20241208" (날짜별로 점수 저장)
         String todayDate = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
@@ -316,6 +319,9 @@ public class BookService {
 
         // 1. 점수가 높은 순(Reverse)으로 상위 5개(0~4) ID 추출
         Set<String> topBookIds = redisTemplate.opsForZSet().reverseRange(weeklyKey, 0, 4);
+
+        System.out.println("=== 디버깅 시작 ===");
+        System.out.println("Redis에서 가져온 ID들: " + topBookIds);
 
         if (topBookIds == null || topBookIds.isEmpty()) {
             return List.of();

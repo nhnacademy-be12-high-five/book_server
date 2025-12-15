@@ -40,8 +40,7 @@ public class UserBookController implements UserBookSwagger {
 
     @Override
     @GetMapping("/books/{id}")
-    public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId,
-                                                    @RequestHeader(value = "X-USER-ID", required = false) Long memberId) {
+    public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId) {
         // [수정 2] Service가 이미 DTO를 반환하므로 .map() 제거
         // 앞서 BookService.findBookById를 BookResponse 반환으로 수정했기 때문입니다.
         try {
@@ -77,15 +76,8 @@ public class UserBookController implements UserBookSwagger {
     @GetMapping("/books/popular")
     public ResponseEntity<List<BookResponse>> getWeeklyPopular(){
         List<BookResponse> books = bookService.getWeeklyPopularBooks();
+        System.out.println("컨트롤러 호출됨! 찾은 책 개수: " + books.size());
         return ResponseEntity.ok(books);
     }
 
-    // todo 테스트
-
-    // 개발용: 강제로 주간 랭킹 집계 실행
-    @GetMapping("/test/update-ranking")
-    public ResponseEntity<String> forceUpdateRanking() {
-        bookService.updateWeeklyRanking();
-        return ResponseEntity.ok("주간 랭킹 집계 완료!");
-    }
 }
