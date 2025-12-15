@@ -1,15 +1,14 @@
 package com.nhnacademy.book_server.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.*;
-
+import software.amazon.awssdk.services.s3.model .*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -31,87 +30,98 @@ public class MinioImageService {
     @Value("${minio.bucket-name}")
     private String bucketName;
 
-    @Value("${minio.url}") // yml에서 도메인 주입 받음
-    private String minioUrl;
-
     @Value("${minio.default-image-url}")
     private String defaultImageUrl;
 
+    @Value("${minio.url}")
+    private String minioUrl;
+
+    private static final String PROXY_BASE_URL = "https://nhnbook.shop/hi-five-bucket";
+    private static final List<String> ALLOWED_EXTENSIONS = List.of("jpg", "jpeg", "png", "gif", "webp");
+
     public String uploadImageFromUrl(String imageUrl, String isbn) {
-        // 1. 애초에 주소가 없으면 -> 기본 이미지 반환
         if (!StringUtils.hasText(imageUrl)) {
             return defaultImageUrl;
         }
 
         try {
+            // 외부 URL 다운로드
             URL url = new URL(imageUrl);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0...");
-            connection.setConnectTimeout(5000);
-            connection.setReadTimeout(5000);
+            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
+            connection.setConnectTimeout(10_000);
+            connection.setReadTimeout(15_000);
 
             int responseCode = connection.getResponseCode();
-
-            // 2. 접속했는데 404(없음)나 500(에러)이면 -> 기본 이미지 반환
             if (responseCode != 200) {
-                log.warn("이미지 없음 (HTTP {}): {} -> 기본 이미지로 대체", responseCode, imageUrl);
+                log.warn("이미지 없음/에러 (HTTP {}): {} → 기본 이미지", responseCode, imageUrl);
                 return defaultImageUrl;
             }
 
+            byte[] imageBytes;
             try (InputStream inputStream = connection.getInputStream()) {
-                byte[] imageBytes = inputStream.readAllBytes();
-
-                // 파일명: ISBN.확장자 (중복 방지)
-                String ext = imageUrl.substring(imageUrl.lastIndexOf(".") + 1);
-                if (ext.length() > 4 || !ext.matches("^[a-zA-Z0-9]*$")) ext = "jpg";
-
-                String storedFileName = isbn.trim() + "." + ext;
-
-                PutObjectRequest request = PutObjectRequest.builder()
-                        .bucket(bucketName)
-                        .key(storedFileName)
-                        .contentType("image/jpeg") // 혹은 유동적으로 설정
-                        .build();
-
-                s3Client.putObject(request, RequestBody.fromBytes(imageBytes));
-
-                return String.format("%s/%s/%s", minioUrl, bucketName, storedFileName);
+                imageBytes = inputStream.readAllBytes();
             }
 
+            // 확장자 판단
+            String ext = "jpg";
+            String path = url.getPath();
+            if (path.contains(".")) {
+                String candidate = path.substring(path.lastIndexOf(".") + 1);
+                if (candidate.matches("^[a-zA-Z0-9]{1,5}$")) {
+                    ext = candidate.toLowerCase();
+                }
+            }
+
+            // 저장할 파일명 생성
+            String storedFileName = isbn.trim() + "." + ext;
+
+            PutObjectRequest putRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(storedFileName)
+                    .contentType("image/" + ext) // 이미지 타입 지정
+                    .build();
+
+            s3Client.putObject(putRequest, RequestBody.fromBytes(imageBytes));
+
+            // MinIO에 올라간 파일을 프록시 URL로 리턴
+            return PROXY_BASE_URL + "/" + storedFileName;
+
         } catch (Exception e) {
-            // 3. 타임아웃, 연결 끊김 등 에러 발생 시 -> 기본 이미지 반환
-            log.warn("이미지 업로드 실패: {} (원인: {}) -> 기본 이미지로 대체", imageUrl, e.getMessage());
+            log.warn("MinIO 업로드 실패: {} (원인: {}) → 기본 이미지", imageUrl, e.getMessage());
             return defaultImageUrl;
         }
     }
 
-
     public String uploadImage(MultipartFile file) {
-        try {
-            String contentType = file.getContentType();
-            if (!contentType.startsWith("image")) {
-                throw new IllegalArgumentException("이미지 파일만 업로드 가능합니다.");
-            }
-            // 1. 파일 이름 중복 방지 (UUID 사용)
+        try{
             String originalFilename = file.getOriginalFilename();
+            String contentType = file.getContentType();
+
+            if(contentType == null || !contentType.startsWith("image")){
+                throw new IllegalArgumentException("이미지 파일만 업로드 가능");
+            }
+
+            String extension = StringUtils.getFilenameExtension(originalFilename);
+            if(extension == null || !ALLOWED_EXTENSIONS.contains(extension.toLowerCase())){
+                throw new IllegalArgumentException("지원하지 않는 이미지 형식입니다." + extension);
+            }
+
             String storedFileName = UUID.randomUUID() + "_" + originalFilename;
 
-            // 2. 업로드 요청 객체 생성
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(bucketName)
-                    .key(storedFileName) // 저장될 파일 이름
-                    .contentType(file.getContentType())
+                    .key(storedFileName)
+                    .contentType(contentType)
                     .build();
 
-            // 3. S3(MinIO)로 전송
             s3Client.putObject(putObjectRequest,
                     RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
 
-            // 4. 업로드된 이미지의 접근 URL 반환
             return String.format("%s/%s/%s", minioUrl, bucketName, storedFileName);
 
-        } catch (IOException e) {
+        }catch(IOException e){
             throw new RuntimeException("이미지 업로드 실패", e);
         }
     }
@@ -155,10 +165,6 @@ public class MinioImageService {
                     path = path.substring(1);
                 }
 
-                // 3. (중요) MinIO나 Path-Style을 쓴다면 버킷 이름 제거 로직 필요
-                // 만약 URL이 "http://localhost:9000/my-bucket/reviews/photo.jpg" 형태라면
-                // path는 "/my-bucket/reviews/photo.jpg"가 됨.
-                // 여기서 버킷명("/my-bucket/")을 잘라내야 함.
                 String bucketPrefix = bucketName + "/";
                 if (path.startsWith(bucketPrefix)) {
                     path = path.substring(bucketPrefix.length());

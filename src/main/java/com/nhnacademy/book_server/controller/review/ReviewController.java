@@ -27,13 +27,11 @@ public class ReviewController {
 
     // 리뷰 작성
     @PostMapping("/{book-id}/reviews")
-    public ResponseEntity<ReviewCreateResponse> createReview(@RequestParam Integer rating,
-                                                             @RequestParam String content,
+    public ResponseEntity<ReviewCreateResponse> createReview(@RequestPart("request") @Valid ReviewCreateRequest request,
                                                              @PathVariable("book-id") Long bookId,
                                                              @RequestHeader("x-user-id") Long memberId,
                                                              @RequestPart(value = "images", required = false) List<MultipartFile> images) {
-        ReviewCreateRequest req = new ReviewCreateRequest(rating, content);
-        ReviewCreateResponse response = reviewService.saveReview(req, bookId, memberId, images);
+        ReviewCreateResponse response = reviewService.saveReview(request, bookId, memberId, images);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -72,7 +70,7 @@ public class ReviewController {
             @PathVariable("book-id") Long bookId,
             @PathVariable("review-id") Long reviewId,
             @RequestHeader("x-user-id") Long memberId,
-            @RequestPart("request") ReviewUpdateRequest request,
+            @Valid @RequestPart("request") ReviewUpdateRequest request,
             @RequestPart(value = "images", required = false) List<MultipartFile> images
     ) {
         UpdateReviewResponse response =
