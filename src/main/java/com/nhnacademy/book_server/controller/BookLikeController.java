@@ -1,6 +1,5 @@
 package com.nhnacademy.book_server.controller;
 
-import com.example.high_five.common.annotation.LoginRequired;
 import com.nhnacademy.book_server.controller.swagger.UserBookLikeSwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.entity.BookLike;

@@ -91,5 +91,4 @@ public class UserBookController implements UserBookSwagger {
         List<BookResponse> BestSellers=bookService.getBestSeller();
         return ResponseEntity.ok(BestSellers);
     }
-
 }

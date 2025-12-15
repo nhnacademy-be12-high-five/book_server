@@ -352,7 +352,7 @@ public class BookService {
 
 //        List<Book> books=bookRepository.findTop5ByPublishedDateBetweenOrderByIdAsc(start.toString(),end.toString());
 
-        List<Book> books = bookRepository.findTop5ByOrderByIdAsc();
+        List<Book> books = bookRepository.findTop5ByOrderByIdDesc();
 
         List<BookResponse> responses = books.stream()
                 .map(BookResponse::from)
