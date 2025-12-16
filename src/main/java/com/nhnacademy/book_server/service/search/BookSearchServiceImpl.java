@@ -4,7 +4,6 @@ import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.BookSortType;
 import com.nhnacademy.book_server.dto.SearchResult;
 import com.nhnacademy.book_server.repository.ElasticRepository;
-import com.nhnacademy.book_server.service.read.BookReadService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
@@ -16,7 +15,6 @@ import java.util.*;
 public class BookSearchServiceImpl implements BookSearchService {
 
     private final ElasticRepository elasticRepository;
-    private final BookReadService bookReadService;
     private final SearchLogService searchLogService;
     private final RagSearchable ragSearchable;
 
@@ -39,29 +37,6 @@ public class BookSearchServiceImpl implements BookSearchService {
         return new PageImpl<>(result.content(), pageable, result.totalHits());
     }
 
-    // -------------------- 전체 도서 조회 --------------------
-    @Override
-    public Page<BookResponse> getAllBooks(int page, int size) {
-        List<BookResponse> allBooks = bookReadService.findAllBooks();
-
-        Pageable pageable = PageRequest.of(page, size);
-        int from = page * size;
-        int to = Math.min(from + size, allBooks.size());
-
-        if (from >= allBooks.size()) {
-            return new PageImpl<>(List.of(), pageable, allBooks.size());
-        }
-
-        List<BookResponse> content = allBooks.subList(from, to);
-        return new PageImpl<>(content, pageable, allBooks.size());
-    }
-
-    // -------------------- 단일 도서 조회 --------------------
-    @Override
-    public BookResponse getBookById(Long bookId) {
-        return bookReadService.findBookById(bookId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 ID의 도서를 찾을 수 없습니다: " + bookId));
-    }
 
     // -------------------- RAG 하이브리드 검색 --------------------
     @Override
