@@ -12,4 +12,5 @@ public interface AladinService {
     AladinItem lookupBook(String isbn13);
     List<AladinItem> getBookList(String queryType);
     AladinItem convertEntityToAladinItem(Book book);
+    AladinItem lookupBookFromApi(String isbn13);
 }

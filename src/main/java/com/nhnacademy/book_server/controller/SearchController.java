@@ -6,6 +6,7 @@ import com.nhnacademy.book_server.dto.BookSortType;
 import com.nhnacademy.book_server.service.search.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,14 @@ public class SearchController implements SearchSwagger {
     private final BookReindexService bookReindexService;
     private final RagSearchable ragSearchable;
     private final GeminiTextClientService geminiTextClientService;
+
+    /**
+     *  로컬/시연 환경에서 RAG reindex 폭주 방지 토글
+     * - 기본값 false
+     * - application-local.yml에서 rag.reindex.enabled=true 로 켜면 동작
+     */
+    @Value("${rag.reindex.enabled:false}")
+    private boolean ragReindexEnabled;
 
     /**
      * 일반 검색
@@ -54,7 +63,6 @@ public class SearchController implements SearchSwagger {
         try {
             long total = bookReindexService.reindexAll();
             return ResponseEntity.ok("일반 검색 인덱싱 완료: 총 " + total + "권");
-
         } catch (Exception exception) {
             log.error("일반 검색 reindex 실행 중 오류 발생", exception);
             return ResponseEntity
@@ -70,10 +78,17 @@ public class SearchController implements SearchSwagger {
      */
     @PostMapping("/reindex-rag")
     public ResponseEntity<String> reindexRag() {
+        //  기본 OFF 가드
+        if (!ragReindexEnabled) {
+            return ResponseEntity
+                    .status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body("로컬 환경에서는 RAG reindex가 비활성화되어 있습니다. (rag.reindex.enabled=false)");
+        }
+
         try {
+            log.info("RAG reindex 실행 요청 수신");
             ragSearchable.reindexBooks();
             return ResponseEntity.ok("RAG 임베딩 인덱싱 작업을 실행했습니다.");
-
         } catch (Exception exception) {
             log.error("RAG reindex 실행 중 오류 발생", exception);
             return ResponseEntity
@@ -81,7 +96,6 @@ public class SearchController implements SearchSwagger {
                     .body("RAG reindex 중 서버 오류: " + exception.getMessage());
         }
     }
-
 
     /**
      * RAG 하이브리드 검색 + 정렬
@@ -109,6 +123,8 @@ public class SearchController implements SearchSwagger {
      */
     @GetMapping("/rag-answer")
     public ResponseEntity<String> getRagAnswer(@RequestParam String keyword) {
+        //  호출 폭주/반복 여부를 잡기 위한 최소 로그
+        log.info("RAG-ANSWER 호출 keyword=[{}]", keyword);
 
         // 1. RAG 검색으로 상위 5권 가져오기
         Page<BookResponse> page =
@@ -149,10 +165,8 @@ public class SearchController implements SearchSwagger {
             %s
             """.formatted(keyword, ctx);
 
-        // 4. Gemini 호출
+        // 4. Gemini 호출 (429/403 발생해도 서비스는 정상 유지되도록 메시지 반환)
         String answer = geminiTextClientService.generateAnswer(prompt);
-
         return ResponseEntity.ok(answer);
     }
-
 }

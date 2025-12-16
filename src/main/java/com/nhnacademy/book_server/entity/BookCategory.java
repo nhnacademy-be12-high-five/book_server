@@ -31,7 +31,6 @@ public class BookCategory {
         private Integer categoryId;
     }
 
-    // 연관 관계 매핑
     @MapsId("bookId")
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "book_id")
@@ -41,4 +40,11 @@ public class BookCategory {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
+
+    // setter 안 쓰고 생성으로만 연결하고 싶을 때 편의 생성자
+    public BookCategory(Book book, Category category) {
+        this.book = book;
+        this.category = category;
+        this.pk = new Pk(book.getId(), category.getCategoryId());
+    }
 }

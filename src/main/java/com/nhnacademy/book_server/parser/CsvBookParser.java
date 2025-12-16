@@ -32,6 +32,7 @@
 //    // 의미 없는 문자열(숫자/특수문자만 있는 경우) 필터링용
 //    private static final Pattern GARBAGE_CHECK = Pattern.compile("^[0-9\\s\\p{Punct}]*$");
 //
+//
 //    @Override
 //    public String getFileType() {
 //        return ".csv";
