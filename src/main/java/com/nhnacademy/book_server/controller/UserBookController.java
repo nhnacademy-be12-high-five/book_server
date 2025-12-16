@@ -92,11 +92,4 @@ public class UserBookController implements UserBookSwagger {
         return ResponseEntity.ok(BestSellers);
     }
 
-
-    // 재고 복구 (주문 취소 시 호출)
-    @PostMapping("/api/books/stock/restore")
-    public ResponseEntity<Void> restoreStock(@RequestBody List<StockUpdateRequest> requests) {
-        bookService.increaseStock(requests);
-        return ResponseEntity.ok().build();
-    }
 }

@@ -15,7 +15,6 @@ import com.nhnacademy.book_server.repository.BookAuthorRepository;
 import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.PublisherRepository;
 import jakarta.annotation.PostConstruct;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.Cookie;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -418,14 +417,4 @@ public class BookService {
         }
     }
 
-    @Transactional
-    public void increaseStock(List<StockUpdateRequest> requests) {
-        for (StockUpdateRequest request : requests) {
-            Book book = bookRepository.findById(request.getBookId())
-                    .orElseThrow(() -> new EntityNotFoundException("책을 찾을 수 없습니다."));
-
-            // 재고 증가 (동시성 문제가 우려된다면 비관적 락(Pessimistic Lock) 고려)
-            book.increaseStock(request.getQuantity());
-        }
-    }
 }
