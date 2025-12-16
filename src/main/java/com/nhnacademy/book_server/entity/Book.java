@@ -111,4 +111,8 @@ public class Book {
 
     @Column(nullable = false)
     private Double averageRating = 0.0;
+
+    public void setStock(Integer stock) {
+        this.stock = stock;
+    }
 }
