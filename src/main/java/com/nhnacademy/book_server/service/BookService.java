@@ -17,7 +17,9 @@ import com.nhnacademy.book_server.repository.PublisherRepository;
 import com.nhnacademy.book_server.service.category.CategoryMappingService;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.iterators.CartesianProductIterator;
 import org.springframework.cglib.core.Local;
@@ -41,6 +43,8 @@ import java.util.stream.Collectors;
 @Slf4j
 @RequiredArgsConstructor
 @Transactional
+@Getter
+@Setter
 public class BookService {
 
     private final BookRepository bookRepository;
@@ -412,4 +416,52 @@ public class BookService {
 
         return responses; // 데이터 반환
     }
+
+    public void incrementBestSellerScore(Long bookId, Integer quantity) {
+    }
+
+    @Transactional(readOnly = true)
+    public List<BookResponse> getBestSeller(int limit) {
+        String cacheKey = "best_seller";
+
+        //Redis의 ZSet은 기본적으로 점수가 낮은 순서(오름차순)로 정렬되어 저장되는데
+        // zset의 순서를 바꿈
+
+        Set<String> BestBookIds = redisTemplate.opsForZSet().reverseRange("best_seller", 0, limit-1);
+
+        log.info("Redis에서 가져온 베스트 셀러 ID들: {}", BestBookIds);
+
+        if (BestBookIds == null || BestBookIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> bookIds = BestBookIds.stream()
+                .map(Long::valueOf)
+                .collect(Collectors.toList());
+
+        // 2. DB에서 책 정보 조회 (순서 보장 안됨)
+        List<Book> books = bookRepository.findAllById(bookIds);
+
+        // 3. Redis 랭킹 순서대로 정렬하기 위해 Map 변환
+        // Redis 랭킹 순서를 그대로 유지
+        Map<Long, Book> bookMap = books.stream()
+                .collect(Collectors.toMap(Book::getId, book -> book));
+
+        // 4. 순서대로 매핑하여 반환
+        return bookIds.stream()
+                .map(bookMap::get)
+                .filter(Objects::nonNull) // DB에 삭제된 책이 있을 경우 대비
+                .map(BookResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<BookResponse> getBooksByCategory(int categoryId) {
+        List<Book> books = bookRepository.findBooksByCategoryWithAuthors(categoryId);
+        return books.stream()
+                .map(BookResponse::from)
+                .toList();
+    }
+
+
 }

@@ -5,6 +5,7 @@ import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.CategoryResponse;
 import com.nhnacademy.book_server.service.category.CategoryService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,6 +17,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/categories")
 @RequiredArgsConstructor
+@Slf4j
 public class CategoryController implements CategorySwagger {
 
     private final CategoryService categoryService;
@@ -35,6 +37,7 @@ public class CategoryController implements CategorySwagger {
     @Override
     @GetMapping("/{categoryId}/books")
     public ResponseEntity<List<BookResponse>> getBooksByCategory(@PathVariable("categoryId") int categoryId) {
+        log.info("GET /api/categories/{}/books called", categoryId);
         return ResponseEntity.ok(categoryService.getBooksByCategory(categoryId));
     }
 }

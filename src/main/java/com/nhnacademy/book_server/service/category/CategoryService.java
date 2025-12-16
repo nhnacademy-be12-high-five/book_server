@@ -2,9 +2,13 @@ package com.nhnacademy.book_server.service.category;
 
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.CategoryResponse;
+import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.BookCategory;
+import com.nhnacademy.book_server.entity.Category;
 import com.nhnacademy.book_server.repository.BookCategoryRepository;
+import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.CategoryRepository;
+import com.nhnacademy.book_server.service.BookService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +19,8 @@ import java.util.List;
 public class CategoryService {
     private final CategoryRepository categoryRepository;
     private final BookCategoryRepository bookCategoryRepository;
+    private final BookRepository bookRepository;
+    private final BookService bookService;
 
     // 대분류
     public List<CategoryResponse> getParents() {
@@ -33,16 +39,16 @@ public class CategoryService {
     }
 
     // 카테고리별 도서 조회
-    public List<BookResponse> getBooksByCategory(int categoryID) {
-        return categoryRepository.findById(categoryID)
-                .map(category ->
-                        bookCategoryRepository.findByCategory(category)
-                                .stream()
-                                .map(BookCategory::getBook)
-                                .map(book -> BookResponse.from(book, category))
-                                .toList()
-                )
-                .orElse(List.of());  // 카테고리가 없으면 빈 리스트
+    // CategoryService
+    public List<BookResponse> getBooksByCategory(int categoryId) {
+        // category 존재 검증만 수행
+        categoryRepository.findByCategoryId(categoryId)
+                .orElseThrow(() -> new IllegalArgumentException("category not found: " + categoryId));
+
+        return bookService.getBooksByCategory(categoryId);
     }
+
+
+
 
 }

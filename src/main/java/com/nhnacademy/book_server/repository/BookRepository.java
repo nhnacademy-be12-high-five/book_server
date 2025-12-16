@@ -37,6 +37,7 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     List<Book> findTop5ByPublishedDateBetweenOrderByIdAsc(String start,String end);
 
     List<Book> findTop5ByOrderByIdDesc();
+    List<Book> findTop5ByOrderByIdAsc();
 
     @Modifying(clearAutomatically = true)
     @Transactional
@@ -45,4 +46,26 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             "b.averageRating = COALESCE((SELECT AVG(r.rating) FROM Review r WHERE r.book.id = :bookId), 0.0) " +
             "WHERE b.id = :bookId")
     void updateBookReviewStats(@Param("bookId") Long bookId);
+    List<Book> findTop200ByIdGreaterThanOrderByIdAsc(Long id);
+    List<Book> findByIdIn(List<Long> ids); //카테고리-> 북리스트 후 정렬
+
+
+        @Query("""
+        select distinct b
+        from Book b
+        join BookCategory bc on bc.book = b
+        join bc.category c
+        left join fetch b.bookAuthors ba
+        left join fetch ba.author a
+        where c.categoryId = :categoryId
+    """)
+        List<Book> findBooksByCategoryWithAuthors(@Param("categoryId") int categoryId);
+
+
+
+
+
+
+
+
 }

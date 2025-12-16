@@ -88,7 +88,7 @@ public class UserBookController implements UserBookSwagger {
 
     @GetMapping("/books/best-seller")
     public ResponseEntity<List<BookResponse>> getBestSeller(){
-        List<BookResponse> BestSellers=bookService.getBestSeller();
+        List<BookResponse> BestSellers=bookService.getBestSeller(10);
         return ResponseEntity.ok(BestSellers);
     }
 }
