@@ -22,7 +22,6 @@ import java.util.List;
 public class UserBookController implements UserBookSwagger {
 
     private final BookService bookService;
-    private final BookRepository bookRepository;
 
     // 도서 전체 조회 (GET /api/books)
     @Override
@@ -59,8 +58,7 @@ public class UserBookController implements UserBookSwagger {
         return ResponseEntity.ok(stock);
     }
 
-    // 🚨 수정된 부분: 클라이언트의 요청 경로 /api/books/batch-info 와 일치하도록 수정
-    @PostMapping("/books/batch-info")
+    @PostMapping("/books/bulk")
     public ResponseEntity<List<GetBookResponse>> getBooksBulk(@RequestBody List<Long> bookIds) {
         List<GetBookResponse> response = bookService.getBooksBulk(bookIds);
         return ResponseEntity.ok(response);
