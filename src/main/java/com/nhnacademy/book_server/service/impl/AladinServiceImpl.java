@@ -180,4 +180,29 @@ public class AladinServiceImpl implements AladinService {
         item.setDescription(book.getContent());
         return item;
     }
+
+    public String lookupRaw(String isbn13) {
+        String url =
+                "http://www.aladin.co.kr/ttb/api/ItemLookUp.aspx"
+                        + "?ttbkey={ttbKey}"
+                        + "&ItemId={isbn13}"
+                        + "&ItemIdType=ISBN13"
+                        + "&output=JS"
+                        + "&Version=20131101";
+
+        String response = restTemplate.getForObject(
+                url,
+                String.class,
+                ttbKey,
+                isbn13
+        );
+
+        //
+        log.info("===== ALADIN LOOKUP RAW RESPONSE =====");
+        log.info(response);
+        log.info("=====================================");
+
+        return response;
+    }
+
 }

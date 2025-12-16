@@ -3,7 +3,7 @@ package com.nhnacademy.book_server.controller;
 import com.nhnacademy.book_server.controller.swagger.CategorySwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.CategoryResponse;
-import com.nhnacademy.book_server.service.CategoryService;
+import com.nhnacademy.book_server.service.category.CategoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

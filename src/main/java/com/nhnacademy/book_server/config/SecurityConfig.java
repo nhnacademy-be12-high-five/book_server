@@ -12,13 +12,21 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        System.out.println(">>> BOOK-SERVER SecurityConfig LOADED");
         http
-                .csrf().disable()
+                .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/books/**").permitAll()
-                        .anyRequest().permitAll()
+                        .requestMatchers(
+                                "/api/books/**",
+                                "/api/categories/**",
+                                "/api/search/**",
+                                "/actuator/**"
+                        ).permitAll()
+                        .requestMatchers("/api/test/**").permitAll()
+                        .anyRequest().authenticated()
                 );
 
         return http.build();
     }
+
 }
