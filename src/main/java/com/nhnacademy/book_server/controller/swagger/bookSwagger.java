@@ -27,7 +27,7 @@ public interface bookSwagger{
 //            @ApiResponse(responseCode = "403", description = "관리자 권한이 없음 (Forbidden)"),
     })
     @PostMapping
-    ResponseEntity<Book> createBook(@RequestBody ParsingDto parsingDto, @Parameter(hidden = true) @RequestHeader("X-User-Id") Long memberId);
+    ResponseEntity<Book> createBook(@RequestBody ParsingDto parsingDto);
 
     // 도서 전체 조회
     @Operation(summary = "관리자 도서 조회",description = "도서를 조회합니다.")
@@ -60,19 +60,18 @@ public interface bookSwagger{
 
     @PutMapping("/{id}")
     ResponseEntity<BookResponse> updateBook(@PathVariable Long bookId,
-                                    BookUpdateRequest updateDto,
-                                    @Parameter(hidden = true) @RequestHeader("X-User-Id") Long memberId);
+                                    BookUpdateRequest updateDto);
 
-    // 도서 삭제
-    @Operation(summary = "관리자 도서 삭제",description = "도서를 삭제합니다.")
-
-    @DeleteMapping("/{id}")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200",description = "도서 삭제 성공 (OK)"),
-//            @ApiResponse(responseCode = "403",description = "관리자 권한이 없음 (Forbidden)"),
-//            @ApiResponse(responseCode = "404",description = "삭제하려는 도서를 찾을 수 없음 (Not Found)")
-    })
-
-    ResponseEntity<Void> deleteBook(@PathVariable Long bookId,
-                                    @Parameter(hidden = true) @RequestHeader("X-User-Id") Long memberId);
+//    // 도서 삭제
+//    @Operation(summary = "관리자 도서 삭제",description = "도서를 삭제합니다.")
+//
+//    @DeleteMapping("/{id}")
+//    @ApiResponses(value = {
+//            @ApiResponse(responseCode = "200",description = "도서 삭제 성공 (OK)"),
+////            @ApiResponse(responseCode = "403",description = "관리자 권한이 없음 (Forbidden)"),
+////            @ApiResponse(responseCode = "404",description = "삭제하려는 도서를 찾을 수 없음 (Not Found)")
+//    })
+//
+//    ResponseEntity<Void> deleteBook(@PathVariable Long bookId,
+//                                    @Parameter(hidden = true) @RequestHeader("X-User-Id") Long memberId);
 }
