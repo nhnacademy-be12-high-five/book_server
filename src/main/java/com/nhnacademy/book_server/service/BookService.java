@@ -3,8 +3,6 @@ package com.nhnacademy.book_server.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
@@ -14,22 +12,14 @@ import com.nhnacademy.book_server.repository.AuthorRepository;
 import com.nhnacademy.book_server.repository.BookAuthorRepository;
 import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.PublisherRepository;
-import jakarta.annotation.PostConstruct;
-import jakarta.servlet.http.Cookie;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections4.iterators.CartesianProductIterator;
-import org.springframework.cglib.core.Local;
-import org.springframework.core.annotation.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.web.PageableDefault;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.PathVariable;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -415,5 +405,18 @@ public class BookService {
         } catch (Exception e) {
             log.error("Redis 점수 갱신 실패 (주문은 계속 진행됨): bookId={}", bookId, e);
         }
+    }
+
+    public void holdStock(Long bookId, Integer quantity) {
+        Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new RuntimeException("책을 찾을 수 없습니다."));
+
+        int currentStock = book.getStock() != null ? book.getStock() : 0;
+        if (currentStock < quantity) {
+            throw new RuntimeException("재고가 부족합니다.");
+        }
+
+        book.setStock(currentStock - quantity);
+        bookRepository.save(book);
     }
 }
