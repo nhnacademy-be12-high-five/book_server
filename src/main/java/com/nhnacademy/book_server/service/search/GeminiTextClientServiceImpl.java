@@ -11,7 +11,11 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.Duration;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Service
@@ -22,8 +26,42 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
+    /**
+     *   AI 호출 폭주 방지 캐시
+     * - 동일 prompt에 대한 성공 응답: 30초 캐시
+     * - 429/403 등 실패 응답도: 15초 캐시(폭주 방지)
+     */
+    private static final Duration SUCCESS_TTL = Duration.ofSeconds(30);
+    private static final Duration FAIL_TTL = Duration.ofSeconds(15);
+    private static final long WARN_COOLDOWN_MS = 30_000L; // 30초
+    private final AtomicLong lastWarnAt = new AtomicLong(0L);
+
+    private final Map<String, CacheEntry> answerCache = new ConcurrentHashMap<>();
+
+    private static class CacheEntry {
+        final String value;
+        final long expiresAtMillis;
+
+        CacheEntry(String value, long expiresAtMillis) {
+            this.value = value;
+            this.expiresAtMillis = expiresAtMillis;
+        }
+
+        boolean isExpired() {
+            return System.currentTimeMillis() > expiresAtMillis;
+        }
+    }
+
     @Override
     public String generateAnswer(String prompt) {
+        // 1) 캐시 먼저 확인 (API 호출 차단)
+        CacheEntry cached = answerCache.get(prompt);
+        if (cached != null) {
+            if (!cached.isExpired()) {
+                return cached.value;
+            }
+            answerCache.remove(prompt);
+        }
 
         String url =
                 "https://generativelanguage.googleapis.com/v1/models/"
@@ -31,14 +69,12 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
                         + "?key=" + apiKey;
 
         try {
-            // 요청 바디
             GeminiRequest request = new GeminiRequest(
                     List.of(new Content(
                             List.of(new Part(prompt))
                     ))
             );
 
-            // JSON 헤더
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
@@ -52,60 +88,114 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
                     response.getCandidates() == null ||
                     response.getCandidates().isEmpty()) {
                 log.warn("Gemini 응답이 비어 있음.");
-                return "AI 추천 설명을 가져오지 못했습니다.";
+                String msg = "AI 추천 기능은 현재 응답을 생성하지 못했습니다. 잠시 후 다시 이용해 주세요.";
+                answerCache.put(prompt, new CacheEntry(msg,
+                        System.currentTimeMillis() + FAIL_TTL.toMillis()));
+                return msg;
             }
 
             Content c = response.getCandidates().get(0).getContent();
             if (c == null || c.getParts() == null || c.getParts().isEmpty()) {
                 log.warn("Gemini 응답에 content/parts 없음.");
-                return "AI 추천 설명을 가져오지 못했습니다.";
+                String msg = "AI 추천 기능은 현재 응답을 생성하지 못했습니다. 잠시 후 다시 이용해 주세요.";
+                answerCache.put(prompt, new CacheEntry(msg,
+                        System.currentTimeMillis() + FAIL_TTL.toMillis()));
+                return msg;
             }
 
             String text = c.getParts().get(0).getText();
-            return (text != null && !text.isBlank())
+            String answer = (text != null && !text.isBlank())
                     ? text
-                    : "AI 추천 설명을 가져오지 못했습니다.";
+                    : "AI 추천 기능은 현재 응답을 생성하지 못했습니다. 잠시 후 다시 이용해 주세요.";
 
+            // 2) 성공 응답 캐시 저장
+            answerCache.put(prompt, new CacheEntry(answer,
+                    System.currentTimeMillis() + SUCCESS_TTL.toMillis()));
+
+            return answer;
         }
+
         // ------------------------ //
         //        ★ 429 처리        //
         // ------------------------ //
         catch (HttpClientErrorException.TooManyRequests e) {
-            log.error("Gemini 429 - 사용량 초과됨", e);
-            return "오늘 제공되는 AI 추천 사용량이 모두 소진되었습니다. "
-                    + "잠시 후 다시 이용해 주세요.";
+            long now = System.currentTimeMillis();
+            long prev = lastWarnAt.get();
+
+            if (now - prev >= WARN_COOLDOWN_MS && lastWarnAt.compareAndSet(prev, now)) {
+                log.warn("Gemini 429 - 사용량 초과 (AI 기능 일시 중단, {}초 쿨다운 적용)", WARN_COOLDOWN_MS / 1000);
+            }
+
+            String msg =
+                    "AI 추천 기능은 현재 요청량 제한으로 일시적으로 사용할 수 없습니다.\n"
+                            + "도서 검색 및 목록 조회는 정상적으로 이용하실 수 있습니다.";
+
+            // 실패도 캐시 저장하고 있다면 그대로 유지
+            answerCache.put(prompt, new CacheEntry(msg,
+                    System.currentTimeMillis() + FAIL_TTL.toMillis()));
+
+            return msg;
+        }
+
+
+        // ------------------------ //
+        //        ★ 403 처리        //
+        // ------------------------ //
+        catch (HttpClientErrorException.Forbidden e) {
+            log.warn("Gemini 403 - 권한 거부(키 문제 가능). 메시지={}", e.getMessage());
+            String msg =
+                    "AI 추천 기능 설정 문제로 현재 사용할 수 없습니다.\n"
+                            + "(관리자: API 키 상태 확인 필요)";
+            answerCache.put(prompt, new CacheEntry(msg,
+                    System.currentTimeMillis() + FAIL_TTL.toMillis()));
+            return msg;
         }
 
         // ------------------------ //
-        //        ★ 4xx 오류        //
+        //        ★ 기타 4xx        //
         // ------------------------ //
         catch (HttpClientErrorException e) {
-            log.error("Gemini 4xx 오류", e);
-            return "AI 추천 기능을 일시적으로 사용할 수 없습니다.";
+            // 4xx는 운영에서 종종 발생하므로 stacktrace 폭주 방지
+            log.warn("Gemini 4xx 오류: status={}, message={}", e.getStatusCode(), e.getMessage());
+            String msg =
+                    "AI 추천 기능을 일시적으로 사용할 수 없습니다.\n"
+                            + "도서 검색 및 목록 조회는 정상적으로 이용하실 수 있습니다.";
+            answerCache.put(prompt, new CacheEntry(msg,
+                    System.currentTimeMillis() + FAIL_TTL.toMillis()));
+            return msg;
         }
 
         // ------------------------ //
         //        ★ 503 처리        //
         // ------------------------ //
         catch (HttpServerErrorException.ServiceUnavailable e) {
-            log.error("Gemini 503 - 모델 과부하", e);
-            return "AI 서버가 현재 혼잡합니다. 잠시 후 다시 시도해 주세요.";
+            log.warn("Gemini 503 - 모델 과부하(일시적 혼잡)");
+            String msg = "AI 서버가 현재 혼잡합니다. 잠시 후 다시 시도해 주세요.";
+            answerCache.put(prompt, new CacheEntry(msg,
+                    System.currentTimeMillis() + FAIL_TTL.toMillis()));
+            return msg;
         }
 
         // ------------------------ //
         //        ★ 기타 5xx        //
         // ------------------------ //
         catch (HttpServerErrorException e) {
-            log.error("Gemini 서버 오류", e);
-            return "AI 추천 기능 서버에 오류가 발생했습니다.";
+            log.warn("Gemini 서버 오류: status={}, message={}", e.getStatusCode(), e.getMessage());
+            String msg = "AI 추천 기능 서버에 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+            answerCache.put(prompt, new CacheEntry(msg,
+                    System.currentTimeMillis() + FAIL_TTL.toMillis()));
+            return msg;
         }
 
         // ------------------------ //
-        //       ★ 나머지 모든 오류 //
+        //       ★ 기타 예외        //
         // ------------------------ //
         catch (Exception e) {
-            log.error("Gemini 호출 중 알 수 없는 오류", e);
-            return "AI 응답 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+            log.warn("Gemini 호출 중 알 수 없는 오류: {}", e.getMessage());
+            String msg = "AI 응답 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+            answerCache.put(prompt, new CacheEntry(msg,
+                    System.currentTimeMillis() + FAIL_TTL.toMillis()));
+            return msg;
         }
     }
 

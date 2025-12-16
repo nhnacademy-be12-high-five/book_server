@@ -8,6 +8,7 @@ import com.nhnacademy.book_server.repository.AuthorRepository;
 import com.nhnacademy.book_server.repository.BookAuthorRepository;
 import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.PublisherRepository;
+import com.nhnacademy.book_server.service.category.CategoryMappingService;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,6 +38,7 @@ public class DataParsingService {
     private final EntityManager entityManager;
     private final JdbcTemplate jdbcTemplate;
     private final MinioImageService minioImageService;
+    private final CategoryMappingService categoryMappingService;
 
     private final TransactionalService transactionalService;
 
@@ -132,8 +134,22 @@ public class DataParsingService {
 
                     // 3. 방금 저장된 책들의 ID 조회
                     List<Book> savedBooks = bookRepository.findAllByIsbn13In(batchIsbns);
+                    Map<String, Book> bookEntityMap = savedBooks.stream()
+                            .collect(Collectors.toMap(Book::getIsbn13, b -> b, (a, b) -> a));
                     Map<String, Long> bookIdMap = savedBooks.stream()
                             .collect(Collectors.toMap(Book::getIsbn13, Book::getId, (oldValue, newValue) -> oldValue));
+                    for (ParsingDto dto : batchDtos) {
+                        String isbn = dto.getIsbn() != null ? dto.getIsbn().trim() : null;
+                        if (!StringUtils.hasText(isbn)) continue;
+
+                        Book bookEntity = bookEntityMap.get(isbn);
+                        if (bookEntity == null) continue;
+
+                        // dto에 categoryId/categoryName이 들어있는 경우에만 매핑
+                        if (dto.getCategoryId() != null && StringUtils.hasText(dto.getCategoryName())) {
+                            categoryMappingService.upsertCategoryAndMap(bookEntity, dto.getCategoryId(), dto.getCategoryName());
+                        }
+                    }
 
                     // 4. 작가 연결 (BookAuthor) 준비
                     List<Object[]> bookAuthorArgs = new ArrayList<>();

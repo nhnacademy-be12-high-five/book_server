@@ -25,4 +25,13 @@ public class AladinItem {
     @JsonProperty("priceStandard")
     private Integer priceStandard; // 원가
 
+    @JsonProperty("categoryId")
+    private Integer categoryId;
+
+    @JsonProperty("categoryName")
+    private String categoryName;
+
+    @JsonProperty("categoryNamePath")
+    private String categoryNamePath;
+
 }

@@ -108,7 +108,7 @@ public class AladinServiceImpl implements AladinService {
                 .image(finalUrl) // 링크나 이미지 URL 매핑
                 // .dateTime(LocalDate.parse(item.getPubDate(), DateTimeFormatter.ofPattern("yyyy-MM-dd"))) // 날짜 변환 필요시
 
-                // ⚠️ 주의: 연관 관계 매핑
+                // 주의: 연관 관계 매핑
                 // Book 엔티티 설정을 보니 Publisher와 BookAuthor가 필수(@NotNull)일 수 있습니다.
                 // 임시로 null을 넣거나, 기본 값을 넣어줘야 에러가 안 납니다.
                 .build();
@@ -117,39 +117,52 @@ public class AladinServiceImpl implements AladinService {
     }
 
     public AladinItem lookupBook(String isbn13) {
-        if (isbn13 == null || isbn13.isEmpty()) {
-            return null;
-        }
-
-        Optional<Book> existBook = bookRepository.findByIsbn13(isbn13);
-
-        if (existBook.isPresent()) {
-            log.info("DB에서 책 정보를 찾았습니다: {}", isbn13);
-            // DB 엔티티(Book)를 DTO(AladinItem)로 변환해서 반환
-            return convertEntityToAladinItem(existBook.get());
-        }
-
-        // 2. DB에 없으면 알라딘 API 호출 (ItemLookUp URL 사용 필수!)
-        log.info("DB에 책이 없어 알라딘 API를 호출합니다: {}", isbn13);
+        if (isbn13 == null || isbn13.isEmpty()) return null;
 
         try {
-            // 주의: 검색용 BASE_URL이 아니라, 상품조회용 LOOKUP_URL을 써야 합니다.
             AladinSearchResponse response = restTemplate.getForObject(
-                    LOOKUP_URL, // 위에서 정의한 ItemLookUp URL
+                    LOOKUP_URL,
                     AladinSearchResponse.class,
                     ttbKey,
                     isbn13
             );
 
             if (response != null && response.getItem() != null && !response.getItem().isEmpty()) {
-                return response.getItem().get(0);
+                return response.getItem().get(0); // categoryId/categoryName 포함 기대
             }
         } catch (Exception e) {
-            log.error("알라딘 API 조회 오류: {}", e.getMessage());
+            log.error("알라딘 LOOKUP 실패 isbn={}", isbn13, e);
         }
 
+        // ❌ backfill에서는 DB fallback 하면 category가 영원히 null이라 SKIP만 누적됩니다.
         return null;
     }
+    @Override
+    public AladinItem lookupBookFromApi(String isbn13) {
+        String cleanIsbn13 = isbn13 == null ? null : isbn13.replaceAll("[^0-9Xx]", "");
+        if (cleanIsbn13 == null || cleanIsbn13.isBlank()) {
+            return null;
+        }
+
+        AladinSearchResponse res = restTemplate.getForObject(
+                LOOKUP_URL,
+                AladinSearchResponse.class,
+                ttbKey,
+                cleanIsbn13
+        );
+
+        if (res == null || res.getItem() == null || res.getItem().isEmpty()) {
+            return null;
+        }
+
+        // categoryId / categoryName 들어있는 item 반환
+        return res.getItem().get(0);
+    }
+
+
+
+
+
 
     public List<AladinItem> getBookList(String queryType) {
         try {
@@ -180,4 +193,29 @@ public class AladinServiceImpl implements AladinService {
         item.setDescription(book.getContent());
         return item;
     }
+
+    public String lookupRaw(String isbn13) {
+        String url =
+                "http://www.aladin.co.kr/ttb/api/ItemLookUp.aspx"
+                        + "?ttbkey={ttbKey}"
+                        + "&ItemId={isbn13}"
+                        + "&ItemIdType=ISBN13"
+                        + "&output=JS"
+                        + "&Version=20131101";
+
+        String response = restTemplate.getForObject(
+                url,
+                String.class,
+                ttbKey,
+                isbn13
+        );
+
+        //
+        log.info("===== ALADIN LOOKUP RAW RESPONSE =====");
+        log.info(response);
+        log.info("=====================================");
+
+        return response;
+    }
+
 }

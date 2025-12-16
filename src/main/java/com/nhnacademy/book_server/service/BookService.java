@@ -284,11 +284,11 @@ public class BookService {
 //    // @Scheduled(cron = "0 0 0 * * *")    // 조회수를 카운트 하는 로직이 매시간 반영
 
     @Transactional(readOnly = true)
-    public List<BookResponse> getWeeklyPopularBooks() {
+    public List<BookResponse> getWeeklyPopularBooks(int limit) {
         String weeklyKey = "weekly_ranking";
 
-        // 1. Redis에서 5개 가져오기
-        Set<String> topBookIds = redisTemplate.opsForZSet().reverseRange(weeklyKey, 0, 4);
+
+        Set<String> topBookIds = redisTemplate.opsForZSet().reverseRange(weeklyKey, 0, limit-1);
 
         if (topBookIds == null || topBookIds.isEmpty()) {
             return List.of();
@@ -416,4 +416,13 @@ public class BookService {
             log.error("Redis 점수 갱신 실패 (주문은 계속 진행됨): bookId={}", bookId, e);
         }
     }
+
+    @Transactional(readOnly = true)
+    public List<BookResponse> getBooksByCategory(int categoryId) {
+        List<Book> books = bookRepository.findBooksByCategoryWithAuthors(categoryId);
+        return books.stream()
+                .map(BookResponse::from)
+                .toList();
+    }
+
 }
