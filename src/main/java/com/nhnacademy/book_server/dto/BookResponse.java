@@ -6,117 +6,27 @@ import com.nhnacademy.book_server.entity.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public record BookResponse(@JsonProperty("id")
-                           Long bookId,
-                           String title,
-                           String author,
-                           String isbn,
-                           Integer price,
-                           String image,
-                           Integer categoryId,
-                           String content,
-                           String publisher,
-                           String publishedDate,
-                           Double avgRating,
-                           Long reviewCount,
-                           //  AI 검색 설명(책별 요약) – AI 검색일 때만 채움, 그 외에는 null
-                           String aiSummary
-
-
-
+public record BookResponse(
+        @JsonProperty("id") Long bookId,
+        String title,
+        String author,
+        String isbn,
+        Integer price,
+        String image,
+        Integer categoryId,
+        String content,
+        String publisher,
+        String publishedDate,
+        Double avgRating,
+        Long reviewCount,
+        String aiSummary,       // (1) RAG 검색용 요약
+        String aiReviewSummary  // (2) 리뷰 요약 (상세페이지용)
 ) {
 
-    //BookResponse DTO는 그 원본 데이터를 가공하고 포장하여 클라이언트에게 깔끔하게 전달하기 위한 응답용 객체입니다.
-
-    // 1) 기본 팩토리: 평균평점·리뷰수까지 계산된 값이 넘어오는 경우 (일반 검색용)
-    public static BookResponse from(Book book,
-                                    Category category,
-                                    Double avgRating,
-                                    Long reviewCount) {
-
-        // 저자 이름 문자열로 변환 (예: "홍길동, 이몽룡")
-        String authorNames = null;
-        if (book.getBookAuthors() != null && !book.getBookAuthors().isEmpty()) {
-            authorNames = book.getBookAuthors().stream()
-                    .map(BookAuthor::getAuthor)
-                    .filter(author -> author != null && author.getName() != null)
-                    .map(a -> a.getName().trim())
-                    .filter(name -> !name.isBlank())
-                    .distinct()
-                    .collect(Collectors.joining(", "));
-        }
-
-        String publisherName = null;
-        if (book.getPublisher() != null) {
-            publisherName = book.getPublisher().getName();
-        }
-
-        Integer categoryIdValue = (category != null) ? category.getCategoryId() : null;
-
-        return new BookResponse(
-                book.getId(),
-                book.getTitle(),
-                authorNames,
-                book.getIsbn13(),
-                book.getPrice(),
-                book.getImage(),
-                categoryIdValue,
-                book.getContent(),
-                publisherName,
-                book.getPublishedDate(),
-                avgRating,
-                reviewCount,
-                null   //  일반 검색에서는 aiSummary 없음
-        );
-    }
-
-    // 1-1) AI 검색(RAG)용 팩토리: 책별 AI 설명까지 함께 세팅
-    public static BookResponse fromWithAiSummary(Book book,
-                                                 Category category,
-                                                 Double avgRating,
-                                                 Long reviewCount,
-                                                 String aiSummary) {
-
-        // 기존 로직 재사용을 위해 공통 부분 먼저 계산
-        String authorNames = null;
-        if (book.getBookAuthors() != null && !book.getBookAuthors().isEmpty()) {
-            authorNames = book.getBookAuthors().stream()
-                    .map(BookAuthor::getAuthor)
-                    .filter(author -> author != null && author.getName() != null)
-                    .map(a -> a.getName().trim())
-                    .filter(name -> !name.isBlank())
-                    .distinct()
-                    .collect(Collectors.joining(", "));
-        }
-
-        String publisherName = null;
-        if (book.getPublisher() != null) {
-            publisherName = book.getPublisher().getName();
-        }
-
-        Integer categoryIdValue = (category != null) ? category.getCategoryId() : null;
-
-        return new BookResponse(
-                book.getId(),
-                book.getTitle(),
-                authorNames,
-                book.getIsbn13(),
-                book.getPrice(),
-                book.getImage(),
-                categoryIdValue,
-                book.getContent(),
-                publisherName,
-                book.getPublishedDate(),
-                avgRating,
-                reviewCount,
-                aiSummary   // 🔹 여기만 다름
-        );
-    }
-
-    // 2) 리뷰 리스트를 그대로 받아서 평균·개수를 계산하는 팩토리
-    public static BookResponse from(Book book,
-                                    Category category,
-                                    List<Review> reviews) {
+    // =================================================================================
+    // [1] 상세 페이지용 (리뷰 요약 포함) - 이름 변경으로 모호성 제거
+    // =================================================================================
+    public static BookResponse fromWithReviewSummary(Book book, String aiReviewSummary, List<Review> reviews) {
         double avg = 0.0;
         long count = 0L;
 
@@ -127,17 +37,94 @@ public record BookResponse(@JsonProperty("id")
                     .average()
                     .orElse(0.0);
         }
-
-        return from(book, category, avg, count);
+        // Category는 null로 전달
+        return build(book, book.getCategory(), avg, count, null, aiReviewSummary);
     }
 
-    // 3) 카테고리 조회 등에서 리뷰 정보 없이 쓰는 기본 팩토리
+    // =================================================================================
+    // [2] 일반 목록/검색용 (기존 유지)
+    // =================================================================================
+    public static BookResponse from(Book book, Category category, Double avgRating, Long reviewCount) {
+        return build(book, category, avgRating, reviewCount, null, null);
+    }
+
+    // =================================================================================
+    // [3] RAG 검색용 (기존 유지)
+    // =================================================================================
+    public static BookResponse fromWithAiSummary(Book book, Category category, Double avgRating, Long reviewCount, String aiSummary) {
+        return build(book, category, avgRating, reviewCount, aiSummary, null);
+    }
+
+    // =================================================================================
+    // [4] 리뷰 리스트로 평점 계산 (무한루프 수정됨)
+    // =================================================================================
+    public static BookResponse from(Book book, Category category, List<Review> reviews) {
+        double avg = 0.0;
+        long count = 0L;
+
+        if (reviews != null && !reviews.isEmpty()) {
+            count = reviews.size();
+            avg = reviews.stream()
+                    .mapToInt(Review::getRating)
+                    .average()
+                    .orElse(0.0);
+        }
+        // 여기서 build를 직접 호출하여 재귀 방지
+        return build(book, category, avg, count, null, null);
+    }
+
     public static BookResponse from(Book book, Category category) {
-        return from(book, category, null, 0L);
+        return build(book, category, 0.0, 0L, null, null);
     }
 
     public static BookResponse from(Book book) {
         return from(book, book.getCategory());
     }
 
+
+    // ---------------------------------------------------------------------------------
+    // [Internal Helper] 생성 로직 통합 (중복 제거)
+    // ---------------------------------------------------------------------------------
+    private static BookResponse build(Book book,
+                                      Category category,
+                                      Double avgRating,
+                                      Long reviewCount,
+                                      String aiSummary,
+                                      String aiReviewSummary
+    ) {
+        String authorNames = null;
+        if (book.getBookAuthors() != null && !book.getBookAuthors().isEmpty()) {
+            authorNames = book.getBookAuthors().stream()
+                    .map(BookAuthor::getAuthor)
+                    .filter(author -> author != null && author.getName() != null)
+                    .map(a -> a.getName().trim())
+                    .filter(name -> !name.isBlank())
+                    .distinct()
+                    .collect(Collectors.joining(", "));
+        }
+
+        String publisherName = null;
+        if (book.getPublisher() != null) {
+            publisherName = book.getPublisher().getName();
+        }
+
+        Integer categoryIdValue = (category != null) ? category.getCategoryId() : null;
+
+        return new BookResponse(
+                book.getId(),
+                book.getTitle(),
+                authorNames,
+                book.getIsbn13(),
+                book.getPrice(),
+                book.getImage(),
+                categoryIdValue,
+                book.getContent(),
+                publisherName,
+                book.getPublishedDate(),
+                avgRating,
+                reviewCount,
+                aiSummary,
+                aiReviewSummary
+        );
+    }
 }

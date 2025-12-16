@@ -179,7 +179,8 @@ public class BookService {
                 String trimmedName = authorName.trim();
 
                 if (!StringUtils.hasText(trimmedName)) continue;
-                Author author = authorRepository.findByName(authorName).orElseGet(() -> authorRepository.save(Author.builder().name(authorName).build()));
+                Author author = authorRepository.findByName(authorName)
+                        .orElseGet(() -> authorRepository.save(Author.builder().name(authorName).build()));
 
                 BookAuthor bookAuthor = BookAuthor.builder()
                         .book(existingBook)  // 중요: 현재 책 정보 주입
@@ -284,11 +285,11 @@ public class BookService {
 //    // @Scheduled(cron = "0 0 0 * * *")    // 조회수를 카운트 하는 로직이 매시간 반영
 
     @Transactional(readOnly = true)
-    public List<BookResponse> getWeeklyPopularBooks() {
+    public List<BookResponse> getWeeklyPopularBooks(int limit) {
         String weeklyKey = "weekly_ranking";
 
-        // 1. Redis에서 5개 가져오기
-        Set<String> topBookIds = redisTemplate.opsForZSet().reverseRange(weeklyKey, 0, 4);
+
+        Set<String> topBookIds = redisTemplate.opsForZSet().reverseRange(weeklyKey, 0, limit - 1);
 
         if (topBookIds == null || topBookIds.isEmpty()) {
             return List.of();
@@ -378,7 +379,7 @@ public class BookService {
         //Redis의 ZSet은 기본적으로 점수가 낮은 순서(오름차순)로 정렬되어 저장되는데
         // zset의 순서를 바꿈
 
-        Set<String> BestBookIds = redisTemplate.opsForZSet().reverseRange("best_seller", 0, limit-1);
+        Set<String> BestBookIds = redisTemplate.opsForZSet().reverseRange("best_seller", 0, limit - 1);
 
         log.info("Redis에서 가져온 베스트 셀러 ID들: {}", BestBookIds);
 
@@ -417,4 +418,11 @@ public class BookService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public List<BookResponse> getBooksByCategory(int categoryId) {
+        List<Book> books = bookRepository.findBooksByCategoryWithAuthors(categoryId);
+        return books.stream()
+                .map(BookResponse::from)
+                .toList();
+    }
 }

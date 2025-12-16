@@ -78,3 +78,6 @@ X-USER-ID: 1
 GET http://localhost:9002/api/my-page/likes?page=0&size=10
 Content-Type: application/json
 X-USER-ID: 1
+
+
+

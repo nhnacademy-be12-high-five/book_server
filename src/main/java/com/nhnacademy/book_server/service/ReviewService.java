@@ -12,9 +12,10 @@ import java.util.List;
 
 public interface ReviewService {
     ReviewCreateResponse saveReview(ReviewCreateRequest request, Long bookId, Long memberId, List<MultipartFile> images);
-    Page<BookReviewResponse> getReviewList(Long bookId, Pageable pageable);
+    Page<BookReviewResponse> getReviewList(Long bookId, Pageable pageable, Long memberId);
     BookReviewResponse getMyReview(Long memberId, Long bookId);
     Page<MyPageReviewResponse> getMyReviewList(Long memberId, Pageable pageable);
     void removeReview(Long reviewId);
     UpdateReviewResponse updateReview(ReviewUpdateRequest request, Long bookId, Long reviewId, Long memberId, List<MultipartFile> images);
+    boolean toggleReviewLike(Long reviewId, Long memberId);
 }

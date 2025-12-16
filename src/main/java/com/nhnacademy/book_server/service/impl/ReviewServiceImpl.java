@@ -7,30 +7,31 @@ import com.nhnacademy.book_server.dto.response.*;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.Review;
 import com.nhnacademy.book_server.entity.ReviewImage;
+import com.nhnacademy.book_server.entity.ReviewLike;
 import com.nhnacademy.book_server.exception.BusinessException;
 import com.nhnacademy.book_server.exception.ErrorCode;
 import com.nhnacademy.book_server.feign.MemberFeignClient;
 import com.nhnacademy.book_server.feign.OrderFeignClient;
 import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.ReviewImageRepository;
+import com.nhnacademy.book_server.repository.ReviewLikeRepository;
 import com.nhnacademy.book_server.repository.ReviewRepository;
 import com.nhnacademy.book_server.service.MinioImageService;
 import com.nhnacademy.book_server.service.ReviewService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -45,9 +46,14 @@ public class ReviewServiceImpl implements ReviewService {
     private final OrderFeignClient orderFeignClient;
     private final MemberFeignClient memberFeignClient;
     private final BookRepository bookRepository;
+    private final ReviewLikeRepository reviewLikeRepository;
 
 
     private static final int MAX_IMAGE_COUNT = 5;
+
+    @Autowired
+    @Lazy // 순환 참조 방지 필수
+    private ReviewServiceImpl self;
 
     // 리뷰 생성 기능
     @Override
@@ -87,65 +93,89 @@ public class ReviewServiceImpl implements ReviewService {
         imageSave(images, review);
 
         // 리뷰 포인트 증가
-        eventPublisher.publishEvent(new ReviewCreatedEvent(memberId, bookId,"EARN_REVIEW"));
         if(newImageCount > 0){
             eventPublisher.publishEvent(new ReviewCreatedEvent(memberId, bookId,"EARN_PHOTO_REVIEW"));
+        }else{
+            eventPublisher.publishEvent(new ReviewCreatedEvent(memberId, bookId,"EARN_REVIEW"));
         }
 
         return new ReviewCreateResponse(review.getId(), request.rating(), request.content());
     }
 
-    // 전체 리뷰 조회
     @Override
-    @Cacheable(value = "bookReviews", key = "#bookId + '_' + #pageable.pageNumber", unless = "#result.isEmpty()")
     @Transactional(readOnly = true)
-    public Page<BookReviewResponse> getReviewList(Long bookId, Pageable pageable) {
-        Page<Review> reviews = reviewRepository.findByBookId(bookId, pageable);
+    public Page<BookReviewResponse> getReviewList(Long bookId, Pageable pageable, Long memberId) {
 
-        List<Long> memberIds = reviews.getContent().stream()
-                .map(Review::getMemberId)
-                .distinct()
-                .toList();
+        Page<BookReviewResponse> cachedPage = self.getCachedReviewPage(bookId, pageable);
 
-        Map<Long, String> memberMap = new HashMap<>();
-
-        if (!memberIds.isEmpty()) {
-            try {
-                List<MemberResponse> responses = memberFeignClient.getMembersInfo(memberIds);
-                if (responses != null) {
-                    memberMap = responses.stream()
-                            .collect(Collectors.toMap(
-                                    MemberResponse::memberId,
-                                    MemberResponse::name,
-                                    (existing, replacement) -> existing
-                            ));
-                }
-            } catch (Exception e) {
-                 log.error("Member Service 호출 실패: ", e);
-            }
+        if (memberId == null || cachedPage.isEmpty()) {
+            return cachedPage;
         }
 
-        final Map<Long, String> finalMemberMap = memberMap;
+        List<Long> reviewIds = cachedPage.getContent().stream()
+                .map(BookReviewResponse::reviewId)
+                .toList();
+
+        List<Long> myLikedReviewIds = reviewLikeRepository.findReviewIdsByMemberIdAndReviewIds(memberId, reviewIds);
+        Set<Long> likedSet = new HashSet<>(myLikedReviewIds);
+
+        return cachedPage.map(response -> {
+            if (likedSet.contains(response.reviewId())) {
+                return response.withIsLiked(true);
+            }
+            return response;
+        });
+    }
+
+    @Cacheable(value = "bookReviews", key = "#bookId + '_' + #pageable.pageNumber", unless = "#result.isEmpty()")
+    public Page<BookReviewResponse> getCachedReviewPage(Long bookId, Pageable pageable) {
+        Page<Review> reviews = reviewRepository.findByBookId(bookId, pageable);
+
+        Map<Long, String> memberMap = getMemberNicknames(reviews);
 
         return reviews.map(review -> {
-            String loginId = finalMemberMap.getOrDefault(review.getMemberId(), "알 수 없음");
+            String name = memberMap.getOrDefault(review.getMemberId(), "알 수 없음");
 
-            List<String> urls = new ArrayList<>();
-            if (review.getReviewImages() != null) {
-                urls = review.getReviewImages().stream()
-                        .map(ReviewImage::getFileUrl)
-                        .toList();
-            }
+            String maskedName = maskName(name);
+
+            List<String> urls = review.getReviewImages().stream()
+                    .map(ReviewImage::getFileUrl)
+                    .toList();
 
             return new BookReviewResponse(
                     review.getId(),
-                    loginId,
+                    review.getMemberId(),
+                    maskedName,
                     review.getReviewContent(),
                     review.getRating(),
                     review.getCreatedAt(),
-                    urls
+                    urls,
+                    review.getLikeCount(),
+                    false
             );
         });
+    }
+
+    // 마스킹 처리 메서드
+    private String maskName(String name) {
+        if (name == null || name.isBlank()) {
+            return "알 수 없음";
+        }
+
+        int length = name.length();
+
+        if (length == 2) {
+            return name.charAt(0) + "*";
+        }
+
+        if (length >= 3) {
+            char firstChar = name.charAt(0);
+            char lastChar = name.charAt(length - 1);
+
+            String mask = "*".repeat(length - 2);
+            return firstChar + mask + lastChar;
+        }
+        return "*";
     }
 
 
@@ -173,11 +203,14 @@ public class ReviewServiceImpl implements ReviewService {
 
         return new BookReviewResponse(
                 myReview.getId(),
+                myReview.getMemberId(),
                 loginId,
                 myReview.getReviewContent(),
                 myReview.getRating(),
                 myReview.getCreatedAt(),
-                urls
+                urls,
+                myReview.getLikeCount(),
+                null
         );
     }
 
@@ -223,7 +256,7 @@ public class ReviewServiceImpl implements ReviewService {
     @Transactional
     @CacheEvict(value = "bookReviews", key = "#bookId + '_*'", allEntries = true)
     public UpdateReviewResponse updateReview(ReviewUpdateRequest request, Long bookId, Long reviewId,
-                                           Long memberId, List<MultipartFile> images) {
+                                             Long memberId, List<MultipartFile> images) {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.REVIEW_NOT_FOUND));
 
@@ -235,6 +268,8 @@ public class ReviewServiceImpl implements ReviewService {
             throw new BusinessException(ErrorCode.REVIEW_NOT_AUTHOR);
         }
 
+        boolean wasPhotoReview = !review.getReviewImages().isEmpty();
+
         List<ReviewImage> imagesToDelete = new ArrayList<>();
         List<Long> deleteImageIds = request.deleteImageIds();
 
@@ -245,7 +280,7 @@ public class ReviewServiceImpl implements ReviewService {
 
         int currentImageCount = review.getReviewImages().size();
         int deleteCount = imagesToDelete.size();
-        int newImageCount = (images != null) ? images.stream().filter(img -> !img.isEmpty()).toList().size() : 0;
+        int newImageCount = (images != null) ? (int) images.stream().filter(img -> !img.isEmpty()).count() : 0;
 
         if (currentImageCount - deleteCount + newImageCount > MAX_IMAGE_COUNT) {
             throw new BusinessException(ErrorCode.REVIEW_IMAGE_LIMIT_EXCEEDED);
@@ -255,9 +290,18 @@ public class ReviewServiceImpl implements ReviewService {
 
         if (!imagesToDelete.isEmpty()) {
             reviewImageRepository.deleteAll(imagesToDelete);
+            review.getReviewImages().removeAll(imagesToDelete);
         }
 
         imageSave(images, review);
+
+        int finalImageCount = currentImageCount - deleteCount + newImageCount;
+        boolean isNowPhotoReview = finalImageCount > 0;
+
+        if (!wasPhotoReview && isNowPhotoReview) {
+            log.info("리뷰 업그레이드 감지 (일반->포토): 차액 포인트 지급 요청 - reviewId: {}", reviewId);
+            eventPublisher.publishEvent(new ReviewCreatedEvent(memberId, bookId, "EARN_REVIEW_UPGRADE"));
+        }
 
         if (!imagesToDelete.isEmpty()) {
             List<String> fileUrls = imagesToDelete.stream()
@@ -266,11 +310,40 @@ public class ReviewServiceImpl implements ReviewService {
             try {
                 imageUploadService.deleteImages(fileUrls);
             } catch (Exception e) {
-                log.error("DB 갱신은 성공했으나 S3 이미지 삭제 실패. 고아 객체 발생 가능. URLs: {}", fileUrls, e);
+                log.error("DB 갱신 성공했으나 S3 이미지 삭제 실패. 고아 객체 발생 가능. URLs: {}", fileUrls, e);
             }
         }
 
         return new UpdateReviewResponse(request.content(), request.rating());
+    }
+
+    @Override
+    @Transactional
+    public boolean toggleReviewLike(Long reviewId, Long memberId) {
+
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.REVIEW_NOT_FOUND));
+
+        if (review.getMemberId().equals(memberId)) {
+            return false;
+        }
+
+        Optional<ReviewLike> existingLike = reviewLikeRepository.findByMemberIdAndReviewId(memberId, reviewId);
+
+        if (existingLike.isPresent()) {
+            reviewLikeRepository.delete(existingLike.get());
+            reviewRepository.decreaseLikeCount(reviewId);
+            return false;
+        } else {
+            try {
+                ReviewLike newLike = new ReviewLike(review, memberId);
+                reviewLikeRepository.save(newLike);
+                reviewRepository.increaseLikeCount(reviewId);
+                return true;
+            } catch( Exception e){
+                throw new BusinessException(ErrorCode.REVIEW_DUP);
+            }
+        }
     }
 
     // 새로운 이미지 저장하는 헬퍼 메서드
@@ -287,6 +360,26 @@ public class ReviewServiceImpl implements ReviewService {
             if (!newImages.isEmpty()) {
                 reviewImageRepository.saveAll(newImages);
             }
+        }
+    }
+
+    // 회원 닉네임 조회 헬퍼
+    private Map<Long, String> getMemberNicknames(Page<Review> reviews) {
+        List<Long> memberIds = reviews.getContent().stream()
+                .map(Review::getMemberId)
+                .distinct()
+                .toList();
+
+        if (memberIds.isEmpty()) return Collections.emptyMap();
+
+        try {
+            List<MemberResponse> responses = memberFeignClient.getMembersInfo(memberIds);
+            if (responses == null) return Collections.emptyMap();
+            return responses.stream().collect(Collectors.toMap(
+                    MemberResponse::memberId, MemberResponse::name, (a, b) -> a));
+        } catch (Exception e) {
+            log.error("Member Service Error", e);
+            return Collections.emptyMap();
         }
     }
 }

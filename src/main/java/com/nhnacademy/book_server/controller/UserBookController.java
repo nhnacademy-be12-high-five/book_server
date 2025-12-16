@@ -34,6 +34,8 @@ public class UserBookController implements UserBookSwagger {
         return ResponseEntity.ok(bookPage);
     }
 
+    // todo page 전체 개수 (response) Page 수정
+
     // 도서 한 권 상세 조회 (GET /api/books/{bookId})
     @Override
     @GetMapping("/books/{id}")
@@ -48,16 +50,19 @@ public class UserBookController implements UserBookSwagger {
         }
     }
 
+    // todo api 버전
+
     // 사용자의 재고 조회
     // todo 재고 설정을 해야할것같은데
-    @GetMapping("/books/{book-Id}/stock")
-    public ResponseEntity<Integer> getBookStock(@PathVariable("book-Id") Long bookId) {
-        // [수정 3] 비즈니스 로직을 Service로 이동
-        // 컨트롤러는 "요청 받고 응답 주는" 역할만 해야 합니다.
-        int stock = bookService.getBookStock(bookId);
-        return ResponseEntity.ok(stock);
-    }
+//    @GetMapping("/books/{book-Id}/stock")
+//    public ResponseEntity<Integer> getBookStock(@PathVariable("book-Id") Long bookId) {
+//        // [수정 3] 비즈니스 로직을 Service로 이동
+//        // 컨트롤러는 "요청 받고 응답 주는" 역할만 해야 합니다.
+//        int stock = bookService.getBookStock(bookId);
+//        return ResponseEntity.ok(stock);
+//    }
 
+    // todo api 수정
     @PostMapping("/books/bulk")
     public ResponseEntity<List<GetBookResponse>> getBooksBulk(@RequestBody List<Long> bookIds) {
         List<GetBookResponse> response = bookService.getBooksBulk(bookIds);
@@ -65,15 +70,15 @@ public class UserBookController implements UserBookSwagger {
     }
 
     @GetMapping("/books/new")
-    public ResponseEntity<List<BookResponse>> getNewBooks() {
+    public ResponseEntity<List<BookResponse>> getNewBooks(@RequestParam(defaultValue = "5") int size) {
         List<BookResponse> books = bookService.getNewBooks();
         return ResponseEntity.ok(books);
     }
 
     @GetMapping("/books/popular")
-    public ResponseEntity<List<BookResponse>> getWeeklyPopular(){
-        List<BookResponse> books = bookService.getWeeklyPopularBooks();
-        System.out.println("컨트롤러 호출됨! 찾은 책 개수: " + books.size());
+    public ResponseEntity<List<BookResponse>> getWeeklyPopular(@RequestParam(defaultValue = "5") int size){
+        List<BookResponse> books = bookService.getWeeklyPopularBooks(10);
+//        System.out.println("컨트롤러 호출됨! 찾은 책 개수: " + books.size());
         return ResponseEntity.ok(books);
     }
 
@@ -86,8 +91,8 @@ public class UserBookController implements UserBookSwagger {
     }
 
     @GetMapping("/books/best-seller")
-    public ResponseEntity<List<BookResponse>> getBestSeller(){
-        List<BookResponse> BestSellers=bookService.getBestSeller(10);
+    public ResponseEntity<List<BookResponse>> getBestSeller(@RequestParam(defaultValue = "5") int size){
+        List<BookResponse> BestSellers=bookService.getBestSeller(size);
         return ResponseEntity.ok(BestSellers);
     }
 }

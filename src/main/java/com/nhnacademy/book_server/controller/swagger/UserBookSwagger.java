@@ -27,6 +27,7 @@ public interface UserBookSwagger {
      * 도서 전체 조회
      * 일반 사용자는 모든 도서를 조회할 수 있습니다.
      */
+
     @Operation(summary = "사용자 도서 전체 조회", description = "시스템에 등록된 모든 도서 목록을 조회합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "도서 목록 조회 성공 (OK)",
@@ -64,19 +65,5 @@ public interface UserBookSwagger {
     // @GetMapping("/api/books/search")
     // ResponseEntity<List<book>> searchBooks(@RequestParam String keyword, @RequestParam String type);
 
-    @Operation(summary = "사용자 도서 재고 수량 조회", description = "특정 도서의 현재 재고 수량을 조회합니다.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "재고 수량 조회 성공 (OK)",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(type = "integer", example = "50"))), // 응답은 숫자 (재고 수량)
-            @ApiResponse(responseCode = "404", description = "해당 ID의 도서를 찾을 수 없음 (Not Found)")
-    })
 
-
-    default ResponseEntity<Integer> getBookStock(@PathVariable int bookId,@Parameter(hidden = true) @RequestBody Book book) {
-        // 구현 로직: bookId를 사용하여 해당 도서의 현재 재고 수량을 조회
-        // 예: return ResponseEntity.ok(bookService.getStockQuantity(bookId));
-        // todo 책 재고 확인하는 메서드
-        return null;
-    }
 }

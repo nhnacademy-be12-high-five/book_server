@@ -1,0 +1,15 @@
+### 1. 태그 생성 (Create)
+POST http://localhost:9002/api/tag
+Content-Type: application/json
+
+{
+  "name": "신간"
+}
+
+### 2. 방금 생성한 태그 조회 (Get One)
+GET http://localhost:9002/api/tag/2
+Content-Type: application/json
+
+### 3. 모든 태그 조회 (Get List)
+GET http://localhost:9002/api/tags
+Content-Type: application/json
