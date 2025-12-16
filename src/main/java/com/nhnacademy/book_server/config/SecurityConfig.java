@@ -20,7 +20,9 @@ public class SecurityConfig {
                                 "/api/books/**",
                                 "/api/categories/**",
                                 "/api/search/**",
-                                "/actuator/**"
+                                "/actuator/**",
+                                "/api/tag/**",
+                                "/api/tags/**"
                         ).permitAll()
                         .requestMatchers("/api/test/**").permitAll()
                         .anyRequest().authenticated()

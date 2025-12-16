@@ -14,15 +14,13 @@ import com.nhnacademy.book_server.repository.AuthorRepository;
 import com.nhnacademy.book_server.repository.BookAuthorRepository;
 import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.PublisherRepository;
-import com.nhnacademy.book_server.service.category.CategoryMappingService;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.iterators.CartesianProductIterator;
 import org.springframework.cglib.core.Local;
+import org.springframework.core.annotation.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -43,8 +41,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @RequiredArgsConstructor
 @Transactional
-@Getter
-@Setter
 public class BookService {
 
     private final BookRepository bookRepository;
@@ -53,28 +49,21 @@ public class BookService {
     private final BookAuthorRepository bookAuthorRepository;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
-    private final CategoryMappingService categoryMappingService;
 
-//    @PostConstruct
-//    public void initObjectMapper() {
-//        objectMapper.registerModule(new JavaTimeModule());
-//        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-//    }
-
-
-
-    public Book createBook(ParsingDto dto){
+    public Book createBook(ParsingDto dto) {
         if (bookRepository.existsByIsbn13(dto.getIsbn())) {
             log.warn("이미 존재하는 ISBN입니다: {}", dto.getIsbn());
         }
 
         Publisher publisher = null;
+
         if (StringUtils.hasText(dto.getPublisher())) {
             String publisherName = dto.getPublisher().trim();
+            // todo
             publisher = publisherRepository.findByName(publisherName)
                     .orElseGet(() -> publisherRepository.save(
                             Publisher.builder().name(publisherName).build()
-                    ));
+            ));
         }
 
         Book newBook = Book.builder()
@@ -88,13 +77,6 @@ public class BookService {
                 .build();
 
         Book savedBook = bookRepository.save(newBook);
-        categoryMappingService.upsertCategoryAndMap(
-                savedBook,
-                dto.getCategoryId(),
-                dto.getCategoryName()
-        );
-
-
 
         if (StringUtils.hasText(dto.getAuthor())) {
             String[] authorNames = dto.getAuthor().split(",");
@@ -115,31 +97,32 @@ public class BookService {
                         .build();
 
                 bookAuthorRepository.save(bookAuthor);
-
             }
         }
 
         return savedBook;
-
     }
-
 
     // 모든 책 조회
     // list -> Pageable로 변환
     @Transactional(readOnly = true)
-    public Page<BookResponse> findAllBooks(Pageable pageable){
+    public Page<BookResponse> findAllBooks(Pageable pageable) {
         return bookRepository.findAll(pageable)
                 .map(BookResponse::from);
     }
+
+    // todo query dsl로 수정 -> join patch
+    // todo 책 수정
 
     // 책 한권 조회
     @Transactional(readOnly = true)
     public BookResponse findBookById(Long id) {
 
         // 1. [Redis Cache 확인]
-
         incrementViewCount(id);
 
+        // todo 메서드로 관리 ->
+        //  캐싱 spring cache
         // 조회 카운트를 위함
         String cacheKey = "book:detail:" + id;
         // 레디스에서 먼저 책의 아이디가 있는지 찾아봄
@@ -175,8 +158,8 @@ public class BookService {
 
     // 책 업데이트
     @Transactional // 💡 트랜잭션 적용
-    public Book updateBook(Long id, BookUpdateRequest request){
-        Book existingBook = bookRepository.findById(id).orElseThrow(()->new RuntimeException("아이디가 존재하지 않습니다."));
+    public Book updateBook(Long id, BookUpdateRequest request) {
+        Book existingBook = bookRepository.findById(id).orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다."));
 
         existingBook.setIsbn13(request.getIsbn());
         existingBook.setTitle(request.getTitle());
@@ -192,24 +175,24 @@ public class BookService {
                             Publisher.builder().name(publisherName).build()
                     ));
 
-            existingBook.setPublisher(publisher);
+            existingBook.setPublisher(publisher);  // todo update 메서드로 수정
         }
 
-        if (request.getAuthors() != null){
+        if (request.getAuthors() != null) {
             existingBook.getBookAuthors().clear();
 
-            for (String authorName: request.getAuthors()){
+            for (String authorName : request.getAuthors()) {
                 String trimmedName = authorName.trim();
 
-                if(!StringUtils.hasText(trimmedName)) continue;
-                Author author=authorRepository.findByName(authorName).orElseGet(()->authorRepository.save(Author.builder().name(authorName).build()));
+                if (!StringUtils.hasText(trimmedName)) continue;
+                Author author = authorRepository.findByName(authorName).orElseGet(() -> authorRepository.save(Author.builder().name(authorName).build()));
 
                 BookAuthor bookAuthor = BookAuthor.builder()
                         .book(existingBook)  // 중요: 현재 책 정보 주입
                         .author(author)      // 중요: 찾은 작가 정보 주입
                         .build();
 
-                existingBook.getBookAuthors().add(bookAuthor);
+                existingBook.getBookAuthors().add(bookAuthor); // todo
                 bookRepository.save(existingBook);
             }
         }
@@ -218,7 +201,7 @@ public class BookService {
     }
 
     // 책 삭제
-    public void deleteBook(Long id,Long memberId){
+    public void deleteBook(Long id, Long memberId) {
         if (!bookRepository.existsById(id)) {
             throw new RuntimeException("삭제할 아이디가 없습니다.");
         }
@@ -238,6 +221,8 @@ public class BookService {
     // bulk api 조회
     // 장바구니에서 책을 조회할때 책을 1번만 호출하도록 하는 API
     // Service Layer
+
+    // todo 트랜잭션
     public List<GetBookResponse> getBooksBulk(List<Long> bookIds) {
         List<Book> books = bookRepository.findAllById(bookIds);
 
@@ -252,28 +237,27 @@ public class BookService {
                 .collect(Collectors.toList());
     }
 
-    // 재고 확인 (단순 조회이므로 readOnly)
-    @Transactional(readOnly = true)
-    public int getBookStock(Long bookId) {
-        // 1. 전체 엔티티를 다 가져오는 건 낭비일 수 있음.
-        // 단순히 재고만 확인할 거라면 Repository에서 재고 컬럼만 가져오는 쿼리를 짜는 게 성능상 베스트.
-        // 하지만 일단 기존 로직을 유지하면서 Service로 옮긴다면:
-
-        return bookRepository.findById(bookId)
-                .map(book -> {
-                    // 만약 getStockCheckedAt이 Boolean이 아니라 날짜라거나 로직이 있다면 여기서 처리
-                    // 예시: 재고 필드가 따로 있다면 book.getStock() 반환
-                    boolean inStock = Boolean.TRUE.equals(book.getStockCheckedAt());
-                    return inStock ? 1 : 0;
-                })
-                .orElse(0); // 책이 없으면 재고 0 처리
-    }
+//    // 재고 확인 (단순 조회이므로 readOnly)
+//    @Transactional(readOnly = true)
+//    public int getBookStock(Long bookId) {
+//        // 1. 전체 엔티티를 다 가져오는 건 낭비일 수 있음.
+//        // 단순히 재고만 확인할 거라면 Repository에서 재고 컬럼만 가져오는 쿼리를 짜는 게 성능상 베스트.
+//        // 하지만 일단 기존 로직을 유지하면서 Service로 옮긴다면:
+//
+//        return bookRepository.findById(bookId)
+//                .map(book -> {
+//                    // 만약 getStockCheckedAt이 Boolean이 아니라 날짜라거나 로직이 있다면 여기서 처리
+//                    // 예시: 재고 필드가 따로 있다면 book.getStock() 반환
+//                    boolean inStock = Boolean.TRUE.equals(book.getStockCheckedAt());
+//                    return inStock ? 1 : 0;
+//                })
+//                .orElse(0); // 책이 없으면 재고 0 처리
+//    }
 
     public void incrementViewCount(Long bookId) {
 
-////        // Todo 비회원은 쿠키로 저장하는 로직으로 수정
-////        Cookie cookie=new Cookie();
-//
+//// // Todo 비회원은 쿠키로 저장하는 로직으로 수정
+
 //        if (memberId == null) {
 //            return;
 //        }
@@ -305,41 +289,14 @@ public class BookService {
         return ChronoUnit.SECONDS.between(now, midnight);
     }
 
-    @Scheduled(cron = "0 0 0 * * *")    // 조회수를 카운트 하는 로직이 매시간 반영
-    public void updateWeeklyRanking() {
-        String weeklyKey = "weekly_ranking";
-        // 1단계: "합쳐야 할 날짜 리스트 뽑기" (Key Collection)
-        List<String> keysToUnion = new ArrayList<>();
-        LocalDate today = LocalDate.now();
-
-        // 오늘 포함 최근 7일간의 날짜 키 수집
-        for (int i = 0; i < 7; i++) {
-            String dateStr = today.minusDays(i).format(DateTimeFormatter.BASIC_ISO_DATE);
-            keysToUnion.add("daily_ranking:" + dateStr);
-        }
-
-        // Redis UNION: 여러 키의 점수를 합산하여 weeklyKey에 저장
-        if (!keysToUnion.isEmpty()) {
-            redisTemplate.opsForZSet().unionAndStore(
-                    keysToUnion.get(0),
-                    keysToUnion.subList(1, keysToUnion.size()),
-                    weeklyKey
-            );
-            // 랭킹 키 유효기간 설정 (1일)
-            redisTemplate.expire(weeklyKey, Duration.ofDays(1));
-        }
-        log.info("Weekly popular books updated.");
-    }
+//    // @Scheduled(cron = "0 0 0 * * *")    // 조회수를 카운트 하는 로직이 매시간 반영
 
     @Transactional(readOnly = true)
-    public List<BookResponse> getWeeklyPopularBooks() {
+    public List<BookResponse> getWeeklyPopularBooks(int limit) {
         String weeklyKey = "weekly_ranking";
 
-        // 1. 점수가 높은 순(Reverse)으로 상위 5개(0~4) ID 추출
-        Set<String> topBookIds = redisTemplate.opsForZSet().reverseRange(weeklyKey, 0, 4);
 
-        System.out.println("=== 디버깅 시작 ===");
-        System.out.println("Redis에서 가져온 ID들: " + topBookIds);
+        Set<String> topBookIds = redisTemplate.opsForZSet().reverseRange(weeklyKey, 0, limit-1);
 
         if (topBookIds == null || topBookIds.isEmpty()) {
             return List.of();
@@ -349,21 +306,24 @@ public class BookService {
                 .map(Long::valueOf)
                 .collect(Collectors.toList());
 
-        // 2. DB에서 책 정보 조회 (순서 보장 안됨)
+        System.out.println("1. Redis 요청 ID 목록: " + bookIds);
+
+        // 2. [수정됨] Redis가 알려준 ID로 DB 조회 (findAllById 사용)
         List<Book> books = bookRepository.findAllById(bookIds);
 
-        // 3. Redis 랭킹 순서대로 정렬하기 위해 Map 변환
+        System.out.println("2. DB에서 찾은 책 개수: " + books.size());
+
+        // 3. Map 변환
         Map<Long, Book> bookMap = books.stream()
                 .collect(Collectors.toMap(Book::getId, book -> book));
 
-        // 4. 순서대로 매핑하여 반환
+        // 4. Redis 랭킹 순서대로 정렬해서 반환
         return bookIds.stream()
                 .map(bookMap::get)
-                .filter(Objects::nonNull) // DB에 삭제된 책이 있을 경우 대비
+                .filter(Objects::nonNull)
                 .map(BookResponse::from)
                 .collect(Collectors.toList());
     }
-
 
     //신간 추천 로직
     // 매 1일 자정에 신간이 바뀜
@@ -379,7 +339,8 @@ public class BookService {
 
             try {
                 // 캐시가 있으면 JSON -> List 객체로 변환하여 즉시 반환
-                return objectMapper.readValue(cachedData, new TypeReference<List<BookResponse>>() {});
+                return objectMapper.readValue(cachedData, new TypeReference<List<BookResponse>>() {
+                });
             } catch (JsonProcessingException e) {
                 log.error("Redis 파싱 오류, DB에서 다시 조회합니다.", e);
             }
@@ -389,8 +350,8 @@ public class BookService {
 //        LocalDate start=LocalDate.now().withDayOfMonth(1).minusMonths(1);  // 지난 달
 //        LocalDate end=start.withDayOfMonth(start.lengthOfMonth());  // 지난달의 마지막 날짜 구하기
 
-        LocalDate start=LocalDate.of(2020,1,1);
-        LocalDate end=LocalDate.of(2025,12,31);
+        LocalDate start = LocalDate.of(2020, 1, 1);
+        LocalDate end = LocalDate.of(2025, 12, 31);
 
         // 시작날짜부터 마지막날짜까지의 책을 찾음
 //        List<Book> books = bookRepository.findTop5ByPublishedDateBetweenOrderByPublishedDateDesc(
@@ -399,7 +360,7 @@ public class BookService {
 
 //        List<Book> books=bookRepository.findTop5ByPublishedDateBetweenOrderByIdAsc(start.toString(),end.toString());
 
-        List<Book> books=bookRepository.findTop5ByOrderByIdAsc();
+        List<Book> books = bookRepository.findTop5ByOrderByIdDesc();
 
         List<BookResponse> responses = books.stream()
                 .map(BookResponse::from)
@@ -415,9 +376,6 @@ public class BookService {
         }
 
         return responses; // 데이터 반환
-    }
-
-    public void incrementBestSellerScore(Long bookId, Integer quantity) {
     }
 
     @Transactional(readOnly = true)
@@ -455,6 +413,17 @@ public class BookService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
+    public void incrementBestSellerScore(Long bookId, Integer quantity) {
+        String key = "best_seller";
+        try {
+            redisTemplate.opsForZSet().incrementScore(key, String.valueOf(bookId), quantity.doubleValue());
+            log.info("베스트셀러 점수 갱신 완료: bookId={}, quantity={}", bookId, quantity);
+        } catch (Exception e) {
+            log.error("Redis 점수 갱신 실패 (주문은 계속 진행됨): bookId={}", bookId, e);
+        }
+    }
+
     @Transactional(readOnly = true)
     public List<BookResponse> getBooksByCategory(int categoryId) {
         List<Book> books = bookRepository.findBooksByCategoryWithAuthors(categoryId);
@@ -462,6 +431,5 @@ public class BookService {
                 .map(BookResponse::from)
                 .toList();
     }
-
 
 }
