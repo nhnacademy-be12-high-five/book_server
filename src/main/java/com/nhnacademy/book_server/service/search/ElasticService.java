@@ -187,7 +187,8 @@ public class ElasticService implements ElasticRepository {
                 publishedDate,
                 avgRating,
                 reviewCount,
-                aiSummary
+                aiSummary,
+                null
         );
     }
 

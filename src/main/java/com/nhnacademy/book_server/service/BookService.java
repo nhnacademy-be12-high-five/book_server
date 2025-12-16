@@ -372,13 +372,13 @@ public class BookService {
 
 
     @Transactional(readOnly = true)
-    public List<BookResponse> getBestSeller() {
+    public List<BookResponse> getBestSeller(int limit) {
         String cacheKey = "best_seller";
 
         //Redis의 ZSet은 기본적으로 점수가 낮은 순서(오름차순)로 정렬되어 저장되는데
         // zset의 순서를 바꿈
 
-        Set<String> BestBookIds = redisTemplate.opsForZSet().reverseRange("best_seller", 0, 4);
+        Set<String> BestBookIds = redisTemplate.opsForZSet().reverseRange("best_seller", 0, limit-1);
 
         log.info("Redis에서 가져온 베스트 셀러 ID들: {}", BestBookIds);
 

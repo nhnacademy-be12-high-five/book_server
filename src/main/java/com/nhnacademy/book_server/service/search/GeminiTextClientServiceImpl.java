@@ -27,7 +27,7 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
 
         String url =
                 "https://generativelanguage.googleapis.com/v1/models/"
-                        + "gemini-2.5-flash:generateContent"
+                        + "gemini-1.5-flash:generateContent"
                         + "?key=" + apiKey;
 
         try {
@@ -109,6 +109,28 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
         }
     }
 
+    @Override
+    public String getReviewSummary(String bookTitle, List<String> reviews) {
+        // 프롬프트 엔지니어링: 역할 부여 및 포맷 지정
+        StringBuilder sb = new StringBuilder();
+        sb.append("너는 서점의 전문 북 큐레이터야. 다음은 '").append(bookTitle).append("' 책에 대한 최근 독자들의 리뷰야.\n");
+        sb.append("이 리뷰들을 분석해서 장점, 단점, 그리고 한줄 요약을 해줘.\n\n");
+        sb.append("--- 리뷰 리스트 ---\n");
+
+        for (String review : reviews) {
+            if(review.length() > 5) {
+                sb.append("- ").append(review.replace("\n", " ")).append("\n");
+            }
+        }
+
+        sb.append("\n--- 요청 사항 ---\n");
+        sb.append("1. 장점: 독자들이 공통적으로 칭찬하는 부분\n");
+        sb.append("2. 단점: 독자들이 아쉬워하는 부분\n");
+        sb.append("3. 한줄평: 전체적인 분위기를 요약\n");
+        sb.append("한국어로 자연스럽게 작성해주고, 적절한 이모지를 사용해줘.");
+
+        return generateAnswer(sb.toString());
+    }
 
     /* ====== 요청/응답 DTO ====== */
 

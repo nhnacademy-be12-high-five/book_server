@@ -162,7 +162,8 @@ public class RagSearchService implements RagSearchable {
                 publishedDate,
                 avgRating,
                 reviewCount,
-                aiSummary
+                aiSummary,
+                null
         );
     }
 
