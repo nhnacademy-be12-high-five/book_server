@@ -2,6 +2,8 @@ package com.nhnacademy.book_server.controller;
 
 import com.nhnacademy.book_server.dto.request.StockRequest;
 import com.nhnacademy.book_server.service.StockService;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,7 +21,7 @@ public class StockController {
     // (기존 API 유지 - 단건 호출용)
     @PostMapping("/{bookId}/stock/hold")
     public ResponseEntity<Void> holdStock(@PathVariable("bookId") Long bookId,
-                                          @RequestParam("quantity") Integer quantity,
+                                          @RequestParam("quantity") @NotNull @Min(1) Integer quantity,
                                           @RequestHeader("Idempotency-Key") String idempotencyKey) {
 
         stockService.holdStock(bookId, quantity, idempotencyKey);

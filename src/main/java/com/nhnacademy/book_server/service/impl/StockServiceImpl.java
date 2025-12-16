@@ -3,11 +3,14 @@ package com.nhnacademy.book_server.service.impl;
 import com.nhnacademy.book_server.dto.request.StockRequest;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.StockHeld;
+import com.nhnacademy.book_server.entity.StockIdempotencyRecord;
 import com.nhnacademy.book_server.exception.BusinessException;
 import com.nhnacademy.book_server.exception.ErrorCode;
 import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.StockHeldRepository;
+import com.nhnacademy.book_server.repository.StockIdempotencyRepository;
 import com.nhnacademy.book_server.service.StockService;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.function.Function;
@@ -26,6 +29,7 @@ public class StockServiceImpl implements StockService {
 
     private final BookRepository bookRepository;
     private final StockHeldRepository stockHeldRepository;
+    private final StockIdempotencyRepository idempotencyRepository;
 
     private Book getBookOrThrow(Long bookId) {
         return bookRepository.findById(bookId)
@@ -84,30 +88,30 @@ public class StockServiceImpl implements StockService {
     @Override
     @Transactional
     public void confirmStockDeduction(String orderKey, List<Long> bookIds) {
-        // TCC Confirm 단계: 결제 성공 시 확정 차감
-
-        List<StockHeld> heldStocks = stockHeldRepository.findAllByOrderKeyAndBook_IdIn(orderKey, bookIds);
-
-        for (StockHeld held : heldStocks) {
-            Book book = held.getBook();
-            Integer quantity = held.getQuantity();
-
-            // 마지막 확인: 선점 상태와 실제 재고 상태의 불일치 여부 확인
-            if (book.getStock() < quantity) {
-                log.error("CRITICAL ERROR: Stock deduction failed for Book={}, Stock={}, Held={}",
-                        book.getId(), book.getStock(), quantity);
-                // 치명적인 오류 발생 시 적절한 에러 코드를 던집니다.
-                throw new BusinessException(ErrorCode.STOCK_CONFIRMATION_ERROR);
-            }
-
-            // 1. 실제 재고 차감 (Confirm)
-            book.setStock(book.getStock() - quantity);
-
-            // 2. 선점 기록 삭제 (Confirm 완료)
-            stockHeldRepository.delete(held);
+        // [수정] 1. 멱등성 검사 (이미 처리된 주문인지 확인)
+        String idempotencyKey = "CONFIRM-" + orderKey; // Confirm용 키 생성
+        if (idempotencyRepository.existsByIdempotencyKey(idempotencyKey)) {
+            log.info("Stock deduction already confirmed for orderKey={}", orderKey);
+            return;
         }
 
-        bookRepository.saveAll(heldStocks.stream().map(StockHeld::getBook).toList());
+        List<StockHeld> heldStocks = stockHeldRepository.findAllByOrderKeyAndBook_IdIn(orderKey, bookIds);
+        if (heldStocks.isEmpty()) {
+            // 이미 처리되었을 수도 있고, 애초에 선점이 없을 수도 있음.
+            // 하지만 위에서 멱등성 체크를 통과했다면 "처음 요청"인데 데이터가 없는 것이므로 경고.
+            log.warn("No held stock found for confirmation. OrderKey={}", orderKey);
+            // 굳이 에러를 낼 필요는 없음 (이미 재고가 없으니 롤백할 것도 없음)
+        } else {
+            for (StockHeld held : heldStocks) {
+                Book book = held.getBook();
+                book.setStock(book.getStock() - held.getQuantity()); // 실제 차감
+                stockHeldRepository.delete(held); // 선점 삭제
+            }
+            bookRepository.saveAll(heldStocks.stream().map(StockHeld::getBook).toList());
+        }
+
+        // [수정] 2. 처리 기록 저장
+        saveIdempotencyRecord(idempotencyKey, "CONFIRM");
     }
 
     @Override
@@ -180,10 +184,12 @@ public class StockServiceImpl implements StockService {
         // WAITING 취소(환불)는 실제 재고를 복구해야 하므로, 수량 정보가 필수입니다.
         // 현재 API는 bookIds만 받으므로, Order Server가 수량 정보를 보내도록 API를 변경해야 합니다.
 
-        if (requests == null || requests.isEmpty()) {
-            log.warn("Stock restore skipped: No items to restore for key={}", idempotencyKey);
+        if (idempotencyRepository.existsByIdempotencyKey(idempotencyKey)) {
+            log.warn("Stock restore skipped: Already processed for key={}", idempotencyKey);
             return;
         }
+
+        if (requests == null || requests.isEmpty()) return;
 
         // 1. 요청받은 목록 순회
         for (StockRequest request : requests) {
@@ -200,5 +206,14 @@ public class StockServiceImpl implements StockService {
             log.info("Stock restored: BookId={}, RestoredQty={}, CurrentStock={}",
                     book.getId(), request.getQuantity(), restoredStock);
         }
+        saveIdempotencyRecord(idempotencyKey, "RESTORE");
+    }
+    private void saveIdempotencyRecord(String key, String type) {
+        idempotencyRepository.save(StockIdempotencyRecord.builder()
+                .idempotencyKey(key)
+                .status("SUCCESS")
+                .type(type)
+                .createdAt(LocalDateTime.now())
+                .build());
     }
 }
