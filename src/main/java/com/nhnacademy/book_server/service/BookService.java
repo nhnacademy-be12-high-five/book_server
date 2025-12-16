@@ -417,16 +417,4 @@ public class BookService {
         }
     }
 
-    public void holdStock(Long bookId, Integer quantity) {
-        Book book = bookRepository.findById(bookId)
-                .orElseThrow(() -> new RuntimeException("책을 찾을 수 없습니다."));
-
-        int currentStock = book.getStock() != null ? book.getStock() : 0;
-        if (currentStock < quantity) {
-            throw new RuntimeException("재고가 부족합니다.");
-        }
-
-        book.setStock(currentStock - quantity);
-        bookRepository.save(book);
-    }
 }
