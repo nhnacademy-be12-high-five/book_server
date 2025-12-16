@@ -63,10 +63,9 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
             answerCache.remove(prompt);
         }
 
-        String url =
-                "https://generativelanguage.googleapis.com/v1/models/"
-                        + "gemini-1.5-flash:generateContent"
-                        + "?key=" + apiKey;
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/"
+                + "gemini-2.5-flash:generateContent" // ★ 여기를 2.5로 다시 변경!
+                + "?key=" + apiKey;
 
         try {
             GeminiRequest request = new GeminiRequest(
