@@ -32,18 +32,22 @@ public class StockServiceImpl implements StockService {
     public void holdStock(Long bookId, Integer quantity, String idempotencyKey) {
         Book book = getBookOrThrow(bookId);
 
+        // 1. 멱등성 검사
         if (stockHeldRepository.findByIdempotencyKey(idempotencyKey).isPresent()) {
             log.warn("Stock hold idempotency: already processed for key={}", idempotencyKey);
             return;
         }
 
+        // 2. 재고 확인 (TCC Try)
         if (book.getStock() < quantity) {
             log.error("Stock check failed: Book={} has {} stock, but {} requested.", bookId, book.getStock(), quantity);
             throw new BusinessException(ErrorCode.OUT_OF_STOCK);
         }
 
+        // OrderKey 추출 (예: "UUID-BOOKID"에서 "UUID" 부분)
         String orderKey = idempotencyKey.substring(0, idempotencyKey.indexOf("-"));
 
+        // 3. 재고 선점 기록 (Soft Lock 저장)
         StockHeld held = StockHeld.builder()
                 .book(book)
                 .quantity(quantity)
@@ -51,13 +55,12 @@ public class StockServiceImpl implements StockService {
                 .idempotencyKey(idempotencyKey)
                 .build();
         stockHeldRepository.save(held);
-
     }
 
     @Override
     @Transactional
     public void releaseHeldStock(List<Long> bookIds, String orderKey) {
-        // TCC Cancel 단계: PENDING 주문 취소 시
+        // TCC Cancel 단계: PENDING 주문 취소 시 (Try 단계 보상)
 
         List<StockHeld> heldStocks = stockHeldRepository.findAllByOrderKeyAndBook_IdIn(orderKey, bookIds);
 
@@ -68,8 +71,6 @@ public class StockServiceImpl implements StockService {
 
         // 선점 기록 삭제 (Soft Lock 해제)
         stockHeldRepository.deleteAll(heldStocks);
-
-        // Book.stock은 건드리지 않음
     }
 
     @Override
@@ -77,7 +78,6 @@ public class StockServiceImpl implements StockService {
     public void confirmStockDeduction(List<Long> bookIds) {
         // TCC Confirm 단계: 결제 성공 시 확정 차감
 
-        // 해당 bookId들에 대한 모든 선점 기록을 조회합니다.
         List<StockHeld> heldStocks = stockHeldRepository.findAllByBook_IdIn(bookIds);
 
         for (StockHeld held : heldStocks) {
@@ -88,9 +88,9 @@ public class StockServiceImpl implements StockService {
             if (book.getStock() < quantity) {
                 log.error("CRITICAL ERROR: Stock deduction failed for Book={}, Stock={}, Held={}",
                         book.getId(), book.getStock(), quantity);
-                // 🚨 문제점 2 수정: 적절한 BusinessException 사용
+                // 치명적인 오류 발생 시 적절한 에러 코드를 던집니다.
                 throw new BusinessException(ErrorCode.STOCK_CONFIRMATION_ERROR);
-            } // 🚨 문제점 1 수정: if 문의 닫는 중괄호 추가
+            }
 
             // 1. 실제 재고 차감 (Confirm)
             book.setStock(book.getStock() - quantity);
@@ -105,12 +105,12 @@ public class StockServiceImpl implements StockService {
     @Override
     @Transactional
     public void restoreStock(List<Long> bookIds, String idempotencyKey) {
-        // TCC Cancel 단계: WAITING 주문 취소 (환불) 시
+        // TCC Cancel 단계: WAITING 주문 취소 (환불) 시 재고 복구
+
+        // WAITING 취소(환불)는 실제 재고를 복구해야 하므로, 수량 정보가 필수입니다.
+        // 현재 API는 bookIds만 받으므로, Order Server가 수량 정보를 보내도록 API를 변경해야 합니다.
 
         log.error("CRITICAL: Restore stock failed. Item quantities are missing. Order Server MUST provide item quantities for restoration.");
-        // 🚨 문제점 3 수정: 재고 복구에 필요한 필수 정보(수량)가 없으므로 실패로 간주하고 예외를 던집니다.
         throw new BusinessException(ErrorCode.EXTERNAL_SERVER_ERROR);
-
-        // 올바른 구현을 위해서는 Order Server가 {BookId, Quantity} DTO 목록을 보내도록 API 명세가 변경되어야 합니다.
     }
 }

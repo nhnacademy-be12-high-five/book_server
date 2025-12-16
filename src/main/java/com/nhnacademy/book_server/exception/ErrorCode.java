@@ -37,6 +37,8 @@ public enum ErrorCode {
     EXTERNAL_SERVER_ERROR(HttpStatus.SERVICE_UNAVAILABLE, "EXT001", "외부 서비스 통신 중 오류가 발생했습니다."),
     BOOK_NOT_FOUND_IN_SERVER(HttpStatus.NOT_FOUND, "EXT002", "도서 서비스에서 해당 책을 찾을 수 없습니다.");
 
+
+
     private final HttpStatus status;
     private final String code;
     private final String message;
