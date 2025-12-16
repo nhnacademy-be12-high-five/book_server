@@ -18,10 +18,10 @@ spring:
 #        web-allow-others: true
   data:
     redis:
-      host: 127.0.0.1
+      host: 220.67.216.14
       port: 6379
       password: '*N2vya7H@muDTwdNMR!'
-      database: 15
+      database: 396
 
   datasource:
     # 예시: MySQL 연결 설정

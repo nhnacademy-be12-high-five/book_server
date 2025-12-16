@@ -35,4 +35,4 @@ build/
 
 src/main/resources/application-local.yml
 
-*.csv
+*.csv파일명.yml

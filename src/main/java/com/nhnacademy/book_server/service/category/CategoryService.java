@@ -47,8 +47,4 @@ public class CategoryService {
 
         return bookService.getBooksByCategory(categoryId);
     }
-
-
-
-
 }
