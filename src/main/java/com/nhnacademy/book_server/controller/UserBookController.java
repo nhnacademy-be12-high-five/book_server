@@ -1,6 +1,5 @@
 package com.nhnacademy.book_server.controller;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.nhnacademy.book_server.controller.swagger.UserBookSwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
@@ -37,11 +36,9 @@ public class UserBookController implements UserBookSwagger {
     }
 
     // 도서 한 권 상세 조회 (GET /api/books/{bookId})
-
     @Override
     @GetMapping("/books/{id}")
-    public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId,
-                                                    @RequestHeader(value = "X-USER-ID", required = false) Long memberId) {
+    public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId) {
         // [수정 2] Service가 이미 DTO를 반환하므로 .map() 제거
         // 앞서 BookService.findBookById를 BookResponse 반환으로 수정했기 때문입니다.
         try {
@@ -77,18 +74,23 @@ public class UserBookController implements UserBookSwagger {
     @GetMapping("/books/popular")
     public ResponseEntity<List<BookResponse>> getWeeklyPopular(){
         List<BookResponse> books = bookService.getWeeklyPopularBooks();
+        System.out.println("컨트롤러 호출됨! 찾은 책 개수: " + books.size());
         return ResponseEntity.ok(books);
     }
 
-    // todo 테스트
-
-    // 개발용: 강제로 주간 랭킹 집계 실행
-    @GetMapping("/test/update-ranking")
-    public ResponseEntity<String> forceUpdateRanking() {
-        bookService.updateWeeklyRanking();
-        return ResponseEntity.ok("주간 랭킹 집계 완료!");
+    // 판매량 반영 API
+    @PostMapping("/books/{bookId}/best-seller")
+    public ResponseEntity<Void> updateBestSellerScore(@PathVariable("bookId") Long bookId,
+                                                      @RequestBody Integer quantity) {
+        bookService.incrementBestSellerScore(bookId, quantity);
+        return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/books/best-seller")
+    public ResponseEntity<List<BookResponse>> getBestSeller(){
+        List<BookResponse> BestSellers=bookService.getBestSeller();
+        return ResponseEntity.ok(BestSellers);
+    }
 
     // Order Server가 호출하는 api/books/{bookId}/stock/hold
     @PostMapping("/books/{bookId}/stock/hold")
@@ -99,4 +101,5 @@ public class UserBookController implements UserBookSwagger {
 
         return ResponseEntity.ok().build();
     }
+
 }

@@ -19,14 +19,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor // 생성자 주입을 롬복으로 처리 (깔끔함)
-@Transactional // DB 변경 작업이 있으므로 필수!
+@RequiredArgsConstructor
+@Transactional
 public class BookLikeService{
 
     private final BookRepository bookRepository;
     private final BookLikeRepository bookLikeRepository;
 
-    // todo 책 좋아요 서비스 작성하기
     public void toggleLike(Long bookId, Long memberId) {
 
         // 1. memberId 확인 (null 체크)
@@ -39,9 +38,9 @@ public class BookLikeService{
                 .orElseThrow(() -> new RuntimeException("책의 아이디가 존재하지 않습니다."));
 
         // 3. 토글 로직
-        if (bookLikeRepository.existsByBookIdAndMemberId(bookId, memberId)) {
+        if (bookLikeRepository.existsByBook_IdAndMemberId(bookId, memberId)) {
             // 이미 좋아요가 있다면 -> 삭제
-            bookLikeRepository.deleteByBookIdAndMemberId(bookId, memberId);
+            bookLikeRepository.deleteByBook_IdAndMemberId(bookId, memberId);
         }
 
         else {
@@ -66,5 +65,10 @@ public class BookLikeService{
         return likePage.stream()
                 .map(bookLike -> BookResponse.from(bookLike.getBook()))
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isLiked(Long bookId, Long memberId) {
+        return bookLikeRepository.existsByBook_IdAndMemberId(bookId, memberId);
     }
 }

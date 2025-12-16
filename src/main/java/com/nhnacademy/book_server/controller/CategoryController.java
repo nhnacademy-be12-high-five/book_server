@@ -28,13 +28,13 @@ public class CategoryController implements CategorySwagger {
 
     @Override
     @GetMapping("/{parentId}/child")
-    public ResponseEntity<List<CategoryResponse>> getChilds(@PathVariable int parentId) {
+    public ResponseEntity<List<CategoryResponse>> getChilds(@PathVariable("parentId") int parentId) {
         return ResponseEntity.ok(categoryService.getChilds(parentId));
     }
 
     @Override
     @GetMapping("/{categoryId}/books")
-    public ResponseEntity<List<BookResponse>> getBooksByCategory(@PathVariable int categoryId) {
+    public ResponseEntity<List<BookResponse>> getBooksByCategory(@PathVariable("categoryId") int categoryId) {
         return ResponseEntity.ok(categoryService.getBooksByCategory(categoryId));
     }
 }
