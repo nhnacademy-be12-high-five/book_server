@@ -66,7 +66,6 @@ public class AdminBookController implements bookSwagger{
     // 북 생성
     @PostMapping
     public ResponseEntity<Book> createBook(@RequestBody ParsingDto parsingDto){
-
         Book savedBook=bookService.createBook(parsingDto);
         return new ResponseEntity<>(savedBook, HttpStatus.CREATED);
     }
@@ -105,7 +104,7 @@ public class AdminBookController implements bookSwagger{
 
 //    @DeleteMapping("/{id}")
 //    public ResponseEntity<Void> deleteBook(@PathVariable("id") Long bookId,
-//                                           @RequestHeader("X-User-Id") Long memberId){
+//                                           ){
 //        try {
 //            bookService.deleteBook(bookId,memberId);
 //            return ResponseEntity.status(204).build();
