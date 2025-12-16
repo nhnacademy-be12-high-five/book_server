@@ -88,18 +88,15 @@ public class UserBookController implements UserBookSwagger {
 
     @GetMapping("/books/best-seller")
     public ResponseEntity<List<BookResponse>> getBestSeller(){
-        List<BookResponse> BestSellers=bookService.getBestSeller();
+        List<BookResponse> BestSellers=bookService.getBestSeller(10);
         return ResponseEntity.ok(BestSellers);
     }
 
-    // Order Server가 호출하는 api/books/{bookId}/stock/hold
-    @PostMapping("/books/{bookId}/stock/hold")
-    public ResponseEntity<Void> holdStock(@PathVariable Long bookId,
-                                          @RequestParam Integer quantity,
-                                          @RequestHeader("Idempotency-Key") String idempotencyKey) {
-        bookService.holdStock(bookId, quantity);
 
+    // 재고 복구 (주문 취소 시 호출)
+    @PostMapping("/api/books/stock/restore")
+    public ResponseEntity<Void> restoreStock(@RequestBody List<StockUpdateRequest> requests) {
+        bookService.increaseStock(requests);
         return ResponseEntity.ok().build();
     }
-
 }
