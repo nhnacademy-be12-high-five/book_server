@@ -26,7 +26,7 @@ public class UserBookController implements UserBookSwagger {
 
     // 도서 전체 조회 (GET /api/books)
     @Override
-    @GetMapping
+    @GetMapping("/books")
     public ResponseEntity<Page<BookResponse>> getAllBooks(@RequestHeader(value = "X-USER-ID", required = false) Long memberId,
                                                           @PageableDefault(size = 10) Pageable pageable) {
         // [수정 1] getContent() 대신 Page 객체 그대로 반환
@@ -59,7 +59,8 @@ public class UserBookController implements UserBookSwagger {
         return ResponseEntity.ok(stock);
     }
 
-    @PostMapping("/books/bulk")
+    // 🚨 수정된 부분: 클라이언트의 요청 경로 /api/books/batch-info 와 일치하도록 수정
+    @PostMapping("/books/batch-info")
     public ResponseEntity<List<GetBookResponse>> getBooksBulk(@RequestBody List<Long> bookIds) {
         List<GetBookResponse> response = bookService.getBooksBulk(bookIds);
         return ResponseEntity.ok(response);
@@ -91,5 +92,4 @@ public class UserBookController implements UserBookSwagger {
         List<BookResponse> BestSellers=bookService.getBestSeller(10);
         return ResponseEntity.ok(BestSellers);
     }
-
 }
