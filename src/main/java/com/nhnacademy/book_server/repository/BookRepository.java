@@ -6,8 +6,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -33,5 +36,13 @@ public interface BookRepository extends JpaRepository<Book, Long> {
 
     List<Book> findTop5ByPublishedDateBetweenOrderByIdAsc(String start,String end);
 
-    List<Book> findTop5ByOrderByIdAsc();
+    List<Book> findTop5ByOrderByIdDesc();
+
+    @Modifying(clearAutomatically = true)
+    @Transactional
+    @Query("UPDATE Book b SET " +
+            "b.reviewCount = (SELECT COUNT(r) FROM Review r WHERE r.book.id = :bookId), " +
+            "b.averageRating = COALESCE((SELECT AVG(r.rating) FROM Review r WHERE r.book.id = :bookId), 0.0) " +
+            "WHERE b.id = :bookId")
+    void updateBookReviewStats(@Param("bookId") Long bookId);
 }

@@ -3,6 +3,8 @@ package com.nhnacademy.book_server.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
@@ -12,14 +14,22 @@ import com.nhnacademy.book_server.repository.AuthorRepository;
 import com.nhnacademy.book_server.repository.BookAuthorRepository;
 import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.PublisherRepository;
+import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.Cookie;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.iterators.CartesianProductIterator;
+import org.springframework.cglib.core.Local;
+import org.springframework.core.annotation.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -342,7 +352,7 @@ public class BookService {
 
 //        List<Book> books=bookRepository.findTop5ByPublishedDateBetweenOrderByIdAsc(start.toString(),end.toString());
 
-        List<Book> books = bookRepository.findTop5ByOrderByIdAsc();
+        List<Book> books = bookRepository.findTop5ByOrderByIdDesc();
 
         List<BookResponse> responses = books.stream()
                 .map(BookResponse::from)
@@ -362,13 +372,13 @@ public class BookService {
 
 
     @Transactional(readOnly = true)
-    public List<BookResponse> getBestSeller() {
+    public List<BookResponse> getBestSeller(int limit) {
         String cacheKey = "best_seller";
 
         //Redis의 ZSet은 기본적으로 점수가 낮은 순서(오름차순)로 정렬되어 저장되는데
         // zset의 순서를 바꿈
 
-        Set<String> BestBookIds = redisTemplate.opsForZSet().reverseRange("best_seller", 0, 4);
+        Set<String> BestBookIds = redisTemplate.opsForZSet().reverseRange("best_seller", 0, limit-1);
 
         log.info("Redis에서 가져온 베스트 셀러 ID들: {}", BestBookIds);
 
