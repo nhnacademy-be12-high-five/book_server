@@ -88,14 +88,15 @@ public class Book {
     @NotNull
     private String publishedDate;
 
-    // 서점 재고 여부
+    // 재고 여부
     private Boolean stockCheckedAt;
 
     // ISBN_NO : 표준 도서 번호 10자리
 //    private String isbnNO;
 
-    //    private String tag;
+    //  private String tag;
 //    private String FbookLike;
+
     private Boolean isPortalSiteBookExist;
 
     @ManyToOne

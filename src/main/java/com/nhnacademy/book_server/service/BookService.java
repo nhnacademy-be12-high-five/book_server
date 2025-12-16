@@ -56,14 +56,12 @@ public class BookService {
         }
 
         Publisher publisher = null;
-
         if (StringUtils.hasText(dto.getPublisher())) {
             String publisherName = dto.getPublisher().trim();
-            // todo
             publisher = publisherRepository.findByName(publisherName)
                     .orElseGet(() -> publisherRepository.save(
                             Publisher.builder().name(publisherName).build()
-            ));
+                    ));
         }
 
         Book newBook = Book.builder()
@@ -111,18 +109,14 @@ public class BookService {
                 .map(BookResponse::from);
     }
 
-    // todo query dsl로 수정 -> join patch
-    // todo 책 수정
-
     // 책 한권 조회
     @Transactional(readOnly = true)
     public BookResponse findBookById(Long id) {
 
         // 1. [Redis Cache 확인]
+
         incrementViewCount(id);
 
-        // todo 메서드로 관리 ->
-        //  캐싱 spring cache
         // 조회 카운트를 위함
         String cacheKey = "book:detail:" + id;
         // 레디스에서 먼저 책의 아이디가 있는지 찾아봄
@@ -175,7 +169,7 @@ public class BookService {
                             Publisher.builder().name(publisherName).build()
                     ));
 
-            existingBook.setPublisher(publisher);  // todo update 메서드로 수정
+            existingBook.setPublisher(publisher);
         }
 
         if (request.getAuthors() != null) {
@@ -192,7 +186,7 @@ public class BookService {
                         .author(author)      // 중요: 찾은 작가 정보 주입
                         .build();
 
-                existingBook.getBookAuthors().add(bookAuthor); // todo
+                existingBook.getBookAuthors().add(bookAuthor);
                 bookRepository.save(existingBook);
             }
         }
@@ -221,8 +215,6 @@ public class BookService {
     // bulk api 조회
     // 장바구니에서 책을 조회할때 책을 1번만 호출하도록 하는 API
     // Service Layer
-
-    // todo 트랜잭션
     public List<GetBookResponse> getBooksBulk(List<Long> bookIds) {
         List<Book> books = bookRepository.findAllById(bookIds);
 
@@ -237,27 +229,27 @@ public class BookService {
                 .collect(Collectors.toList());
     }
 
-//    // 재고 확인 (단순 조회이므로 readOnly)
-//    @Transactional(readOnly = true)
-//    public int getBookStock(Long bookId) {
-//        // 1. 전체 엔티티를 다 가져오는 건 낭비일 수 있음.
-//        // 단순히 재고만 확인할 거라면 Repository에서 재고 컬럼만 가져오는 쿼리를 짜는 게 성능상 베스트.
-//        // 하지만 일단 기존 로직을 유지하면서 Service로 옮긴다면:
-//
-//        return bookRepository.findById(bookId)
-//                .map(book -> {
-//                    // 만약 getStockCheckedAt이 Boolean이 아니라 날짜라거나 로직이 있다면 여기서 처리
-//                    // 예시: 재고 필드가 따로 있다면 book.getStock() 반환
-//                    boolean inStock = Boolean.TRUE.equals(book.getStockCheckedAt());
-//                    return inStock ? 1 : 0;
-//                })
-//                .orElse(0); // 책이 없으면 재고 0 처리
-//    }
+    // 재고 확인 (단순 조회이므로 readOnly)
+    @Transactional(readOnly = true)
+    public int getBookStock(Long bookId) {
+        // 1. 전체 엔티티를 다 가져오는 건 낭비일 수 있음.
+        // 단순히 재고만 확인할 거라면 Repository에서 재고 컬럼만 가져오는 쿼리를 짜는 게 성능상 베스트.
+        // 하지만 일단 기존 로직을 유지하면서 Service로 옮긴다면:
+
+        return bookRepository.findById(bookId)
+                .map(book -> {
+                    // 만약 getStockCheckedAt이 Boolean이 아니라 날짜라거나 로직이 있다면 여기서 처리
+                    // 예시: 재고 필드가 따로 있다면 book.getStock() 반환
+                    boolean inStock = Boolean.TRUE.equals(book.getStockCheckedAt());
+                    return inStock ? 1 : 0;
+                })
+                .orElse(0); // 책이 없으면 재고 0 처리
+    }
 
     public void incrementViewCount(Long bookId) {
 
-//// // Todo 비회원은 쿠키로 저장하는 로직으로 수정
-
+////        // Todo 비회원은 쿠키로 저장하는 로직으로 수정
+//
 //        if (memberId == null) {
 //            return;
 //        }
@@ -377,6 +369,7 @@ public class BookService {
 
         return responses; // 데이터 반환
     }
+
 
     @Transactional(readOnly = true)
     public List<BookResponse> getBestSeller(int limit) {

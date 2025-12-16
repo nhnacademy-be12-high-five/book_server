@@ -27,10 +27,12 @@ public class ReviewController {
 
     // 리뷰 작성
     @PostMapping("/{book-id}/reviews")
-    public ResponseEntity<ReviewCreateResponse> createReview(@RequestPart("request") @Valid ReviewCreateRequest request,
-                                                             @PathVariable("book-id") Long bookId,
-                                                             @RequestHeader("x-user-id") Long memberId,
-                                                             @RequestPart(value = "images", required = false) List<MultipartFile> images) {
+    public ResponseEntity<ReviewCreateResponse> createReview(
+            @PathVariable("book-id") Long bookId,
+            @RequestHeader("x-user-id") Long memberId,
+            @Valid @RequestPart("request") ReviewCreateRequest request,
+            @RequestPart(value = "images", required = false) List<MultipartFile> images
+    ) {
         ReviewCreateResponse response = reviewService.saveReview(request, bookId, memberId, images);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
@@ -38,9 +40,10 @@ public class ReviewController {
     // 책에 해당하는 리뷰 리스트를 조회
     @GetMapping("/{book-id}/reviews")
     public ResponseEntity<Page<BookReviewResponse>> getReviews(@PathVariable("book-id") Long bookId,
-                                                               @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+                                                               @PageableDefault(sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+                                                               @RequestHeader(value = "x-user-id", required = false) Long memberId) {
 
-        Page<BookReviewResponse> responseList = reviewService.getReviewList(bookId, pageable);
+        Page<BookReviewResponse> responseList = reviewService.getReviewList(bookId, pageable, memberId);
         return ResponseEntity.status(200).body(responseList);
     }
 
@@ -77,6 +80,17 @@ public class ReviewController {
                 reviewService.updateReview(request, bookId, reviewId, memberId, images);
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{book-id}/reviews/{review-id}/like")
+    public ResponseEntity<Boolean> toggleLike(
+            @PathVariable("book-id") Long bookId,
+            @PathVariable("review-id") Long reviewId,
+            @RequestHeader("x-user-id") Long memberId) {
+
+        boolean isLiked = reviewService.toggleReviewLike(reviewId, memberId);
+
+        return ResponseEntity.ok(isLiked);
     }
 
     // 요구사항에 삭제는 못하게 하지만 특별한 경우(환불) 관리자가 삭제 할 수 있게 하기 위해 구현
