@@ -88,7 +88,7 @@ public class ReviewController {
             @PathVariable("review-id") Long reviewId,
             @RequestHeader("x-user-id") Long memberId) {
 
-        boolean isLiked = reviewService.toggleReviewLike(reviewId, memberId);
+        boolean isLiked = reviewService.toggleReviewLike(reviewId, memberId, bookId);
 
         return ResponseEntity.ok(isLiked);
     }

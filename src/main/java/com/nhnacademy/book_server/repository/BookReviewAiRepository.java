@@ -14,5 +14,5 @@ public interface BookReviewAiRepository extends JpaRepository<BookReviewAi, Long
     List<String> findReviewContentsByBookId(@Param("bookId") Long bookId, Pageable pageable);
     long countByBookId(Long bookId);
 
-    Optional<BookReviewAi> findByBookId(Long bookId);
+    Optional<BookReviewAi> findByBook_Id(Long bookId);
 }

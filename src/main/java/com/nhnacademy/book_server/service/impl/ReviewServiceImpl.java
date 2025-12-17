@@ -1,6 +1,7 @@
 package com.nhnacademy.book_server.service.impl;
 
 import com.nhnacademy.book_server.dto.ReviewCreatedEvent;
+import com.nhnacademy.book_server.dto.common.RestPage;
 import com.nhnacademy.book_server.dto.request.ReviewCreateRequest;
 import com.nhnacademy.book_server.dto.request.ReviewUpdateRequest;
 import com.nhnacademy.book_server.dto.response.*;
@@ -116,15 +117,18 @@ public class ReviewServiceImpl implements ReviewService {
                 .map(BookReviewResponse::reviewId)
                 .toList();
 
-        List<Long> myLikedReviewIds = reviewLikeRepository.findReviewIdsByMemberIdAndReviewIds(memberId, reviewIds);
-        Set<Long> likedSet = new HashSet<>(myLikedReviewIds);
+        Set<Long> myLikedReviewIds = new HashSet<>(
+                reviewLikeRepository.findReviewIdsByMemberIdAndReviewIds(memberId, reviewIds)
+        );
 
-        return cachedPage.map(response -> {
-            if (likedSet.contains(response.reviewId())) {
-                return response.withIsLiked(true);
+        Page<BookReviewResponse> personalizedPage = cachedPage.map(response -> {
+            if (myLikedReviewIds.contains(response.reviewId())) {
+                return response.withPersonalizedData(true);
             }
             return response;
         });
+
+        return new RestPage<>(personalizedPage);
     }
 
     @Cacheable(value = "bookReviews", key = "#bookId + '_' + #pageable.pageNumber", unless = "#result.isEmpty()")
@@ -133,11 +137,9 @@ public class ReviewServiceImpl implements ReviewService {
 
         Map<Long, String> memberMap = getMemberNicknames(reviews);
 
-        return reviews.map(review -> {
+        Page<BookReviewResponse> page = reviews.map(review -> {
             String name = memberMap.getOrDefault(review.getMemberId(), "알 수 없음");
-
             String maskedName = maskName(name);
-
             List<String> urls = review.getReviewImages().stream()
                     .map(ReviewImage::getFileUrl)
                     .toList();
@@ -154,6 +156,7 @@ public class ReviewServiceImpl implements ReviewService {
                     false
             );
         });
+        return new RestPage<>(page);
     }
 
     // 마스킹 처리 메서드
@@ -319,7 +322,8 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     @Transactional
-    public boolean toggleReviewLike(Long reviewId, Long memberId) {
+    @CacheEvict(value = "bookReviews", key = "#bookId + '_*'", allEntries = true)
+    public boolean toggleReviewLike(Long reviewId, Long memberId, Long bookId) {
 
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.REVIEW_NOT_FOUND));

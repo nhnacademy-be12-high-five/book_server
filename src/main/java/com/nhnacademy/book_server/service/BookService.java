@@ -10,16 +10,16 @@ import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
 import com.nhnacademy.book_server.entity.*;
 import com.nhnacademy.book_server.parser.ParsingDto;
-import com.nhnacademy.book_server.repository.AuthorRepository;
-import com.nhnacademy.book_server.repository.BookAuthorRepository;
-import com.nhnacademy.book_server.repository.BookRepository;
-import com.nhnacademy.book_server.repository.PublisherRepository;
+import com.nhnacademy.book_server.repository.*;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.iterators.CartesianProductIterator;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cglib.core.Local;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -50,6 +50,12 @@ public class BookService {
     private final BookAuthorRepository bookAuthorRepository;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final ReviewRepository reviewRepository;
+    private final BookReviewAiRepository bookReviewAiRepository;
+
+    @Lazy
+    @Autowired
+    private BookService self;
 
     public Book createBook(ParsingDto dto) {
         if (bookRepository.existsByIsbn13(dto.getIsbn())) {
@@ -111,46 +117,58 @@ public class BookService {
     }
 
     // 책 한권 조회
+// ----------------------------------------------------------------
+    // 1. 책 상세 조회 (리팩토링)
+    // ----------------------------------------------------------------
     @Transactional(readOnly = true)
     public BookResponse findBookById(Long id) {
-
-        // 1. [Redis Cache 확인]
-
+        // [1] 조회수 증가는 캐싱과 상관없이 무조건 실행 (기존 RedisTemplate 사용)
         incrementViewCount(id);
 
-        // 조회 카운트를 위함
-        String cacheKey = "book:detail:" + id;
-        // 레디스에서 먼저 책의 아이디가 있는지 찾아봄
-        String cachedData = redisTemplate.opsForValue().get(cacheKey);
-
-        // 레디스에 있으면 데이터베이스까지 가지 않음
-        if (cachedData != null) {
-            try {
-                // Cache Hit: DB 접근 없이 즉시 반환
-                return objectMapper.readValue(cachedData, BookResponse.class);  // json -> java
-            } catch (JsonProcessingException e) {
-                // 파싱 실패 시 로그만 남기고 DB 조회로 진행 (서비스 장애 방지)
-                log.error("Redis Data Parsing Error", e);
-            }
-        }
-
-        // 레디스에 없으면 데이터베이스에서 책을 찾음
-        Book book = bookRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("책을 찾을 수 없습니다."));
-        BookResponse response = BookResponse.from(book);
-
-        // 3. [Redis Cache 저장] (TTL: 30분)
-        try {
-            String jsonString = objectMapper.writeValueAsString(response);
-            // 데이터베이스에서 찾은 데이터를 레디스에 저장 (TTL : 30)
-            redisTemplate.opsForValue().set(cacheKey, jsonString, Duration.ofMinutes(30));
-        } catch (JsonProcessingException e) {
-            log.error("Redis Data Saving Error", e);
-        }
-
-        return response;
+        // [2] 데이터 조회는 캐시 적용된 메서드 호출
+        // 'this.getCache...'가 아니라 'self.getCache...'로 호출해야 프록시(캐시)가 작동함!
+        return self.getCachedBookDetail(id);
     }
 
+    // [★핵심] 실제 DB 조회 로직 + 캐싱 적용
+    // value = 캐시이름, key = 저장할 키값
+    @Cacheable(value = "bookDetail", key = "#id")
+    @Transactional(readOnly = true)
+    public BookResponse getCachedBookDetail(Long id) {
+        log.info("캐시 없음! DB에서 조회합니다. bookId={}", id); // 로그 확인용
+
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("책을 찾을 수 없습니다."));
+
+        // 아까 구현하신 AI 요약 + 리뷰 로직
+        String aiSummary = bookReviewAiRepository.findByBook_Id(id)
+                .map(BookReviewAi::getSummary)
+                .orElse(null);
+
+        List<Review> reviews = reviewRepository.findByBookId(id, Pageable.unpaged()).getContent();
+
+        // 어노테이션이 리턴값을 자동으로 JSON 변환해서 Redis에 넣어줍니다.
+        return BookResponse.fromWithReviewSummary(book, aiSummary, reviews);
+    }
+
+    // ----------------------------------------------------------------
+    // 2. 신간 추천 (리팩토링)
+    // ----------------------------------------------------------------
+    // key를 단순 문자열 'default'로 고정하여 하나의 리스트만 캐싱
+    @Cacheable(value = "newBooks", key = "'default'")
+    @Transactional(readOnly = true)
+    public List<BookResponse> getNewBooks() {
+        log.info("캐시 없음! 신간 목록 DB 조회");
+
+        LocalDate start = LocalDate.of(2020, 1, 1);
+        LocalDate end = LocalDate.of(2025, 12, 31);
+
+        List<Book> books = bookRepository.findTop5ByOrderByIdDesc();
+
+        return books.stream()
+                .map(BookResponse::from)
+                .collect(Collectors.toList());
+    }
     // 책 업데이트
     @Transactional // 💡 트랜잭션 적용
     public BookResponse updateBook(Long id, BookUpdateRequest request) {
@@ -295,59 +313,6 @@ public class BookService {
                 .filter(Objects::nonNull)
                 .map(BookResponse::from)
                 .collect(Collectors.toList());
-    }
-
-    //신간 추천 로직
-    // 매 1일 자정에 신간이 바뀜
-    // ex) 오늘이 12월 1일이면 11/1 - 11/30일까지 나온 책중 좋아요 수가 많은 책 추천
-    @Transactional(readOnly = true)
-//    @Scheduled(cron = "0 0 0 1 * *")
-    public List<BookResponse> getNewBooks() {
-        String cacheKey = "recommendation:new_books_ids_1_5";
-
-        // 1. Redis에서 먼저 조회
-        String cachedData = redisTemplate.opsForValue().get(cacheKey);
-        if (StringUtils.hasText(cachedData)) {
-
-            try {
-                // 캐시가 있으면 JSON -> List 객체로 변환하여 즉시 반환
-                return objectMapper.readValue(cachedData, new TypeReference<List<BookResponse>>() {
-                });
-            } catch (JsonProcessingException e) {
-                log.error("Redis 파싱 오류, DB에서 다시 조회합니다.", e);
-            }
-        }
-
-        // 레디스에 없으면 db로 조회
-//        LocalDate start=LocalDate.now().withDayOfMonth(1).minusMonths(1);  // 지난 달
-//        LocalDate end=start.withDayOfMonth(start.lengthOfMonth());  // 지난달의 마지막 날짜 구하기
-
-        LocalDate start = LocalDate.of(2020, 1, 1);
-        LocalDate end = LocalDate.of(2025, 12, 31);
-
-        // 시작날짜부터 마지막날짜까지의 책을 찾음
-//        List<Book> books = bookRepository.findTop5ByPublishedDateBetweenOrderByPublishedDateDesc(
-//                start.toString(),end.toString()
-//        );
-
-//        List<Book> books=bookRepository.findTop5ByPublishedDateBetweenOrderByIdAsc(start.toString(),end.toString());
-
-        List<Book> books = bookRepository.findTop5ByOrderByIdDesc();
-
-        List<BookResponse> responses = books.stream()
-                .map(BookResponse::from)
-                .collect(Collectors.toList());
-
-        // 3. Redis에 저장 (하루 동안 캐시 유지)
-        try {
-            // 객체 -> json
-            String jsonString = objectMapper.writeValueAsString(responses);
-            redisTemplate.opsForValue().set(cacheKey, jsonString, Duration.ofDays(1));
-        } catch (JsonProcessingException e) {
-            log.error("Redis 저장 오류", e);
-        }
-
-        return responses; // 데이터 반환
     }
 
 
