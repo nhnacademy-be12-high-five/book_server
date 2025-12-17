@@ -171,7 +171,10 @@ public class BookService {
                 });
 
         if (request.getPrice() != null) {
-            log.info("가격 변경 시도: {} -> {}", existingBook.getPrice(), request.getPrice());
+            if (request.getPrice() < 0) {
+                throw new IllegalArgumentException("가격은 0 이상이어야 합니다.");
+            }
+            log.debug("가격 변경 시도: {} -> {}", existingBook.getPrice(), request.getPrice());
             existingBook.setPrice(request.getPrice());
         }
 
@@ -188,11 +191,10 @@ public class BookService {
         }
 
         try {
-            if (bookSearchService != null) {
-                bookSearchService.indexBook(savedBook);
-            }
+            bookSearchService.indexBook(savedBook);
         } catch (Exception e) {
             log.error("Elasticsearch 갱신 실패", e);
+            throw new RuntimeException("검색 인덱스 갱신 실패", e);
         }
 
 
