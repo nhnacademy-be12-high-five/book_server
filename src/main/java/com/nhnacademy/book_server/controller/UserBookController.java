@@ -22,7 +22,6 @@ import java.util.List;
 public class UserBookController implements UserBookSwagger {
 
     private final BookService bookService;
-    private final BookRepository bookRepository;
 
     // 도서 전체 조회 (GET /api/books)
     @Override
