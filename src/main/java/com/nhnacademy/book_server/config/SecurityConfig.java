@@ -22,7 +22,8 @@ public class SecurityConfig {
                                 "/api/search/**",
                                 "/actuator/**",
                                 "/api/tag/**",
-                                "/api/tags/**"
+                                "/api/tags/**",
+                                "/api/admin/**"
                         ).permitAll()
                         .requestMatchers("/api/test/**").permitAll()
                         .anyRequest().authenticated()

@@ -155,41 +155,8 @@ public class BookService {
     public Book updateBook(Long id, BookUpdateRequest request) {
         Book existingBook = bookRepository.findById(id).orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다."));
 
-        existingBook.setIsbn13(request.getIsbn());
-        existingBook.setTitle(request.getTitle());
-        existingBook.setContent(request.getDescription());
-        existingBook.setPrice(request.getPrice());
-        existingBook.setImage(request.getImage());
-        existingBook.setPublishedDate(request.getPublishedDate());
-
-        if (StringUtils.hasText(request.getPublisher())) {
-            String publisherName = request.getPublisher().trim();
-            Publisher publisher = publisherRepository.findByName(publisherName)
-                    .orElseGet(() -> publisherRepository.save(
-                            Publisher.builder().name(publisherName).build()
-                    ));
-
-            existingBook.setPublisher(publisher);
-        }
-
-        if (request.getAuthors() != null) {
-            existingBook.getBookAuthors().clear();
-
-            for (String authorName : request.getAuthors()) {
-                String trimmedName = authorName.trim();
-
-                if (!StringUtils.hasText(trimmedName)) continue;
-                Author author = authorRepository.findByName(authorName)
-                        .orElseGet(() -> authorRepository.save(Author.builder().name(authorName).build()));
-
-                BookAuthor bookAuthor = BookAuthor.builder()
-                        .book(existingBook)  // 중요: 현재 책 정보 주입
-                        .author(author)      // 중요: 찾은 작가 정보 주입
-                        .build();
-
-                existingBook.getBookAuthors().add(bookAuthor);
-                bookRepository.save(existingBook);
-            }
+        if (request.getPrice() != null) {
+            existingBook.setPrice(request.getPrice());
         }
 
         return existingBook;

@@ -22,7 +22,7 @@ import java.util.Optional;
 
 @RestController
 @Tag(name = "도서 API - 관리자", description = "관리자를 위한 도서 API 입니다.")
-@RequestMapping("/api/admin")
+@RequestMapping("/api/admin/books")
 @RequiredArgsConstructor
 // 관리자 권한 책 컨트롤러
 public class AdminBookController implements bookSwagger{
