@@ -163,7 +163,7 @@ public class BookService {
     // 책 업데이트
     @Transactional // 💡 트랜잭션 적용
     public BookResponse updateBook(Long id, BookUpdateRequest request) {
-        log.info("도서 수정 요청 시작 - ID:{}, 요청 데이터: {}",id, request);
+        log.debug("도서 수정 요청 시작 - ID:{}", id);
         Book existingBook = bookRepository.findById(id)
                 .orElseThrow(() -> {
                     log.error("도서 조회 실패 - ID: {}", id);
