@@ -8,6 +8,8 @@ import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.BookReviewAiRepository;
 import com.nhnacademy.book_server.repository.ReviewRepository;
 import com.nhnacademy.book_server.service.search.GeminiTextClientService;
+
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,7 +34,8 @@ class ReviewEventListenerTest {
     @Mock private BookRepository bookRepository;
     @Mock private ReviewRepository reviewRepository;
     @Mock private BookReviewAiRepository bookReviewAiRepository;
-    @Mock private GeminiTextClientService geminiService;
+    @Mock
+    private GeminiTextClientService geminiService;
 
     @Test
     @DisplayName("최초 생성: 리뷰가 5개 미만이면 AI 요약을 실행하지 않는다")
