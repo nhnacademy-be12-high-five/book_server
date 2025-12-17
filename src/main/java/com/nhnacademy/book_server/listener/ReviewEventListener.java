@@ -2,12 +2,14 @@ package com.nhnacademy.book_server.listener;
 
 import com.nhnacademy.book_server.config.RabbitMqConfig;
 import com.nhnacademy.book_server.dto.ReviewCreatedEvent;
+import com.nhnacademy.book_server.dto.ReviewImageDeleteEvent;
 import com.nhnacademy.book_server.dto.request.PointEarnRequest;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.BookReviewAi;
 import com.nhnacademy.book_server.repository.BookRepository;
-import com.nhnacademy.book_server.repository.BookReviewAiRepository;
-import com.nhnacademy.book_server.repository.ReviewRepository;
+import com.nhnacademy.book_server.repository.review.BookReviewAiRepository;
+import com.nhnacademy.book_server.repository.review.ReviewRepository;
+import com.nhnacademy.book_server.service.MinioImageService;
 import com.nhnacademy.book_server.service.search.GeminiTextClientService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +24,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.List;
+import java.util.Objects;
 
 @Component
 @RequiredArgsConstructor
@@ -34,6 +37,12 @@ public class ReviewEventListener {
     private final BookReviewAiRepository bookAiSummaryRepository;
     private final GeminiTextClientService geminiService;
     private final CacheManager cacheManager;
+    private final MinioImageService imageUploadService;
+
+    private static final int FIRST_TRIGGER_THRESHOLD = 5;
+    private static final int REVIEW_COUNT_DELTA_THRESHOLD = 10;
+    private static final double RATING_DELTA_THRESHOLD = 0.5;
+    private static final int RECENT_REVIEWS_LIMIT = 30;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -54,21 +63,21 @@ public class ReviewEventListener {
         if (book == null) return;
 
         long currentReviewCount = reviewRepository.countByBookId(bookId);
-        Double currentRating = book.getAverageRating();
-        if (currentRating == null) currentRating = 0.0;
+
+        Double currentRating = reviewRepository.getAverageRating(bookId);
 
         BookReviewAi lastSummary = bookAiSummaryRepository.findByBook_Id(bookId).orElse(null);
 
         boolean shouldTrigger = false;
 
         if (lastSummary == null) {
-            if (currentReviewCount >= 5) shouldTrigger = true;
+            if (currentReviewCount >= FIRST_TRIGGER_THRESHOLD) shouldTrigger = true;
         } else {
             long diffCount = currentReviewCount - lastSummary.getLastReviewCount();
 
             double diffRating = Math.abs(currentRating - lastSummary.getLastAvgRating());
 
-            if (diffCount >= 10 || diffRating >= 0.5) {
+            if (diffCount >= REVIEW_COUNT_DELTA_THRESHOLD || diffRating >= RATING_DELTA_THRESHOLD) {
                 shouldTrigger = true;
                 log.info("AI 요약 트리거 발동 - 책: {}, 리뷰증가: {}, 평점변화: {}", bookId, diffCount, diffRating);
             }
@@ -76,7 +85,7 @@ public class ReviewEventListener {
 
         if (shouldTrigger) {
             try {
-                List<String> recentReviews = reviewRepository.findReviewContentsByBookId(bookId, PageRequest.of(0, 30));
+                List<String> recentReviews = reviewRepository.findReviewContentsByBookId(bookId, PageRequest.of(0, RECENT_REVIEWS_LIMIT));
 
                 String summaryText = geminiService.getReviewSummary(book.getTitle(), recentReviews);
 
@@ -89,13 +98,30 @@ public class ReviewEventListener {
                 log.info("AI 요약 업데이트 완료: bookId={}", bookId);
 
                 if (cacheManager.getCache("bookDetail") != null) {
-                    cacheManager.getCache("bookDetail").evict(bookId);
+                    Objects.requireNonNull(cacheManager.getCache("bookDetail")).evict(bookId);
                     log.info("♻️ Spring Cache 초기화 완료: bookId={}", bookId);
                 }
 
             } catch (Exception e) {
                 log.error("AI 요약 생성 중 실패", e);
             }
+        }
+    }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleImageDeletion(ReviewImageDeleteEvent event){
+        log.info("🗑️ S3 이미지 삭제 이벤트 수신. 대상: {}", event.imageUrls());
+
+        if (event.imageUrls() == null || event.imageUrls().isEmpty()) {
+            return;
+        }
+
+        try {
+            imageUploadService.deleteImages(event.imageUrls());
+            log.info("✅ S3 이미지 삭제 완료");
+        } catch (Exception e) {
+            log.error("❌ S3 이미지 삭제 실패 (고아 객체 발생 가능성 있음). URLs: {}", event.imageUrls(), e);
         }
     }
 

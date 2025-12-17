@@ -1,8 +1,7 @@
-package com.nhnacademy.book_server.repository;
+package com.nhnacademy.book_server.repository.review;
 
 import com.nhnacademy.book_server.entity.Review;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -31,11 +30,14 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     void increaseLikeCount(@Param("reviewId") Long reviewId);
 
     @Modifying
-    @Query("UPDATE Review r SET r.likeCount = r.likeCount - 1 WHERE r.id = :reviewId")
+    @Query("UPDATE Review r SET r.likeCount = r.likeCount - 1 WHERE r.id = :reviewId AND r.likeCount > 0")
     void decreaseLikeCount(@Param("reviewId") Long reviewId);
 
     long countByBookId(Long bookId);
 
     @Query("SELECT r.reviewContent FROM Review r WHERE r.book.id = :bookId ORDER BY r.createdAt DESC")
     List<String> findReviewContentsByBookId(@Param("bookId") Long bookId, Pageable pageable);
+
+    @Query("SELECT COALESCE(AVG(r.rating), 0.0) FROM Review r WHERE r.book.id = :bookId")
+    Double getAverageRating(@Param("bookId")Long bookId);
 }

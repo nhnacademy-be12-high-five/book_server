@@ -207,7 +207,7 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
         sb.append("--- 리뷰 리스트 ---\n");
 
         for (String review : reviews) {
-            if(review.length() > 5) {
+            if(review != null && review.length() > 5){
                 sb.append("- ").append(review.replace("\n", " ")).append("\n");
             }
         }

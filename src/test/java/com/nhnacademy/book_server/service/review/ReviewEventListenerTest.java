@@ -5,8 +5,8 @@ import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.BookReviewAi;
 import com.nhnacademy.book_server.listener.ReviewEventListener;
 import com.nhnacademy.book_server.repository.BookRepository;
-import com.nhnacademy.book_server.repository.BookReviewAiRepository;
-import com.nhnacademy.book_server.repository.ReviewRepository;
+import com.nhnacademy.book_server.repository.review.BookReviewAiRepository;
+import com.nhnacademy.book_server.repository.review.ReviewRepository;
 import com.nhnacademy.book_server.service.search.GeminiTextClientService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -47,8 +47,8 @@ class ReviewEventListenerTest {
         reviewEventListener.handleAiSummaryTrigger(new ReviewCreatedEvent(1L, bookId, "REVIEW"));
 
         // Then
-        verify(geminiService, never()).getReviewSummary(any(), any()); // AI 호출 안 함 확인
-        verify(reviewRepository, never()).save(any()); // 저장 안 함 확인
+        verify(geminiService, never()).getReviewSummary(any(), any());
+        verify(bookReviewAiRepository, never()).save(any());
     }
 
     @Test
