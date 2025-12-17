@@ -3,13 +3,15 @@ package com.nhnacademy.book_server.repository;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.BookSortType;
 import com.nhnacademy.book_server.dto.SearchResult;
+import com.nhnacademy.book_server.dto.response.BookDocument;
+import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 
 import java.util.List;
 
 /**
  * Elasticsearch 도서 검색용 Repository 인터페이스
  */
-public interface ElasticRepository {
+public interface ElasticRepository extends ElasticsearchRepository<BookDocument, Long> {
 
     /**
      * ES book_index에서 키워드 검색
@@ -20,10 +22,10 @@ public interface ElasticRepository {
      * @param size    페이지당 조회 건수
      * @return 검색 결과 목록 + 전체 검색 건수(totalHits)
      */
-    SearchResult<BookResponse> search(String keyword, BookSortType sort, int page, int size);
-
-    /**
-     * 여러 도서를 ES 인덱스에 저장 (reindex 용)
-     */
-    void saveAll(List<BookResponse> books);
+//    SearchResult<BookResponse> search(String keyword, BookSortType sort, int page, int size);
+//
+//    /**
+//     * 여러 도서를 ES 인덱스에 저장 (reindex 용)
+//     */
+//    void saveAll(List<BookResponse> books);
 }

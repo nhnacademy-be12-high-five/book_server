@@ -3,6 +3,8 @@ package com.nhnacademy.book_server.service.search;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.BookSortType;
 import com.nhnacademy.book_server.dto.SearchResult;
+import com.nhnacademy.book_server.dto.response.BookDocument;
+import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.repository.ElasticRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
@@ -15,6 +17,7 @@ import java.util.*;
 public class BookSearchServiceImpl implements BookSearchService {
 
     private final ElasticRepository elasticRepository;
+    private final ElasticService elasticService;
     private final SearchLogService searchLogService;
     private final RagSearchable ragSearchable;
 
@@ -32,7 +35,7 @@ public class BookSearchServiceImpl implements BookSearchService {
         }
 
         SearchResult<BookResponse> result =
-                elasticRepository.search(keyword, sortType, page, size);
+                elasticService.search(keyword, sortType, page, size);
 
         return new PageImpl<>(result.content(), pageable, result.totalHits());
     }
@@ -58,7 +61,7 @@ public class BookSearchServiceImpl implements BookSearchService {
 
         // 2. 키워드 검색 (POPULAR 기준, 병합용)
         SearchResult<BookResponse> keywordResult =
-                elasticRepository.search(keyword, BookSortType.POPULAR, 0, baseSize);
+                elasticService.search(keyword, BookSortType.POPULAR, 0, baseSize);
 
         // 3. RAG 벡터 검색
         SearchResult<BookResponse> ragResult =
@@ -78,7 +81,7 @@ public class BookSearchServiceImpl implements BookSearchService {
         // 4-1. 키워드/RAG 둘 다 비어 있으면 → 그냥 일반 검색 결과라도 리턴
         if (mergedList.isEmpty()) {
             SearchResult<BookResponse> fallback =
-                    elasticRepository.search(keyword, sortType, page, size);
+                    elasticService.search(keyword, sortType, page, size);
 
             return new PageImpl<>(
                     fallback.content(),
@@ -132,5 +135,12 @@ public class BookSearchServiceImpl implements BookSearchService {
 
         List<BookResponse> pageContent = mergedList.subList(from, to);
         return new PageImpl<>(pageContent, pageable, total);
+    }
+
+    @Override
+    public void indexBook(Book book) {
+        BookResponse bookResponse = BookResponse.from(book);
+        BookDocument bookDocument = BookDocument.from(bookResponse);
+        elasticRepository.save(bookDocument);
     }
 }

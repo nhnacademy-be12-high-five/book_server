@@ -9,6 +9,7 @@ import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.repository.*;
 import com.nhnacademy.book_server.repository.review.BookReviewAiRepository;
 import com.nhnacademy.book_server.repository.review.ReviewRepository;
+import com.nhnacademy.book_server.service.search.BookSearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,9 +18,6 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.web.PageableDefault;
-import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -44,6 +42,7 @@ public class BookService {
     private final ObjectMapper objectMapper;
     private final ReviewRepository reviewRepository;
     private final BookReviewAiRepository bookReviewAiRepository;
+    private final BookSearchService bookSearchService;
 
     @Lazy
     @Autowired
@@ -67,7 +66,7 @@ public class BookService {
                 .isbn13(dto.getIsbn())
                 .title(dto.getTitle())
                 .publisher(publisher)
-                .publishedDate(dto.getPubDate())
+                .publishedDate(dto.getPubDate() != null ? dto.getPubDate().toString() : null)
                 .price(parsePrice(dto.getPrice()))
                 .image(dto.getImageUrl())
                 .content(dto.getDescription())
@@ -164,24 +163,42 @@ public class BookService {
     // 책 업데이트
     @Transactional // 💡 트랜잭션 적용
     public BookResponse updateBook(Long id, BookUpdateRequest request) {
-        Book existingBook = bookRepository.findById(id).orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다."));
+        log.debug("도서 수정 요청 시작 - ID:{}", id);
+        Book existingBook = bookRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.error("도서 조회 실패 - ID: {}", id);
+                    return new RuntimeException("아이디가 존재하지 않습니다.");
+                });
 
         if (request.getPrice() != null) {
+            if (request.getPrice() < 0) {
+                throw new IllegalArgumentException("가격은 0 이상이어야 합니다.");
+            }
+            log.debug("가격 변경 시도: {} -> {}", existingBook.getPrice(), request.getPrice());
             existingBook.setPrice(request.getPrice());
         }
 
+        Book savedBook = bookRepository.save(existingBook);
         bookRepository.flush();
-        BookResponse response = BookResponse.from(existingBook);
+
+        String cacheKey = "bookDetail::" + id;
 
         try {
-            String cacheKey = "book:detail:" + id;
-            redisTemplate.delete(cacheKey);
+            Boolean result = redisTemplate.delete(cacheKey);
+            log.info("Redis 캐시 삭제 Key: {}, 결과: {}", cacheKey, result);
         } catch (Exception e) {
-            log.error("Redis 캐시 삭제 실패 : {}", e.getMessage());
+            log.error("Redis 캐시 삭제 실패: {}", e.getMessage());
+        }
+
+        try {
+            bookSearchService.indexBook(savedBook);
+        } catch (Exception e) {
+            log.error("Elasticsearch 갱신 실패", e);
+            throw new RuntimeException("검색 인덱스 갱신 실패", e);
         }
 
 
-        return response;
+        return BookResponse.from(savedBook);
     }
 
     // 책 삭제
