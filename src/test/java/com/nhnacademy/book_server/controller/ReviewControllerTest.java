@@ -30,8 +30,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(ReviewController.class)
-@AutoConfigureMockMvc(addFilters = false) // Security 필터 비활성화
+// properties 설정을 통해 테스트 시 Config Server 연결을 시도하지 않도록 차단합니다.
+@WebMvcTest(
+        value = ReviewController.class,
+        properties = {
+                "spring.cloud.config.enabled=false"
+        }
+)
+@AutoConfigureMockMvc(addFilters = false) // Security Filter Chain을 건너뛰어 401/403 오류 방지
 class ReviewControllerTest {
 
     @Autowired
@@ -53,6 +59,7 @@ class ReviewControllerTest {
         ReviewCreateResponse response = new ReviewCreateResponse(1L, 5, "정말 좋은 책입니다.");
 
         MockMultipartFile requestPart = new MockMultipartFile("request", "", "application/json", objectMapper.writeValueAsString(request).getBytes(StandardCharsets.UTF_8));
+        // 이미지 파일은 선택 사항이지만 테스트 커버리지를 위해 포함
         MockMultipartFile imagePart = new MockMultipartFile("images", "test.jpg", "image/jpeg", "image data".getBytes());
 
         given(reviewService.saveReview(any(ReviewCreateRequest.class), eq(bookId), eq(memberId), anyList()))
