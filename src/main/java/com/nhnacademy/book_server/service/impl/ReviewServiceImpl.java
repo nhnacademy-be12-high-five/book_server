@@ -59,7 +59,7 @@ public class ReviewServiceImpl implements ReviewService {
     @Lazy // 순환 참조 방지 필수
     private ReviewServiceImpl self;
 
-    // 리뷰 생성 기능
+    // 리뷰 작성 기능
     @Override
     @Transactional
     public ReviewCreateResponse saveReview(ReviewCreateRequest request,
@@ -193,7 +193,7 @@ public class ReviewServiceImpl implements ReviewService {
         Review myReview = reviewRepository.findByMemberIdAndBookId(memberId, bookId);
 
         if (myReview == null) {
-             return null;
+            return null;
         }
 
         List<String> urls = myReview.getReviewImages().stream()
@@ -387,6 +387,8 @@ public class ReviewServiceImpl implements ReviewService {
 
             if (!newImages.isEmpty()) {
                 reviewImageRepository.saveAll(newImages);
+                // 중요: 영속성 컨텍스트(또는 테스트 객체) 내의 review 객체에도 추가하여 정합성 유지
+                review.getReviewImages().addAll(newImages);
             }
         }
     }
