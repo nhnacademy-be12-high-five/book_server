@@ -13,7 +13,6 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Document(indexName = "high-five")
 @Builder
 public class BookDocument {
 

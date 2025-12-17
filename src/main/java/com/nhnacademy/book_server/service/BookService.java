@@ -42,12 +42,11 @@ public class BookService {
     private final ObjectMapper objectMapper;
     private final ReviewRepository reviewRepository;
     private final BookReviewAiRepository bookReviewAiRepository;
+    private final BookSearchService bookSearchService;
 
     @Lazy
     @Autowired
     private BookService self;
-    @Autowired
-    private BookSearchService bookSearchService;
 
     public Book createBook(ParsingDto dto) {
         if (bookRepository.existsByIsbn13(dto.getIsbn())) {
@@ -179,18 +178,13 @@ public class BookService {
         Book savedBook = bookRepository.save(existingBook);
         bookRepository.flush();
 
-        Set<String> foundKeys = redisTemplate.keys("*" + id + "*");
-        log.info("[DEBUG] 현재 Redis에 저장된 실제 키 목록: {}", foundKeys);
-
         String cacheKey = "bookDetail::" + id;
 
         try {
-            if (bookSearchService != null) {
-                Boolean result = redisTemplate.delete(cacheKey);
-                log.info("Redis 캐시 삭제 시도 Key: {}, 결과: {}", cacheKey, result);
-            }
+            Boolean result = redisTemplate.delete(cacheKey);
+            log.info("Redis 캐시 삭제 Key: {}, 결과: {}", cacheKey, result);
         } catch (Exception e) {
-            log.error("Elasticsearch 갱신 실패:{}", e.getMessage());
+            log.error("Redis 캐시 삭제 실패: {}", e.getMessage());
         }
 
         try {

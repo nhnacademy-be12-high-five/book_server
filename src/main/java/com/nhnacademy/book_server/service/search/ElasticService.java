@@ -25,8 +25,6 @@ public class ElasticService {
 
     private static final String INDEX = "high-five";
 
-    private final ElasticRepository elasticRepository;
-
     private final ElasticsearchClient client;
     private final GeminiTextClientService geminiTextClientService;
 

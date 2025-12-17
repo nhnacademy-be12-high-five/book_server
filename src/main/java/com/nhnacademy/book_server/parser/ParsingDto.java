@@ -1,5 +1,6 @@
 package com.nhnacademy.book_server.parser;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.opencsv.bean.CsvBindByName;
 import lombok.*;
@@ -31,7 +32,7 @@ public class ParsingDto {
 
     @CsvBindByName(column = "TWO_PBLICTE_DE")
     @JsonProperty("pubDate")
-    @Getter
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate pubDate;
 
     @CsvBindByName(column = "PRC_VALUE")
