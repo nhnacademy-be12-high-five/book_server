@@ -22,7 +22,7 @@ import java.util.Optional;
 
 @RestController
 @Tag(name = "도서 API - 관리자", description = "관리자를 위한 도서 API 입니다.")
-@RequestMapping("/api/admin")
+@RequestMapping("/api/admin/books")
 @RequiredArgsConstructor
 // 관리자 권한 책 컨트롤러
 public class AdminBookController implements bookSwagger{
@@ -65,9 +65,7 @@ public class AdminBookController implements bookSwagger{
 
     // 북 생성
     @PostMapping
-    public ResponseEntity<Book> createBook(@RequestBody ParsingDto parsingDto,
-                                           @RequestHeader("X-User-Id") Long memberId){
-
+    public ResponseEntity<Book> createBook(@RequestBody ParsingDto parsingDto){
         Book savedBook=bookService.createBook(parsingDto);
         return new ResponseEntity<>(savedBook, HttpStatus.CREATED);
     }
@@ -93,26 +91,19 @@ public class AdminBookController implements bookSwagger{
     // 책 한권 수정
     @PutMapping("/{id}")
     public ResponseEntity<BookResponse> updateBook(@PathVariable("id") Long bookId,
-                                                   @RequestBody BookUpdateRequest updateDto,
-                                           @RequestHeader("X-User-Id") Long memberId){
-        try {
-            Book updatedBook=bookService.updateBook(bookId,updateDto);
-            BookResponse updatedResponse=BookResponse.from(updatedBook);
-            return ResponseEntity.ok(updatedResponse); // 200 OK
-
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build(); // 404 Not Found (책을 찾을 수 없을 때)
-        }
+                                                   @RequestBody BookUpdateRequest updateDto){
+        BookResponse updatedResponse=bookService.updateBook(bookId, updateDto);
+        return ResponseEntity.ok(updatedResponse); // 200 OK
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteBook(@PathVariable("id") Long bookId,
-                                           @RequestHeader("X-User-Id") Long memberId){
-        try {
-            bookService.deleteBook(bookId,memberId);
-            return ResponseEntity.status(204).build();
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build(); // 404 Not Found (책을 찾을 수 없을 때)
-        }
-    }
+//    @DeleteMapping("/{id}")
+//    public ResponseEntity<Void> deleteBook(@PathVariable("id") Long bookId,
+//                                           ){
+//        try {
+//            bookService.deleteBook(bookId,memberId);
+//            return ResponseEntity.status(204).build();
+//        } catch (RuntimeException e) {
+//            return ResponseEntity.notFound().build(); // 404 Not Found (책을 찾을 수 없을 때)
+//        }
+//    }
 }

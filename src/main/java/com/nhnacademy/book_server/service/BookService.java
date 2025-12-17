@@ -17,6 +17,9 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -160,47 +163,25 @@ public class BookService {
     }
     // 책 업데이트
     @Transactional // 💡 트랜잭션 적용
-    public Book updateBook(Long id, BookUpdateRequest request) {
+    public BookResponse updateBook(Long id, BookUpdateRequest request) {
         Book existingBook = bookRepository.findById(id).orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다."));
 
-        existingBook.setIsbn13(request.getIsbn());
-        existingBook.setTitle(request.getTitle());
-        existingBook.setContent(request.getDescription());
-        existingBook.setPrice(request.getPrice());
-        existingBook.setImage(request.getImage());
-        existingBook.setPublishedDate(request.getPublishedDate());
-
-        if (StringUtils.hasText(request.getPublisher())) {
-            String publisherName = request.getPublisher().trim();
-            Publisher publisher = publisherRepository.findByName(publisherName)
-                    .orElseGet(() -> publisherRepository.save(
-                            Publisher.builder().name(publisherName).build()
-                    ));
-
-            existingBook.setPublisher(publisher);
+        if (request.getPrice() != null) {
+            existingBook.setPrice(request.getPrice());
         }
 
-        if (request.getAuthors() != null) {
-            existingBook.getBookAuthors().clear();
+        bookRepository.flush();
+        BookResponse response = BookResponse.from(existingBook);
 
-            for (String authorName : request.getAuthors()) {
-                String trimmedName = authorName.trim();
-
-                if (!StringUtils.hasText(trimmedName)) continue;
-                Author author = authorRepository.findByName(authorName)
-                        .orElseGet(() -> authorRepository.save(Author.builder().name(authorName).build()));
-
-                BookAuthor bookAuthor = BookAuthor.builder()
-                        .book(existingBook)  // 중요: 현재 책 정보 주입
-                        .author(author)      // 중요: 찾은 작가 정보 주입
-                        .build();
-
-                existingBook.getBookAuthors().add(bookAuthor);
-                bookRepository.save(existingBook);
-            }
+        try {
+            String cacheKey = "book:detail:" + id;
+            redisTemplate.delete(cacheKey);
+        } catch (Exception e) {
+            log.error("Redis 캐시 삭제 실패 : {}", e.getMessage());
         }
 
-        return existingBook;
+
+        return response;
     }
 
     // 책 삭제
