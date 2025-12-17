@@ -66,7 +66,7 @@ public class BookService {
                 .isbn13(dto.getIsbn())
                 .title(dto.getTitle())
                 .publisher(publisher)
-                .publishedDate(dto.getPubDate().toString())
+                .publishedDate(dto.getPubDate() != null ? dto.getPubDate().toString() : null)
                 .price(parsePrice(dto.getPrice()))
                 .image(dto.getImageUrl())
                 .content(dto.getDescription())
