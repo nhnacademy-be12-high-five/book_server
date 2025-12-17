@@ -92,14 +92,8 @@ public class AdminBookController implements bookSwagger{
     @PutMapping("/{id}")
     public ResponseEntity<BookResponse> updateBook(@PathVariable("id") Long bookId,
                                                    @RequestBody BookUpdateRequest updateDto){
-        try {
-            Book updatedBook=bookService.updateBook(bookId,updateDto);
-            BookResponse updatedResponse=BookResponse.from(updatedBook);
-            return ResponseEntity.ok(updatedResponse); // 200 OK
-
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build(); // 404 Not Found (책을 찾을 수 없을 때)
-        }
+        BookResponse updatedResponse=bookService.updateBook(bookId, updateDto);
+        return ResponseEntity.ok(updatedResponse); // 200 OK
     }
 
 //    @DeleteMapping("/{id}")

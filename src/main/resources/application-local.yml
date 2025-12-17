@@ -90,7 +90,7 @@ rag:
     similarity: cosine
 
 gemini:
-  api-key: "AIzaSyBTSkA7HR7fvuUjQIo7Gxi0KKTx1qyn8RI"
+  api-key: "AIzaSyDVm2txY2bmS6hGDZBrcltcmfHrMNlb8yo"
   embedding-model: "models/text-embedding-004"
 
 rag-search:

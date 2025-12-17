@@ -25,6 +25,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -152,14 +153,25 @@ public class BookService {
 
     // 책 업데이트
     @Transactional // 💡 트랜잭션 적용
-    public Book updateBook(Long id, BookUpdateRequest request) {
+    public BookResponse updateBook(Long id, BookUpdateRequest request) {
         Book existingBook = bookRepository.findById(id).orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다."));
 
         if (request.getPrice() != null) {
             existingBook.setPrice(request.getPrice());
         }
 
-        return existingBook;
+        bookRepository.flush();
+        BookResponse response = BookResponse.from(existingBook);
+
+        try {
+            String cacheKey = "book:detail:" + id;
+            redisTemplate.delete(cacheKey);
+        } catch (Exception e) {
+            log.error("Redis 캐시 삭제 실패 : {}", e.getMessage());
+        }
+
+
+        return response;
     }
 
     // 책 삭제
