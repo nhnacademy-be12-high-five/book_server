@@ -88,7 +88,7 @@ public class StockServiceImpl implements StockService {
     @Override
     @Transactional
     public void confirmStockDeduction(String orderKey, List<Long> bookIds) {
-        // [수정] 1. 멱등성 검사 (이미 처리된 주문인지 확인)
+        // 멱등성 검사 (이미 처리된 주문인지)
         String idempotencyKey = "CONFIRM-" + orderKey; // Confirm용 키 생성
         if (idempotencyRepository.existsByIdempotencyKey(idempotencyKey)) {
             log.info("Stock deduction already confirmed for orderKey={}", orderKey);
@@ -97,20 +97,23 @@ public class StockServiceImpl implements StockService {
 
         List<StockHeld> heldStocks = stockHeldRepository.findAllByOrderKeyAndBook_IdIn(orderKey, bookIds);
         if (heldStocks.isEmpty()) {
-            // 이미 처리되었을 수도 있고, 애초에 선점이 없을 수도 있음.
-            // 하지만 위에서 멱등성 체크를 통과했다면 "처음 요청"인데 데이터가 없는 것이므로 경고.
             log.warn("No held stock found for confirmation. OrderKey={}", orderKey);
-            // 굳이 에러를 낼 필요는 없음 (이미 재고가 없으니 롤백할 것도 없음)
+            // 이미 재고가 없으니 에러 처리한다고 롤백할 것도 없음
         } else {
             for (StockHeld held : heldStocks) {
                 Book book = held.getBook();
+                int quantity = held.getQuantity();
                 book.setStock(book.getStock() - held.getQuantity()); // 실제 차감
+
+                // 판매량(Sales Volume) 증가
+                book.setSalesVolume(book.getSalesVolume() + quantity);
+
                 stockHeldRepository.delete(held); // 선점 삭제
             }
             bookRepository.saveAll(heldStocks.stream().map(StockHeld::getBook).toList());
         }
 
-        // [수정] 2. 처리 기록 저장
+        // 2. 처리 기록 저장
         saveIdempotencyRecord(idempotencyKey, "CONFIRM");
     }
 
