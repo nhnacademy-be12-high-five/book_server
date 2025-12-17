@@ -41,7 +41,7 @@ class ReviewEventListenerTest {
         Long bookId = 1L;
         when(bookRepository.findById(bookId)).thenReturn(Optional.of(new Book())); // Book 객체 모킹
         when(reviewRepository.countByBookId(bookId)).thenReturn(3L); // 리뷰 3개 (기준 미달)
-        when(bookReviewAiRepository.findByBookId(bookId)).thenReturn(Optional.empty()); // 기존 요약 없음
+        when(bookReviewAiRepository.findByBook_Id(bookId)).thenReturn(Optional.empty()); // 기존 요약 없음
 
         // When
         reviewEventListener.handleAiSummaryTrigger(new ReviewCreatedEvent(1L, bookId, "REVIEW"));
@@ -59,7 +59,7 @@ class ReviewEventListenerTest {
         Book book = new Book(); // 필드 세팅 필요시 추가
         when(bookRepository.findById(bookId)).thenReturn(Optional.of(book));
         when(reviewRepository.countByBookId(bookId)).thenReturn(10L); // 리뷰 10개 (기준 충족)
-        when(bookReviewAiRepository.findByBookId(bookId)).thenReturn(Optional.empty());
+        when(bookReviewAiRepository.findByBook_Id(bookId)).thenReturn(Optional.empty());
 
         // AI 응답 모킹
         when(reviewRepository.findReviewContentsByBookId(eq(bookId), any(Pageable.class)))
@@ -84,7 +84,7 @@ class ReviewEventListenerTest {
         BookReviewAi lastSummary = new BookReviewAi(book, "Old Summary", 10L, 4.5);
 
         when(bookRepository.findById(bookId)).thenReturn(Optional.of(book));
-        when(bookReviewAiRepository.findByBookId(bookId)).thenReturn(Optional.of(lastSummary));
+        when(bookReviewAiRepository.findByBook_Id(bookId)).thenReturn(Optional.of(lastSummary));
         when(reviewRepository.countByBookId(bookId)).thenReturn(15L); // 현재 15개 (차이 5개 < 10개)
 
         // When
@@ -104,7 +104,7 @@ class ReviewEventListenerTest {
         BookReviewAi lastSummary = new BookReviewAi(book, "Old Summary", 10L, 4.5);
 
         when(bookRepository.findById(bookId)).thenReturn(Optional.of(book));
-        when(bookReviewAiRepository.findByBookId(bookId)).thenReturn(Optional.of(lastSummary));
+        when(bookReviewAiRepository.findByBook_Id(bookId)).thenReturn(Optional.of(lastSummary));
         when(reviewRepository.countByBookId(bookId)).thenReturn(25L); // 현재 25개 (차이 15개 >= 10개)
 
         // AI 응답 모킹

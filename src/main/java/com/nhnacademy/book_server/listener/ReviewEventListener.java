@@ -12,6 +12,7 @@ import com.nhnacademy.book_server.service.search.GeminiTextClientService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -32,6 +33,7 @@ public class ReviewEventListener {
     private final ReviewRepository reviewRepository;
     private final BookReviewAiRepository bookAiSummaryRepository;
     private final GeminiTextClientService geminiService;
+    private final CacheManager cacheManager;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -55,7 +57,7 @@ public class ReviewEventListener {
         Double currentRating = book.getAverageRating();
         if (currentRating == null) currentRating = 0.0;
 
-        BookReviewAi lastSummary = bookAiSummaryRepository.findByBookId(bookId).orElse(null);
+        BookReviewAi lastSummary = bookAiSummaryRepository.findByBook_Id(bookId).orElse(null);
 
         boolean shouldTrigger = false;
 
@@ -85,6 +87,11 @@ public class ReviewEventListener {
                     bookAiSummaryRepository.save(lastSummary);
                 }
                 log.info("AI 요약 업데이트 완료: bookId={}", bookId);
+
+                if (cacheManager.getCache("bookDetail") != null) {
+                    cacheManager.getCache("bookDetail").evict(bookId);
+                    log.info("♻️ Spring Cache 초기화 완료: bookId={}", bookId);
+                }
 
             } catch (Exception e) {
                 log.error("AI 요약 생성 중 실패", e);
