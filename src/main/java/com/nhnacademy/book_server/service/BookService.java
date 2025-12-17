@@ -1,41 +1,34 @@
 package com.nhnacademy.book_server.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
 import com.nhnacademy.book_server.entity.*;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.repository.*;
-import jakarta.annotation.PostConstruct;
-import jakarta.servlet.http.Cookie;
+import com.nhnacademy.book_server.service.search.BookSearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections4.iterators.CartesianProductIterator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cglib.core.Local;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.core.annotation.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.web.PageableDefault;
-import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.PathVariable;
 
-import java.time.*;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -56,6 +49,8 @@ public class BookService {
     @Lazy
     @Autowired
     private BookService self;
+    @Autowired
+    private BookSearchService bookSearchService;
 
     public Book createBook(ParsingDto dto) {
         if (bookRepository.existsByIsbn13(dto.getIsbn())) {
@@ -75,7 +70,7 @@ public class BookService {
                 .isbn13(dto.getIsbn())
                 .title(dto.getTitle())
                 .publisher(publisher)
-                .publishedDate(dto.getPubDate())
+                .publishedDate(dto.getPubDate().toString())
                 .price(parsePrice(dto.getPrice()))
                 .image(dto.getImageUrl())
                 .content(dto.getDescription())
@@ -172,24 +167,45 @@ public class BookService {
     // 책 업데이트
     @Transactional // 💡 트랜잭션 적용
     public BookResponse updateBook(Long id, BookUpdateRequest request) {
-        Book existingBook = bookRepository.findById(id).orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다."));
+        log.info("도서 수정 요청 시작 - ID:{}, 요청 데이터: {}",id, request);
+        Book existingBook = bookRepository.findById(id)
+                .orElseThrow(() -> {
+                    log.error("도서 조회 실패 - ID: {}", id);
+                    return new RuntimeException("아이디가 존재하지 않습니다.");
+                });
 
         if (request.getPrice() != null) {
+            log.info("가격 변경 시도: {} -> {}", existingBook.getPrice(), request.getPrice());
             existingBook.setPrice(request.getPrice());
         }
 
+        Book savedBook = bookRepository.save(existingBook);
         bookRepository.flush();
-        BookResponse response = BookResponse.from(existingBook);
+
+        Set<String> foundKeys = redisTemplate.keys("*" + id + "*");
+        log.info("[DEBUG] 현재 Redis에 저장된 실제 키 목록: {}", foundKeys);
+
+        String cacheKey = "bookDetail::" + id;
 
         try {
-            String cacheKey = "book:detail:" + id;
-            redisTemplate.delete(cacheKey);
+            if (bookSearchService != null) {
+                Boolean result = redisTemplate.delete(cacheKey);
+                log.info("Redis 캐시 삭제 시도 Key: {}, 결과: {}", cacheKey, result);
+            }
         } catch (Exception e) {
-            log.error("Redis 캐시 삭제 실패 : {}", e.getMessage());
+            log.error("Elasticsearch 갱신 실패:{}", e.getMessage());
+        }
+
+        try {
+            if (bookSearchService != null) {
+                bookSearchService.indexBook(savedBook);
+            }
+        } catch (Exception e) {
+            log.error("Elasticsearch 갱신 실패", e);
         }
 
 
-        return response;
+        return BookResponse.from(savedBook);
     }
 
     // 책 삭제

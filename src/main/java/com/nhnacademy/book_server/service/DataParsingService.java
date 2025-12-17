@@ -225,7 +225,7 @@ public class DataParsingService {
                 ps.setInt(4, parsePrice(dto.getPrice()));
                 ps.setString(5, dto.getDescription());
                 ps.setString(6, convertToFrontendImageUrl(dto.getImageUrl()));
-                ps.setString(7, parseDate(dto.getPubDate()).toString());
+                ps.setString(7, parseDate(dto.getPubDate().toString()).toString());
             }
 
             @Override
@@ -392,7 +392,7 @@ public class DataParsingService {
                 for (ParsingDto dto : batchDtos) {
                     Book book = bookMap.get(dto.getIsbn().trim());
                     if (book != null) {
-                        String newDateStr = parseDate(dto.getPubDate()).toString();
+                        String newDateStr = parseDate(dto.getPubDate().toString()).toString();
                         if (!newDateStr.equals(book.getPublishedDate())) {
                             book.setPublishedDate(newDateStr);
                             dirtyBooks.add(book);

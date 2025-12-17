@@ -21,14 +21,15 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-public class ElasticService implements ElasticRepository {
+public class ElasticService {
 
     private static final String INDEX = "high-five";
+
+    private final ElasticRepository elasticRepository;
 
     private final ElasticsearchClient client;
     private final GeminiTextClientService geminiTextClientService;
 
-    @Override
     public SearchResult<BookResponse> search(String keyword, BookSortType sort, int page, int size) {
         if (keyword == null || keyword.isBlank()) {
             return new SearchResult<>(List.of(), 0L);
@@ -193,8 +194,6 @@ public class ElasticService implements ElasticRepository {
     }
 
 
-
-    @Override
     public void saveAll(List<BookResponse> books) {
         if (books == null || books.isEmpty()) {
             return;
