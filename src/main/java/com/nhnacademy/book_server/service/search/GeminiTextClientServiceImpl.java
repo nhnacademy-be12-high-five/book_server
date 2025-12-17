@@ -64,8 +64,8 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
         }
 
         String url =
-                "https://generativelanguage.googleapis.com/v1/models/"
-                        + "gemini-1.5-flash:generateContent"
+                "https://generativelanguage.googleapis.com/v1beta/models/"
+                        + "gemini-2.5-flash:generateContent"
                         + "?key=" + apiKey;
 
         try {
@@ -208,7 +208,7 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
         sb.append("--- 리뷰 리스트 ---\n");
 
         for (String review : reviews) {
-            if(review.length() > 5) {
+            if(review != null && review.length() > 5){
                 sb.append("- ").append(review.replace("\n", " ")).append("\n");
             }
         }
