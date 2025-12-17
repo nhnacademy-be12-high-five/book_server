@@ -22,18 +22,4 @@ public record BookReviewResponse(
                 newIsLiked // 여기만 교체!
         );
     }
-    public BookReviewResponse withPersonalizedData(boolean newIsLiked) {
-        Integer adjustedCount = this.likeCount;
-
-        // 내가 좋아요를 눌렀는데(true), 캐시된 개수가 0개라면? -> 최소 1개로 보정!
-        if (newIsLiked && this.likeCount == 0) {
-            adjustedCount = 1;
-        }
-
-        return new BookReviewResponse(
-                reviewId, memberId, loginId, content, rating, createdAt, imageUrls,
-                adjustedCount, // 보정된 개수
-                newIsLiked     // 내 좋아요 상태
-        );
-    }
 }

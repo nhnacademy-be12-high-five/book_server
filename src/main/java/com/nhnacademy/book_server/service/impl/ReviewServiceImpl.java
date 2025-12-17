@@ -1,6 +1,7 @@
 package com.nhnacademy.book_server.service.impl;
 
 import com.nhnacademy.book_server.dto.ReviewCreatedEvent;
+import com.nhnacademy.book_server.dto.ReviewImageDeleteEvent;
 import com.nhnacademy.book_server.dto.common.RestPage;
 import com.nhnacademy.book_server.dto.request.ReviewCreateRequest;
 import com.nhnacademy.book_server.dto.request.ReviewUpdateRequest;
@@ -14,24 +15,25 @@ import com.nhnacademy.book_server.exception.ErrorCode;
 import com.nhnacademy.book_server.feign.MemberFeignClient;
 import com.nhnacademy.book_server.feign.OrderFeignClient;
 import com.nhnacademy.book_server.repository.BookRepository;
-import com.nhnacademy.book_server.repository.ReviewImageRepository;
-import com.nhnacademy.book_server.repository.ReviewLikeRepository;
-import com.nhnacademy.book_server.repository.ReviewRepository;
+import com.nhnacademy.book_server.repository.review.ReviewImageRepository;
+import com.nhnacademy.book_server.repository.review.ReviewLikeRepository;
+import com.nhnacademy.book_server.repository.review.ReviewRepository;
 import com.nhnacademy.book_server.service.MinioImageService;
 import com.nhnacademy.book_server.service.ReviewService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -48,6 +50,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final MemberFeignClient memberFeignClient;
     private final BookRepository bookRepository;
     private final ReviewLikeRepository reviewLikeRepository;
+    private final StringRedisTemplate redisTemplate;
 
 
     private static final int MAX_IMAGE_COUNT = 5;
@@ -59,7 +62,6 @@ public class ReviewServiceImpl implements ReviewService {
     // 리뷰 생성 기능
     @Override
     @Transactional
-    @CacheEvict(value = "bookReviews", key = "#bookId + '_*'", allEntries = true)
     public ReviewCreateResponse saveReview(ReviewCreateRequest request,
                                            Long bookId,
                                            Long memberId,
@@ -100,6 +102,8 @@ public class ReviewServiceImpl implements ReviewService {
             eventPublisher.publishEvent(new ReviewCreatedEvent(memberId, bookId,"EARN_REVIEW"));
         }
 
+        evictBookReviewCache(bookId);
+
         return new ReviewCreateResponse(review.getId(), request.rating(), request.content());
     }
 
@@ -123,7 +127,7 @@ public class ReviewServiceImpl implements ReviewService {
 
         Page<BookReviewResponse> personalizedPage = cachedPage.map(response -> {
             if (myLikedReviewIds.contains(response.reviewId())) {
-                return response.withPersonalizedData(true);
+                return response.withIsLiked(true);
             }
             return response;
         });
@@ -257,7 +261,6 @@ public class ReviewServiceImpl implements ReviewService {
     // 리뷰 수정
     @Override
     @Transactional
-    @CacheEvict(value = "bookReviews", key = "#bookId + '_*'", allEntries = true)
     public UpdateReviewResponse updateReview(ReviewUpdateRequest request, Long bookId, Long reviewId,
                                              Long memberId, List<MultipartFile> images) {
         Review review = reviewRepository.findById(reviewId)
@@ -310,20 +313,27 @@ public class ReviewServiceImpl implements ReviewService {
             List<String> fileUrls = imagesToDelete.stream()
                     .map(ReviewImage::getFileUrl)
                     .toList();
-            try {
-                imageUploadService.deleteImages(fileUrls);
-            } catch (Exception e) {
-                log.error("DB 갱신 성공했으나 S3 이미지 삭제 실패. 고아 객체 발생 가능. URLs: {}", fileUrls, e);
-            }
+
+            eventPublisher.publishEvent(new ReviewImageDeleteEvent(fileUrls));
         }
+
+        evictBookReviewCache(bookId);
 
         return new UpdateReviewResponse(request.content(), request.rating());
     }
 
     @Override
     @Transactional
-    @CacheEvict(value = "bookReviews", key = "#bookId + '_*'", allEntries = true)
     public boolean toggleReviewLike(Long reviewId, Long memberId, Long bookId) {
+
+        // 광클 방지
+        String lockKey = "like_lock:" + memberId + ":" + reviewId;
+        Boolean isLocked = redisTemplate.opsForValue()
+                .setIfAbsent(lockKey, "locked", Duration.ofMillis(500));
+
+        if (Boolean.FALSE.equals(isLocked)) {
+            throw new BusinessException(ErrorCode.TOO_MANY_REQUESTS);
+        }
 
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.REVIEW_NOT_FOUND));
@@ -334,19 +344,33 @@ public class ReviewServiceImpl implements ReviewService {
 
         Optional<ReviewLike> existingLike = reviewLikeRepository.findByMemberIdAndReviewId(memberId, reviewId);
 
+        boolean isLiked;
+
         if (existingLike.isPresent()) {
             reviewLikeRepository.delete(existingLike.get());
             reviewRepository.decreaseLikeCount(reviewId);
-            return false;
+            isLiked = false;
         } else {
-            try {
-                ReviewLike newLike = new ReviewLike(review, memberId);
-                reviewLikeRepository.save(newLike);
-                reviewRepository.increaseLikeCount(reviewId);
-                return true;
-            } catch( Exception e){
-                throw new BusinessException(ErrorCode.REVIEW_DUP);
-            }
+            ReviewLike newLike = new ReviewLike(review, memberId);
+            reviewLikeRepository.save(newLike);
+            reviewRepository.increaseLikeCount(reviewId);
+            isLiked = true;
+        }
+        evictBookReviewCache(bookId);
+
+        return isLiked;
+    }
+
+    private void evictBookReviewCache(Long bookId){
+        if(bookId == null) return;
+
+        String pattern = "bookReviews::" + bookId + "_*";
+
+        Set<String> keys = redisTemplate.keys(pattern);
+
+        if(keys != null && !keys.isEmpty()){
+            redisTemplate.delete(keys);
+            log.info("캐시 삭제 완료 bookId: {} /{}개", bookId, keys.size());
         }
     }
 

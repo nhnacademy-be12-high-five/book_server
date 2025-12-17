@@ -71,4 +71,18 @@ public class Review {
         this.reviewContent = reviewContent;
     }
 
+    public void increaseLikeCount() {
+        if (this.likeCount == null) {
+            this.likeCount = 0;
+        }
+        this.likeCount++;
+    }
+
+    public void decreaseLikeCount() {
+        if (this.likeCount == null || this.likeCount <= 0) {
+            this.likeCount = 0;
+        } else {
+            this.likeCount--;
+        }
+    }
 }
