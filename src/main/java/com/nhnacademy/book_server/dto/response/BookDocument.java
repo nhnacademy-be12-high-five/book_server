@@ -11,6 +11,7 @@ import java.util.List;
 
 @Getter
 @Setter
+@Document(indexName = "high-five")
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
