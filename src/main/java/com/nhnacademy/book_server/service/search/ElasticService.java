@@ -168,10 +168,7 @@ public class ElasticService {
             reviewCount = nRev.longValue();
         }
 
-        String aiSummary = null;
-        if (content != null && !content.isBlank()) {
-            aiSummary = geminiTextClientService.generateAnswer(content);
-        }
+        String aiSummary = (String) source.get("aiSummary");
 
         return new BookResponse(
                 bookId,
