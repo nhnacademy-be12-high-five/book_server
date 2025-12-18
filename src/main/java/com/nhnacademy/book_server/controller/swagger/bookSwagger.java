@@ -1,6 +1,7 @@
 package com.nhnacademy.book_server.controller.swagger;
 
 import com.nhnacademy.book_server.dto.BookResponse;
+import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.parser.ParsingDto;
@@ -20,14 +21,14 @@ import java.util.List;
 public interface bookSwagger{
 
     // 도서 생성
-    @Operation(summary = "관리자 새로운 도서 생성", description = "도서 정보를 받아 신규 도서를 데이터베이스에 저장합니다.")
+    @Operation(summary = "관리자 새로운 도서 생성", description = "도서 정보를 입력 받아 신규 도서를 데이터베이스에 저장합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "도서 생성 성공 (Created)"),
-//            @ApiResponse(responseCode = "400", description = "도서 정보가 유효하지 않음 (Bad Request)"),
-//            @ApiResponse(responseCode = "403", description = "관리자 권한이 없음 (Forbidden)"),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청 (유효성 검사 실패)"),
+            @ApiResponse(responseCode = "409", description = "이미 존재하는 ISBN")
     })
     @PostMapping
-    ResponseEntity<Book> createBook(@RequestBody ParsingDto parsingDto);
+    ResponseEntity<BookResponse> createBook(@RequestBody BookCreateRequest bookCreateRequest);
 
     // 도서 전체 조회
     @Operation(summary = "관리자 도서 조회",description = "도서를 조회합니다.")
