@@ -143,36 +143,46 @@ public class SearchController implements SearchSwagger {
         StringBuilder ctx = new StringBuilder();
         for (int i = 0; i < books.size(); i++) {
             BookResponse b = books.get(i);
-            ctx.append("[%d] %s (%s)\n내용: %s\n\n".formatted(
+            ctx.append("""
+                    [%d] 제목: %s
+                    - 저자: %s
+                    - 출판사: %s
+                    - 내용 요약: %s
+                    
+                    """.formatted(
                     i + 1,
                     b.title(),
                     b.author(),
+                    b.publisher() != null ? b.publisher() : "정보 없음",
                     b.content()
             ));
         }
 
         String prompt = """
         사용자 검색어: "%s"
-                
-        검색어: "%s"
-                
-        아래 도서가 이 검색어와 얼마나 관련 있는지 판단해 주세요.
-                
-        도서 정보:
-        - 제목: %s
-        - 저자: %s
-        - 출판사: %s
-        - 간단 설명: %s
-                
-        다음 형식으로만 한국어로 작성하세요.
-        1) 관련도: %% 숫자 하나 (0~100)
-        2) 추천 이유: 두 문장
-                
-        ※ 줄거리 요약, 작품 해석, 감상 금지
-        """.formatted(keyword, ctx);
+        
+        다음은 위 검색어와 연관성이 높은 도서 목록입니다:
+        
+        %s
+        
+        위 도서 목록을 바탕으로, 사용자의 검색 의도에 가장 부합하는 도서를 하나 선정하거나, 전체적인 추천 이유를 요약해 주세요.
+        
+        다음 형식으로만 한국어로 작성하세요:
+        1. 추천 도서: (가장 적합한 책 제목 1개)
+        2. 관련도: %% 숫자 (0~100)
+        3. 추천 이유: (이 책이 검색어와 어떤 관련이 있는지 두 문장으로 설명)
+        
+        ※ 줄거리 요약, 작품 해석, 감상 금지. 제공된 정보에 기반한 사실만 작성할 것.
+        """.formatted(keyword, ctx.toString());
 
         // 4. Gemini 호출 (429/403 발생해도 서비스는 정상 유지되도록 메시지 반환)
-        String answer = geminiTextClientService.generateAnswer(prompt);
-        return ResponseEntity.ok(answer);
+        try {
+            // 4. Gemini 호출
+            String answer = geminiTextClientService.generateAnswer(prompt);
+            return ResponseEntity.ok(answer);
+        } catch (Exception e) {
+            log.error("AI 요약 생성 중 오류 발생", e);
+            return ResponseEntity.ok("AI 요약 서비스를 일시적으로 사용할 수 없습니다.");
+        }
     }
 }
