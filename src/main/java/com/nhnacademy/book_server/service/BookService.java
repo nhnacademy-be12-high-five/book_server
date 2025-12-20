@@ -103,7 +103,7 @@ public class BookService {
     public BookResponse createBook(BookCreateRequest request) {
         String imageUrl = null;
         if (StringUtils.hasText(request.getImage())) {
-            imageUrl = minioImageService.uploadImageFromUrl(request.getImage(), request.getIsbn())
+            imageUrl = minioImageService.uploadImageFromUrl(request.getImage(), request.getIsbn());
         }
         Book savedBook = self.createBookInTx(request, imageUrl);
         try {
@@ -265,7 +265,7 @@ public class BookService {
         return BookResponse.from(savedBook);
     }
     @Transactional
-    public BookResponse updateBookInTx(Long id, BookUpdateRequest request) {
+    public Book updateBookInTx(Long id, BookUpdateRequest request) {
         log.debug("도서 수정 요청 시작 - ID:{}", id);
         Book existingBook = bookRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다."));
@@ -316,7 +316,7 @@ public class BookService {
             }
         }
 
-        return BookResponse.from(existingBook);
+        return bookRepository.save(existingBook);
     }
 
     // 책 삭제
