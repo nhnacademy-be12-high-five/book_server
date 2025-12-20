@@ -2,12 +2,14 @@ package com.nhnacademy.book_server.controller;
 
 import com.nhnacademy.book_server.controller.swagger.bookSwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
+import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.service.BookService;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -67,9 +69,10 @@ public class AdminBookController implements bookSwagger{
 
     // 북 생성
     @PostMapping
-    public ResponseEntity<Book> createBook(@RequestBody ParsingDto parsingDto){
-        Book savedBook=bookService.createBook(parsingDto);
-        return new ResponseEntity<>(savedBook, HttpStatus.CREATED);
+    public ResponseEntity<BookResponse> createBook(@Valid @RequestBody BookCreateRequest request) {
+        log.info("관리자 도서 등록 요청 - ISBN: {}, 제목: {}", request.getIsbn(), request.getTitle());
+        BookResponse response = bookService.createBook(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
 //    // 도서 전체 조회
