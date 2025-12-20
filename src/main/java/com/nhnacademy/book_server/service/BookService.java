@@ -121,7 +121,7 @@ public class BookService {
                 .price(request.getPrice())
                 .publisher(publisher)
                 .publishedDate(request.getPublishedDate())
-                .image(minioImageService.uploadImageFromUrl(request.getImage(), request.getIsbn()))
+                .image(StringUtils.hasText(request.getImage()) ? minioImageService.uploadImageFromUrl(request.getImage(), request.getIsbn()) : null)
                 .content(request.getDescription())
                 .averageRating(0.0)
                 .reviewCount(0)
@@ -137,7 +137,7 @@ public class BookService {
                     .collect(Collectors.toSet());
 
             if (!requestAuthorNames.isEmpty()) {
-                List<Author> existingAuthors = authorRepository.findByNameIn(requestAuthorNames);
+                List<Author> existingAuthors = new ArrayList<>(authorRepository.findByNameIn(requestAuthorNames));
                 Set<String> existingAuthorNames = existingAuthors.stream()
                         .map(Author::getName)
                         .collect(Collectors.toSet());
@@ -259,7 +259,9 @@ public class BookService {
             existingBook.setIsbn13(request.getIsbn());
         }
         if (StringUtils.hasText(request.getImage())) {
-            existingBook.setImage(request.getImage());
+            String uploadedImage = minioImageService.uploadImageFromUrl(
+                    request.getImage(), existingBook.getIsbn13());
+            existingBook.setImage(uploadedImage);
         }
         if (StringUtils.hasText(request.getDescription())) {
             existingBook.setContent(request.getDescription());
@@ -278,7 +280,7 @@ public class BookService {
                     .collect(Collectors.toSet());
 
             if (!requestAuthorNames.isEmpty()) {
-                List<Author> existingAuthors = authorRepository.findByNameIn(requestAuthorNames);
+                List<Author> existingAuthors = new ArrayList<>(authorRepository.findByNameIn(requestAuthorNames));
                 Set<String> foundAuthorNames = existingAuthors.stream()
                         .map(Author::getName)
                         .collect(Collectors.toSet());
