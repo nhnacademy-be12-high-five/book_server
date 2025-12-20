@@ -44,6 +44,7 @@ public class BookService {
     private final ReviewRepository reviewRepository;
     private final BookReviewAiRepository bookReviewAiRepository;
     private final BookSearchService bookSearchService;
+    private final MinioImageService minioImageService;
 
     @Lazy
     @Autowired
@@ -120,7 +121,7 @@ public class BookService {
                 .price(request.getPrice())
                 .publisher(publisher)
                 .publishedDate(request.getPublishedDate())
-                .image(request.getImage())
+                .image(minioImageService.uploadImageFromUrl(request.getImage(), request.getIsbn()))
                 .content(request.getDescription())
                 .averageRating(0.0)
                 .reviewCount(0)
@@ -141,6 +142,7 @@ public class BookService {
                         .author(author)
                         .build();
                 bookAuthorRepository.save(bookAuthor);
+                savedBook.getBookAuthors().add(bookAuthor);
             }
         }
 
@@ -230,6 +232,46 @@ public class BookService {
             }
             log.debug("가격 변경 시도: {} -> {}", existingBook.getPrice(), request.getPrice());
             existingBook.setPrice(request.getPrice());
+        }
+
+        if (StringUtils.hasText(request.getTitle())) {
+            existingBook.setTitle(request.getTitle());
+        }
+        if (StringUtils.hasText(request.getIsbn())) {
+            existingBook.setIsbn13(request.getIsbn());
+        }
+        if (StringUtils.hasText(request.getImage())) {
+            existingBook.setImage(request.getImage());
+        }
+        if (StringUtils.hasText(request.getDescription())) {
+            existingBook.setContent(request.getDescription());
+        }
+        if (StringUtils.hasText(request.getPublishedDate())) {
+            existingBook.setPublishedDate(request.getPublishedDate());
+        }
+
+        if (request.getAuthors() != null) {
+            // 4-1. 기존 저자 연결 끊기 (orphanRemoval=true 설정 시 DB에서도 삭제됨)
+            existingBook.getBookAuthors().clear();
+
+            // 4-2. 새 저자 목록 연결
+            for (String name : request.getAuthors()) {
+                String trimmedName = name.trim();
+                if (trimmedName.isEmpty()) continue;
+
+                Author author = authorRepository.findByName(trimmedName)
+                        .orElseGet(() -> authorRepository.save(
+                                Author.builder().name(trimmedName).build()
+                        ));
+
+                BookAuthor bookAuthor = BookAuthor.builder()
+                        .book(existingBook)
+                        .author(author)
+                        .build();
+
+                // 리스트에 추가 (CascadeType.ALL에 의해 저장됨)
+                existingBook.getBookAuthors().add(bookAuthor);
+            }
         }
 
         Book savedBook = bookRepository.save(existingBook);

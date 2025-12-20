@@ -1,5 +1,7 @@
 package com.nhnacademy.book_server.dto.request;
 
+import com.nhnacademy.book_server.entity.BookAuthor;
+import com.nhnacademy.book_server.entity.Publisher;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
