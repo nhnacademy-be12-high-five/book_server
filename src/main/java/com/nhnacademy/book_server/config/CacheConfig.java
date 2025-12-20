@@ -23,12 +23,13 @@ public class CacheConfig {
         RedisCacheConfiguration defaultConfig = RedisCacheConfiguration.defaultCacheConfig()
                 .serializeKeysWith(RedisSerializationContext.SerializationPair.fromSerializer(new StringRedisSerializer()))
                 .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(new GenericJackson2JsonRedisSerializer()))
-                .entryTtl(Duration.ofMinutes(30)); // 기본 30분
+                .entryTtl(Duration.ofMinutes(30));
 
         Map<String, RedisCacheConfiguration> customConfigs = new HashMap<>();
 
-        customConfigs.put("bookDetail", defaultConfig.entryTtl(Duration.ofMinutes(30)));
+        customConfigs.put("bookDetail", defaultConfig.entryTtl(Duration.ofHours(12)));
         customConfigs.put("newBooks", defaultConfig.entryTtl(Duration.ofDays(1)));
+        customConfigs.put("bookReviews", defaultConfig.entryTtl(Duration.ofSeconds(30)));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)
