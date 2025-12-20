@@ -45,5 +45,13 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("DB001", "이미 리뷰를 작성하셨습니다."));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException e) {
+        log.warn("IllegalArgumentException: {}", e.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse("C003", e.getMessage()));
+    }
+
     public record ErrorResponse(String code, String message){}
 }

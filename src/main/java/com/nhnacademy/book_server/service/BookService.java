@@ -131,18 +131,36 @@ public class BookService {
         Book savedBook = bookRepository.save(newBook);
 
         if (request.getAuthors() != null && !request.getAuthors().isEmpty()) {
-            for (String name : request.getAuthors()) {
-                String trimmedName = name.trim();
-                if (trimmedName.isEmpty()) continue;
+            Set<String> requestAuthorNames = request.getAuthors().stream()
+                    .map(String::trim)
+                    .filter(StringUtils::hasText)
+                    .collect(Collectors.toSet());
 
-                Author author = authorRepository.findByName(trimmedName)
-                        .orElseGet(() -> authorRepository.save(Author.builder().name(trimmedName).build()));
-                BookAuthor bookAuthor = BookAuthor.builder()
-                        .book(savedBook)
-                        .author(author)
-                        .build();
-                bookAuthorRepository.save(bookAuthor);
-                savedBook.getBookAuthors().add(bookAuthor);
+            if (!requestAuthorNames.isEmpty()) {
+                List<Author> existingAuthors = authorRepository.findByNameIn(requestAuthorNames);
+                Set<String> existingAuthorNames = existingAuthors.stream()
+                        .map(Author::getName)
+                        .collect(Collectors.toSet());
+
+                List<Author> newAuthors = requestAuthorNames.stream()
+                        .filter(name -> !existingAuthorNames.contains(name))
+                        .map(name -> Author.builder().name(name).build())
+                        .toList();
+
+                if (!newAuthors.isEmpty()) {
+                    authorRepository.saveAll(newAuthors);
+                    existingAuthors.addAll(newAuthors);
+                }
+
+                List<BookAuthor> bookAuthors = existingAuthors.stream()
+                        .map(author -> BookAuthor.builder()
+                                .book(savedBook)
+                                .author(author)
+                                .build())
+                        .toList();
+
+                bookAuthorRepository.saveAll(bookAuthors);
+                savedBook.getBookAuthors().addAll(bookAuthors);
             }
         }
 
@@ -254,23 +272,35 @@ public class BookService {
             // 4-1. 기존 저자 연결 끊기 (orphanRemoval=true 설정 시 DB에서도 삭제됨)
             existingBook.getBookAuthors().clear();
 
-            // 4-2. 새 저자 목록 연결
-            for (String name : request.getAuthors()) {
-                String trimmedName = name.trim();
-                if (trimmedName.isEmpty()) continue;
+            Set<String> requestAuthorNames = request.getAuthors().stream()
+                    .map(String::trim)
+                    .filter(StringUtils::hasText)
+                    .collect(Collectors.toSet());
 
-                Author author = authorRepository.findByName(trimmedName)
-                        .orElseGet(() -> authorRepository.save(
-                                Author.builder().name(trimmedName).build()
-                        ));
+            if (!requestAuthorNames.isEmpty()) {
+                List<Author> existingAuthors = authorRepository.findByNameIn(requestAuthorNames);
+                Set<String> foundAuthorNames = existingAuthors.stream()
+                        .map(Author::getName)
+                        .collect(Collectors.toSet());
 
-                BookAuthor bookAuthor = BookAuthor.builder()
-                        .book(existingBook)
-                        .author(author)
-                        .build();
+                List<Author> newAuthors = requestAuthorNames.stream()
+                        .filter(name -> !foundAuthorNames.contains(name))
+                        .map(name -> Author.builder().name(name).build())
+                        .toList();
 
-                // 리스트에 추가 (CascadeType.ALL에 의해 저장됨)
-                existingBook.getBookAuthors().add(bookAuthor);
+                if (!newAuthors.isEmpty()) {
+                    authorRepository.saveAll(newAuthors);
+                    existingAuthors.addAll(newAuthors);
+                }
+
+                for (Author author : existingAuthors) {
+                    BookAuthor bookAuthor = BookAuthor.builder()
+                            .book(existingBook)
+                            .author(author)
+                            .build();
+
+                    existingBook.getBookAuthors().add(bookAuthor);
+                }
             }
         }
 
