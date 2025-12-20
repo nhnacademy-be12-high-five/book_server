@@ -32,7 +32,6 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@Transactional
 public class BookService {
 
     private final BookRepository bookRepository;
@@ -101,9 +100,23 @@ public class BookService {
 //
 //        return savedBook;
 //    }
+    public BookResponse createBook(BookCreateRequest request) {
+        String imageUrl = null;
+        if (StringUtils.hasText(request.getImage())) {
+            imageUrl = minioImageService.uploadImageFromUrl(request.getImage(), request.getIsbn())
+        }
+        Book savedBook = self.createBookInTx(request, imageUrl);
+        try {
+            bookSearchService.indexBook(savedBook);
+        } catch (Exception e) {
+            log.error("Elasticsearch 인덱싱 실패 (도서 등록은 성공): {}", savedBook.getId(), e);
+        }
+
+        return BookResponse.from(savedBook);
+    }
 
     @Transactional
-    public BookResponse createBook(BookCreateRequest request) {
+    public Book createBookInTx(BookCreateRequest request, String uploadedImageUrl) {
         if (bookRepository.existsByIsbn13(request.getIsbn())) {
             throw new IllegalArgumentException("이미 존재하는 ISBN입니다: " + request.getIsbn());
         }
@@ -121,7 +134,7 @@ public class BookService {
                 .price(request.getPrice())
                 .publisher(publisher)
                 .publishedDate(request.getPublishedDate())
-                .image(StringUtils.hasText(request.getImage()) ? minioImageService.uploadImageFromUrl(request.getImage(), request.getIsbn()) : null)
+                .image(uploadedImageUrl)
                 .content(request.getDescription())
                 .averageRating(0.0)
                 .reviewCount(0)
@@ -170,7 +183,7 @@ public class BookService {
             log.error("Elasticsearch 인덱싱 실패 (도서 등록 성공)", e);
         }
 
-        return BookResponse.from(savedBook);
+        return savedBook;
     }
 
     // 모든 책 조회
@@ -235,39 +248,36 @@ public class BookService {
                 .collect(Collectors.toList());
     }
     // 책 업데이트
-    @Transactional // 💡 트랜잭션 적용
     public BookResponse updateBook(Long id, BookUpdateRequest request) {
+        Book savedBook = self.updateBookInTx(id, request);
+        try {
+            bookSearchService.indexBook(savedBook);
+        } catch (Exception e) {
+            log.error("Elasticsearch 갱신 실패", e);
+        }
+        String cachedKey = "bookDetail::" + id;
+        try {
+            redisTemplate.delete(cachedKey);
+        } catch (Exception e) {
+            log.error("Redis 캐시 삭제 실패", e);
+        }
+
+        return BookResponse.from(savedBook);
+    }
+    @Transactional
+    public BookResponse updateBookInTx(Long id, BookUpdateRequest request) {
         log.debug("도서 수정 요청 시작 - ID:{}", id);
         Book existingBook = bookRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.error("도서 조회 실패 - ID: {}", id);
-                    return new RuntimeException("아이디가 존재하지 않습니다.");
-                });
+                .orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다."));
 
-        if (request.getPrice() != null) {
-            if (request.getPrice() < 0) {
-                throw new IllegalArgumentException("가격은 0 이상이어야 합니다.");
-            }
-            log.debug("가격 변경 시도: {} -> {}", existingBook.getPrice(), request.getPrice());
-            existingBook.setPrice(request.getPrice());
-        }
+        if (request.getPrice() != null) existingBook.setPrice(request.getPrice());
+        if (StringUtils.hasText(request.getTitle())) existingBook.setTitle(request.getTitle());
+        if (StringUtils.hasText(request.getIsbn())) existingBook.setIsbn13(request.getIsbn());
+        if (StringUtils.hasText(request.getDescription())) existingBook.setContent(request.getDescription());
+        if (StringUtils.hasText(request.getPublishedDate())) existingBook.setPublishedDate(request.getPublishedDate());
 
-        if (StringUtils.hasText(request.getTitle())) {
-            existingBook.setTitle(request.getTitle());
-        }
-        if (StringUtils.hasText(request.getIsbn())) {
-            existingBook.setIsbn13(request.getIsbn());
-        }
-        if (StringUtils.hasText(request.getImage())) {
-            String uploadedImage = minioImageService.uploadImageFromUrl(
-                    request.getImage(), existingBook.getIsbn13());
-            existingBook.setImage(uploadedImage);
-        }
-        if (StringUtils.hasText(request.getDescription())) {
-            existingBook.setContent(request.getDescription());
-        }
-        if (StringUtils.hasText(request.getPublishedDate())) {
-            existingBook.setPublishedDate(request.getPublishedDate());
+        if (StringUtils.hasText(request.getImage())){
+            existingBook.setImage(request.getImage());
         }
 
         if (request.getAuthors() != null) {
@@ -306,27 +316,7 @@ public class BookService {
             }
         }
 
-        Book savedBook = bookRepository.save(existingBook);
-        bookRepository.flush();
-
-        String cacheKey = "bookDetail::" + id;
-
-        try {
-            Boolean result = redisTemplate.delete(cacheKey);
-            log.info("Redis 캐시 삭제 Key: {}, 결과: {}", cacheKey, result);
-        } catch (Exception e) {
-            log.error("Redis 캐시 삭제 실패: {}", e.getMessage());
-        }
-
-        try {
-            bookSearchService.indexBook(savedBook);
-        } catch (Exception e) {
-            log.error("Elasticsearch 갱신 실패", e);
-            throw new RuntimeException("검색 인덱스 갱신 실패", e);
-        }
-
-
-        return BookResponse.from(savedBook);
+        return BookResponse.from(existingBook);
     }
 
     // 책 삭제
