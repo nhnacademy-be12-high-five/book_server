@@ -11,6 +11,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
+    private static final String INVALID_ARGUMENT_CODE = "C003";
+    private static final String INVALID_ARGUMENT_MESSAGE = "잘못된 요청 값입니다.";
 
     //
     @ExceptionHandler
@@ -43,6 +45,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.ALREADY_REPORTED)
                 .body(new ErrorResponse("DB001", "이미 리뷰를 작성하셨습니다."));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException e) {
+        log.warn("IllegalArgumentException: {}", e.getMessage());
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse("C003", e.getMessage()));
     }
 
     public record ErrorResponse(String code, String message){}
