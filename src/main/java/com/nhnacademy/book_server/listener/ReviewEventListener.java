@@ -44,6 +44,7 @@ public class ReviewEventListener {
     private static final double RATING_DELTA_THRESHOLD = 0.5;
     private static final int RECENT_REVIEWS_LIMIT = 30;
 
+    // 실제로 db에 반영된 이후에만 일어나게 안전장치! + 부가기능은 실패해도 된다는 마인드
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -56,27 +57,27 @@ public class ReviewEventListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handleAiSummaryTrigger(ReviewCreatedEvent event) {
-        log.info("📣 리뷰 이벤트 수신 확인! bookId={}", event.bookId());
+        log.info("리뷰 이벤트 수신 확인 bookId={}", event.bookId());
         Long bookId = event.bookId();
 
         Book book = bookRepository.findById(bookId).orElse(null);
+
         if (book == null) return;
 
+        // 필요한 정보 다 가져옴 -> 리뷰개수, 리뷰평점, 저번 AI 리뷰
         long currentReviewCount = reviewRepository.countByBookId(bookId);
-
         Double currentRating = reviewRepository.getAverageRating(bookId);
-
         BookReviewAi lastSummary = bookAiSummaryRepository.findByBook_Id(bookId).orElse(null);
 
         boolean shouldTrigger = false;
 
         if (lastSummary == null) {
+            // 저번 요약이 없고 기본 설정 리뷰 개수보다 많으면 AI 트리거 발동
             if (currentReviewCount >= FIRST_TRIGGER_THRESHOLD) shouldTrigger = true;
         } else {
+            // 요약 있는 경우 마지막 리뷰 개수랑 마지막 리뷰 평균 점수 가져와 차이 계산
             long diffCount = currentReviewCount - lastSummary.getLastReviewCount();
-
             double diffRating = Math.abs(currentRating - lastSummary.getLastAvgRating());
-
             if (diffCount >= REVIEW_COUNT_DELTA_THRESHOLD || diffRating >= RATING_DELTA_THRESHOLD) {
                 shouldTrigger = true;
                 log.info("AI 요약 트리거 발동 - 책: {}, 리뷰증가: {}, 평점변화: {}", bookId, diffCount, diffRating);
@@ -85,6 +86,7 @@ public class ReviewEventListener {
 
         if (shouldTrigger) {
             try {
+                //
                 List<String> recentReviews = reviewRepository.findReviewContentsByBookId(bookId, PageRequest.of(0, RECENT_REVIEWS_LIMIT));
 
                 String summaryText = geminiService.getReviewSummary(book.getTitle(), recentReviews);
@@ -99,7 +101,7 @@ public class ReviewEventListener {
 
                 if (cacheManager.getCache("bookDetail") != null) {
                     Objects.requireNonNull(cacheManager.getCache("bookDetail")).evict(bookId);
-                    log.info("♻️ Spring Cache 초기화 완료: bookId={}", bookId);
+                    log.info("Spring Cache 초기화 완료: bookId={}", bookId);
                 }
 
             } catch (Exception e) {

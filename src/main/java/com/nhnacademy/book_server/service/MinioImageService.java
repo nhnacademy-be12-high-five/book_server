@@ -11,14 +11,11 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model .*;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLDecoder;
+import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.net.URI;
 
 @Service
 @RequiredArgsConstructor
@@ -45,7 +42,7 @@ public class MinioImageService {
         }
 
         try {
-            // 외부 URL 다운로드
+            validateImageUrl(imageUrl);
             URL url = new URL(imageUrl);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
@@ -88,7 +85,10 @@ public class MinioImageService {
             // MinIO에 올라간 파일을 프록시 URL로 리턴
             return PROXY_BASE_URL + "/" + storedFileName;
 
-        } catch (Exception e) {
+        }catch (IllegalArgumentException e) {
+            log.warn("보안 위협이 감지된 URL 요청 차단: {} ({})", imageUrl, e.getMessage());
+            return defaultImageUrl;
+        }catch (Exception e) {
             log.warn("MinIO 업로드 실패: {} (원인: {}) → 기본 이미지", imageUrl, e.getMessage());
             return defaultImageUrl;
         }
@@ -179,5 +179,25 @@ public class MinioImageService {
             }
         }
         return extractedKeys;
+    }
+
+    // 보안성 업
+    private void validateImageUrl(String urlString) throws IOException {
+        URL url = new URL(urlString);
+
+        String protocol = url.getProtocol();
+        if (!"http".equalsIgnoreCase(protocol) && !"https".equalsIgnoreCase(protocol)) {
+            throw new IllegalArgumentException("허용되지 않는 프로토콜입니다: " + protocol);
+        }
+
+        InetAddress address = InetAddress.getByName(url.getHost());
+
+        if (address.isLoopbackAddress() ||
+                address.isSiteLocalAddress() ||
+                address.isLinkLocalAddress() ||
+                address.isAnyLocalAddress()) {
+
+            throw new IllegalArgumentException("내부 네트워크(Private IP) 접근이 차단되었습니다: " + url.getHost());
+        }
     }
 }
