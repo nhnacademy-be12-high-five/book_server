@@ -50,57 +50,57 @@ public class BookService {
     @Autowired
     private BookService self;
 
-    @Transactional
-    public Book createBook(ParsingDto dto) {
-        if (bookRepository.existsByIsbn13(dto.getIsbn())) {
-            log.warn("이미 존재하는 ISBN입니다: {}", dto.getIsbn());
-        }
-
-        Publisher publisher = null;
-        if (StringUtils.hasText(dto.getPublisher())) {
-            String publisherName = dto.getPublisher().trim();
-            publisher = publisherRepository.findByName(publisherName)
-                    .orElseGet(() -> publisherRepository.save(
-                            Publisher.builder().name(publisherName).build()
-                    ));
-        }
-
-        Book newBook = Book.builder()
-                .isbn13(dto.getIsbn())
-                .title(dto.getTitle())
-                .publisher(publisher)
-                .publishedDate(dto.getPubDate() != null ? dto.getPubDate().toString() : null)
-                .price(parsePrice(dto.getPrice()))
-                .image(dto.getImageUrl())
-                .content(dto.getDescription())
-                .build();
-
-        Book savedBook = bookRepository.save(newBook);
-
-        if (StringUtils.hasText(dto.getAuthor())) {
-            String[] authorNames = dto.getAuthor().split(",");
-            for (String name : authorNames) {
-                String trimmedName = name.trim();
-                if (trimmedName.isEmpty()) continue;
-
-                // 작가 조회 없으면 생성
-                Author author = authorRepository.findByName(trimmedName)
-                        .orElseGet(() -> authorRepository.save(
-                                Author.builder().name(trimmedName).build()
-                        ));
-
-                // BookAuthor 연결 관계 저장
-                BookAuthor bookAuthor = BookAuthor.builder()
-                        .book(savedBook)
-                        .author(author)
-                        .build();
-
-                bookAuthorRepository.save(bookAuthor);
-            }
-        }
-
-        return savedBook;
-    }
+//    @Transactional
+//    public Book createBook(ParsingDto dto) {
+//        if (bookRepository.existsByIsbn13(dto.getIsbn())) {
+//            log.warn("이미 존재하는 ISBN입니다: {}", dto.getIsbn());
+//        }
+//
+//        Publisher publisher = null;
+//        if (StringUtils.hasText(dto.getPublisher())) {
+//            String publisherName = dto.getPublisher().trim();
+//            publisher = publisherRepository.findByName(publisherName)
+//                    .orElseGet(() -> publisherRepository.save(
+//                            Publisher.builder().name(publisherName).build()
+//                    ));
+//        }
+//
+//        Book newBook = Book.builder()
+//                .isbn13(dto.getIsbn())
+//                .title(dto.getTitle())
+//                .publisher(publisher)
+//                .publishedDate(dto.getPubDate() != null ? dto.getPubDate().toString() : null)
+//                .price(parsePrice(dto.getPrice()))
+//                .image(dto.getImageUrl())
+//                .content(dto.getDescription())
+//                .build();
+//
+//        Book savedBook = bookRepository.save(newBook);
+//
+//        if (StringUtils.hasText(dto.getAuthor())) {
+//            String[] authorNames = dto.getAuthor().split(",");
+//            for (String name : authorNames) {
+//                String trimmedName = name.trim();
+//                if (trimmedName.isEmpty()) continue;
+//
+//                // 작가 조회 없으면 생성
+//                Author author = authorRepository.findByName(trimmedName)
+//                        .orElseGet(() -> authorRepository.save(
+//                                Author.builder().name(trimmedName).build()
+//                        ));
+//
+//                // BookAuthor 연결 관계 저장
+//                BookAuthor bookAuthor = BookAuthor.builder()
+//                        .book(savedBook)
+//                        .author(author)
+//                        .build();
+//
+//                bookAuthorRepository.save(bookAuthor);
+//            }
+//        }
+//
+//        return savedBook;
+//    }
 
     @Transactional
     public BookResponse createBook(BookCreateRequest request) {
