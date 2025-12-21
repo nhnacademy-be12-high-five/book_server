@@ -1,7 +1,7 @@
 package com.nhnacademy.book_server.service.impl;
 
-import com.nhnacademy.book_server.dto.ReviewCreatedEvent;
-import com.nhnacademy.book_server.dto.ReviewImageDeleteEvent;
+import com.nhnacademy.book_server.dto.event.ReviewCreatedEvent;
+import com.nhnacademy.book_server.dto.event.ReviewImageDeleteEvent;
 import com.nhnacademy.book_server.dto.common.RestPage;
 import com.nhnacademy.book_server.dto.request.ReviewCreateRequest;
 import com.nhnacademy.book_server.dto.request.ReviewUpdateRequest;
@@ -66,7 +66,7 @@ public class ReviewServiceImpl implements ReviewService {
                                            Long bookId,
                                            Long memberId,
                                            List<MultipartFile> images) {
-        // 구매 여부 체크
+        // 구매 여부 체크 아직 구현이 안돼서 모두 통과처리
 //        Boolean isPurchased = orderFeignClient.hasPurchasedBook(memberId, bookId);
 
         // 구매 안한 사람이 접근
@@ -96,10 +96,14 @@ public class ReviewServiceImpl implements ReviewService {
         imageSave(images, review);
 
         // 리뷰 포인트 증가
-        if(newImageCount > 0){
-            eventPublisher.publishEvent(new ReviewCreatedEvent(memberId, bookId,"EARN_PHOTO_REVIEW"));
-        }else{
-            eventPublisher.publishEvent(new ReviewCreatedEvent(memberId, bookId,"EARN_REVIEW"));
+        if (newImageCount > 0) {
+            eventPublisher.publishEvent(
+                    new ReviewCreatedEvent(memberId, bookId, "EARN_PHOTO_REVIEW")
+            );
+        } else {
+            eventPublisher.publishEvent(
+                    new ReviewCreatedEvent(memberId, bookId, "EARN_REVIEW")
+            );
         }
 
         evictBookReviewCache(bookId);

@@ -119,7 +119,7 @@ public class MinioImageService {
             s3Client.putObject(putObjectRequest,
                     RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
 
-            return String.format("%s/%s/%s", minioUrl, bucketName, storedFileName);
+            return PROXY_BASE_URL + "/" + storedFileName;
 
         }catch(IOException e){
             throw new RuntimeException("이미지 업로드 실패", e);
