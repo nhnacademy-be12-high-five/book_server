@@ -71,7 +71,7 @@ public class AdminBookController implements bookSwagger{
 
     // 북 생성
     @PostMapping
-    public ResponseEntity<BookResponse> createBook(@Valid @RequestBody BookCreateRequest request) {
+    public ResponseEntity<BookResponse> createBook(@RequestBody BookCreateRequest request) {
         log.info("관리자 도서 등록 요청 - ISBN: {}, 제목: {}", request.getIsbn(), request.getTitle());
         BookResponse response = bookService.createBook(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
