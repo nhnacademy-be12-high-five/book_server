@@ -22,15 +22,7 @@ public class BookRegistrationService {
     private final RestTemplate restTemplate;
     private final GeminiTextClientService geminiService;
 
-    private static final String GOOGLE_BOOKS_API_URL = "https://www.googleapis.com/books/v1/volumes?q=isbn:";
-
-    @Bean
-    public RestTemplate restTemplate() {
-        HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory();
-        factory.setConnectTimeout(3000);
-        factory.setReadTimeout(5000);
-        return new RestTemplate(factory);
-    }
+    private static final String GOOGLE_BOOKS_API_URL = "https://www.googleapis.com/books/v1/volumes?";
 
     public BookCreateRequest getBookInfoWithAi(String isbn) {
         if (isbn == null || !isbn.matches("^(\\d{10}|\\d{13})$")) {
