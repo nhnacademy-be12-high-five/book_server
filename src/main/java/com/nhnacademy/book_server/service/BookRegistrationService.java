@@ -5,9 +5,12 @@ import com.nhnacademy.book_server.dto.response.GoogleBookResponse;
 import com.nhnacademy.book_server.service.search.GeminiTextClientService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Bean;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,8 +24,22 @@ public class BookRegistrationService {
 
     private static final String GOOGLE_BOOKS_API_URL = "https://www.googleapis.com/books/v1/volumes?q=isbn:";
 
+    @Bean
+    public RestTemplate restTemplate() {
+        HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory();
+        factory.setConnectTimeout(3000);
+        factory.setReadTimeout(5000);
+        return new RestTemplate(factory);
+    }
+
     public BookCreateRequest getBookInfoWithAi(String isbn) {
-        String url = GOOGLE_BOOKS_API_URL + isbn;
+        if (isbn == null || !isbn.matches("^(\\d{10}|\\d{13})$")) {
+            throw new IllegalArgumentException("유효하지 않은 ISBN 형식입니다: " + isbn);
+        }
+        String url = UriComponentsBuilder.fromHttpUrl(GOOGLE_BOOKS_API_URL)
+                        .queryParam("q", "isbn:" + isbn)
+                        .build()
+                        .toUriString();
         GoogleBookResponse response = restTemplate.getForObject(url, GoogleBookResponse.class);
 
         if (response == null || response.getItems() == null || response.getItems().isEmpty()) {
@@ -80,7 +97,15 @@ public class BookRegistrationService {
 
     private String formatDate(String date) {
         if (date == null) return null;
-        if (date.length() == 4) return date + "-01-01";
+        // 연도만 있는 경우 (예: "2023")
+        if (date.matches("^\\d{4}$")) {
+            return date + "-01-01";
+        }
+        // 연도-월 형식 (예: "2023-05")
+        if (date.matches("^\\d{4}-\\d{2}$")) {
+            return date + "-01";
+        }
+        // 이미 완전한 형식이거나 기타 형식
         return date;
     }
 

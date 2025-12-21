@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.validation.constraints.Pattern;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -62,6 +63,16 @@ public interface bookSwagger{
     @PutMapping("/{id}")
     ResponseEntity<BookResponse> updateBook(@PathVariable Long bookId,
                                     BookUpdateRequest updateDto);
+
+    @Operation(summary = "ISBN으로 AI 기반 도서 정보 조회", description = "Google Books API와 Gemini AI를 활용하여 도서 정보를 조회합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "도서 정보 조회 성공"),
+            @ApiResponse(responseCode = "400", description = "유효하지 않은 ISBN 형식"),
+            @ApiResponse(responseCode = "404", description = "도서를 찾을 수 없음")
+    })
+    @GetMapping("/search-api")
+    ResponseEntity<BookCreateRequest> searchBookWithAi(@RequestParam @Pattern(regexp = "^(\\d{10}|\\d{13})$", message = "ISBN은 10자리 또는 13자리 숫자여야 합니다.") String isbn);
+
 
 //    // 도서 삭제
 //    @Operation(summary = "관리자 도서 삭제",description = "도서를 삭제합니다.")
