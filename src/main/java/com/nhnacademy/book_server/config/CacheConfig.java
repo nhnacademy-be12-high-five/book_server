@@ -27,9 +27,9 @@ public class CacheConfig {
 
         Map<String, RedisCacheConfiguration> customConfigs = new HashMap<>();
 
-        customConfigs.put("bookDetail", defaultConfig.entryTtl(Duration.ofHours(12)));
+        customConfigs.put("bookDetail", defaultConfig.entryTtl(Duration.ofHours(6)));
         customConfigs.put("newBooks", defaultConfig.entryTtl(Duration.ofDays(1)));
-        customConfigs.put("bookReviews", defaultConfig.entryTtl(Duration.ofSeconds(30)));
+        customConfigs.put("bookReviews", defaultConfig.entryTtl(Duration.ofMinutes(15)));
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(defaultConfig)

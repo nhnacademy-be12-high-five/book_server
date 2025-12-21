@@ -28,6 +28,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -106,8 +108,6 @@ public class ReviewServiceImpl implements ReviewService {
             );
         }
 
-        evictBookReviewCache(bookId);
-
         return new ReviewCreateResponse(review.getId(), request.rating(), request.content());
     }
 
@@ -145,6 +145,7 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     // 같은 책 같은 페이지 같은 사이즈 같은 결과 , 리뷰 없으면 캐시 x
+    @Override
     @Cacheable(value = "bookReviews", key = "#bookId + '_' + #pageable.pageNumber", unless = "#result.isEmpty()")
     public Page<BookReviewResponse> getCachedReviewPage(Long bookId, Pageable pageable) {
         Page<Review> reviews = reviewRepository.findByBookId(bookId, pageable);
@@ -234,7 +235,7 @@ public class ReviewServiceImpl implements ReviewService {
             Book book = review.getBook();
 
             Long bookId = (book != null) ? book.getId() : null;
-            String title= (book != null) ? book.getTitle() : "삭제된 도서";
+            String title = (book != null) ? book.getTitle() : "삭제된 도서";
 
             return new MyPageReviewResponse(
                     review.getId(),
@@ -245,21 +246,21 @@ public class ReviewServiceImpl implements ReviewService {
         });
     }
 
-    // 특수한 경우 리뷰를 삭제하기 위해 구현
-    @Override
-    @Transactional
-    public void removeReview(Long reviewId) {
-        Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new BusinessException((ErrorCode.REVIEW_NOT_FOUND)));
-
-        List<String> imageUrls = review.getReviewImages().stream()
-                .map(ReviewImage::getFileUrl)
-                .toList();
-
-        imageUploadService.deleteReviewImages(imageUrls);
-
-        reviewRepository.delete(review);
-    }
+//    // 특수한 경우 리뷰를 삭제하기 위해 구현
+//    @Override
+//    @Transactional
+//    public void removeReview(Long reviewId) {
+//        Review review = reviewRepository.findById(reviewId)
+//                .orElseThrow(() -> new BusinessException((ErrorCode.REVIEW_NOT_FOUND)));
+//
+//        List<String> imageUrls = review.getReviewImages().stream()
+//                .map(ReviewImage::getFileUrl)
+//                .toList();
+//
+//        imageUploadService.deleteReviewImages(imageUrls);
+//
+//        reviewRepository.delete(review);
+//    }
 
     // 리뷰 수정
     @Override
@@ -344,41 +345,48 @@ public class ReviewServiceImpl implements ReviewService {
             throw new BusinessException(ErrorCode.TOO_MANY_REQUESTS);
         }
 
-        Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.REVIEW_NOT_FOUND));
+        try {
+            Review review = reviewRepository.findById(reviewId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.REVIEW_NOT_FOUND));
 
-        if (review.getMemberId().equals(memberId)) {
-            return false;
+            if (review.getMemberId().equals(memberId)) {
+                return false;
+            }
+
+            Optional<ReviewLike> existingLike = reviewLikeRepository.findByMemberIdAndReviewId(memberId, reviewId);
+
+            boolean isLiked;
+
+            if (existingLike.isPresent()) {
+                reviewLikeRepository.delete(existingLike.get());
+                reviewRepository.decreaseLikeCount(reviewId);
+                isLiked = false;
+            } else {
+                ReviewLike newLike = new ReviewLike(review, memberId);
+                reviewLikeRepository.save(newLike);
+                reviewRepository.increaseLikeCount(reviewId);
+                isLiked = true;
+            }
+
+            return isLiked;
+        } finally {
+            redisTemplate.delete(lockKey);
         }
-
-        Optional<ReviewLike> existingLike = reviewLikeRepository.findByMemberIdAndReviewId(memberId, reviewId);
-
-        boolean isLiked;
-
-        if (existingLike.isPresent()) {
-            reviewLikeRepository.delete(existingLike.get());
-            reviewRepository.decreaseLikeCount(reviewId);
-            isLiked = false;
-        } else {
-            ReviewLike newLike = new ReviewLike(review, memberId);
-            reviewLikeRepository.save(newLike);
-            reviewRepository.increaseLikeCount(reviewId);
-            isLiked = true;
-        }
-
-        return isLiked;
     }
 
-    private void evictBookReviewCache(Long bookId){
-        if(bookId == null) return;
+    private void evictBookReviewCache(Long bookId) {
+        if (bookId == null) return;
 
         String pattern = "bookReviews::" + bookId + "_*";
 
-        Set<String> keys = redisTemplate.keys(pattern);
-
-        if(keys != null && !keys.isEmpty()){
-            redisTemplate.delete(keys);
-            log.info("캐시 삭제 완료 bookId: {} /{}개", bookId, keys.size());
+        ScanOptions options = ScanOptions.scanOptions().match(pattern).count(100).build();
+        try (Cursor<String> cursor = redisTemplate.scan(options)) {
+            List<String> keysToDelete = new ArrayList<>();
+            cursor.forEachRemaining(keysToDelete::add);
+            if (!keysToDelete.isEmpty()) {
+                redisTemplate.delete(keysToDelete);
+                log.info("캐시 삭제 완료 bookId: {} /{}개", bookId, keysToDelete.size());
+            }
         }
     }
 
