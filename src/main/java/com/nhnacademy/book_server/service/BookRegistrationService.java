@@ -6,6 +6,7 @@ import com.nhnacademy.book_server.dto.response.GoogleBookResponse;
 import com.nhnacademy.book_server.service.search.GeminiTextClientService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -31,7 +32,8 @@ public class BookRegistrationService {
     private static final String KAKAO_BOOKS_API_URL = "https://dapi.kakao.com/v3/search/book";
     private static final String GOOGLE_BOOKS_API_URL = "https://www.googleapis.com/books/v1/volumes";
 
-    private final String kakaoApiKey = "910a3106566ab26a5b226d6c8fdc1276";
+    @Value("${kakao.api.key}")
+    private String kakaoApiKey;
 
     public BookCreateRequest getBookInfoWithAi(String isbn) {
         if (isbn == null || !isbn.matches("^(\\d{10}|\\d{13})$")) {
