@@ -1,4 +1,4 @@
-package com.nhnacademy.book_server.dto;
+package com.nhnacademy.book_server.dto.event;
 
 public record ReviewCreatedEvent(
         Long memberId,

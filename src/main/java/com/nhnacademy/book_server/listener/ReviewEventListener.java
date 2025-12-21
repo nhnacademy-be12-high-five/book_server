@@ -1,8 +1,8 @@
 package com.nhnacademy.book_server.listener;
 
 import com.nhnacademy.book_server.config.RabbitMqConfig;
-import com.nhnacademy.book_server.dto.ReviewCreatedEvent;
-import com.nhnacademy.book_server.dto.ReviewImageDeleteEvent;
+import com.nhnacademy.book_server.dto.event.ReviewCreatedEvent;
+import com.nhnacademy.book_server.dto.event.ReviewImageDeleteEvent;
 import com.nhnacademy.book_server.dto.request.PointEarnRequest;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.BookReviewAi;
@@ -38,6 +38,7 @@ public class ReviewEventListener {
     private final GeminiTextClientService geminiService;
     private final CacheManager cacheManager;
     private final MinioImageService imageUploadService;
+
 
     private static final int FIRST_TRIGGER_THRESHOLD = 5;
     private static final int REVIEW_COUNT_DELTA_THRESHOLD = 10;

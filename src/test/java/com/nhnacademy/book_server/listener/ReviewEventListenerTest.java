@@ -1,8 +1,8 @@
 package com.nhnacademy.book_server.listener;
 
 import com.nhnacademy.book_server.config.RabbitMqConfig;
-import com.nhnacademy.book_server.dto.ReviewCreatedEvent;
-import com.nhnacademy.book_server.dto.ReviewImageDeleteEvent;
+import com.nhnacademy.book_server.dto.event.ReviewCreatedEvent;
+import com.nhnacademy.book_server.dto.event.ReviewImageDeleteEvent;
 import com.nhnacademy.book_server.dto.request.PointEarnRequest;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.BookReviewAi;

@@ -52,7 +52,7 @@ class MinioImageServiceTest {
         String result = minioImageService.uploadImage(file);
 
         // then
-        assertThat(result).startsWith("http://localhost:9000/test-bucket/");
+        assertThat(result).startsWith("https://nhnbook.shop/hi-five-bucket/");
         verify(s3Client).putObject(any(PutObjectRequest.class), any(RequestBody.class));
     }
 
