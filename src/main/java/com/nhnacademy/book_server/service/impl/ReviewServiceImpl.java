@@ -256,7 +256,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .map(ReviewImage::getFileUrl)
                 .toList();
 
-        imageUploadService.deleteImages(imageUrls);
+        imageUploadService.deleteReviewImages(imageUrls);
 
         reviewRepository.delete(review);
     }
