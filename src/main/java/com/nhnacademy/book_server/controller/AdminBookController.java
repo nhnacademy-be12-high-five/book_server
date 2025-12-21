@@ -6,6 +6,7 @@ import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.parser.ParsingDto;
+import com.nhnacademy.book_server.service.BookRegistrationService;
 import com.nhnacademy.book_server.service.BookService;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,6 +33,7 @@ import java.util.Optional;
 public class AdminBookController implements bookSwagger{
 
     private final BookService bookService;
+    private final BookRegistrationService bookRegistrationService;
 
 //    private final DataParsingService dataParsingService; // [1] 대용량 저장 서비스 주입
 //    private final CsvBookParser csvBookParser;           // [2] 파서 주입
@@ -75,14 +77,14 @@ public class AdminBookController implements bookSwagger{
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-//    // 도서 전체 조회
+    // 도서 전체 조회
     @GetMapping
     public ResponseEntity<List<BookResponse>> getAllBooks(@PageableDefault(size = 10) Pageable pageable) {
         Page<BookResponse> bookPage = bookService.findAllBooks(pageable);
         return ResponseEntity.ok(bookPage.getContent());
     }
-//
-//    // 책 한권 조회
+
+    // 책 한권 조회
     @GetMapping("/{id}")
     public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId) {
         try {
@@ -103,14 +105,9 @@ public class AdminBookController implements bookSwagger{
         return ResponseEntity.ok(updatedResponse); // 200 OK
     }
 
-//    @DeleteMapping("/{id}")
-//    public ResponseEntity<Void> deleteBook(@PathVariable("id") Long bookId,
-//                                           ){
-//        try {
-//            bookService.deleteBook(bookId,memberId);
-//            return ResponseEntity.status(204).build();
-//        } catch (RuntimeException e) {
-//            return ResponseEntity.notFound().build(); // 404 Not Found (책을 찾을 수 없을 때)
-//        }
-//    }
+    @GetMapping("/search-api")
+    public ResponseEntity<BookCreateRequest> searchBookWithAi(@RequestParam String isbn) {
+        BookCreateRequest response = bookRegistrationService.getBookInfoWithAi(isbn);
+        return ResponseEntity.ok(response);
+    }
 }
