@@ -121,7 +121,7 @@ public class ReviewEventListener {
         }
 
         try {
-            imageUploadService.deleteImages(event.imageUrls());
+            imageUploadService.deleteReviewImages(event.imageUrls());
             log.info("✅ S3 이미지 삭제 완료");
         } catch (Exception e) {
             log.error("❌ S3 이미지 삭제 실패 (고아 객체 발생 가능성 있음). URLs: {}", event.imageUrls(), e);

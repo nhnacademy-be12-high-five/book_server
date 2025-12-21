@@ -92,7 +92,7 @@ class MinioImageServiceTest {
         );
 
         // when
-        minioImageService.deleteImages(urls);
+        minioImageService.deleteReviewImages(urls);
 
         // then
         verify(s3Client).deleteObjects(any(DeleteObjectsRequest.class));

@@ -270,7 +270,7 @@ class ReviewEventListenerTest {
         reviewEventListener.handleImageDeletion(event);
 
         // then
-        verify(imageUploadService).deleteImages(urls);
+        verify(imageUploadService).deleteReviewImages(urls);
     }
 
     @Test
@@ -281,7 +281,7 @@ class ReviewEventListenerTest {
         reviewEventListener.handleImageDeletion(new ReviewImageDeleteEvent(Collections.emptyList()));
 
         // then
-        verify(imageUploadService, never()).deleteImages(any());
+        verify(imageUploadService, never()).deleteReviewImages(any());
     }
 
     @Test
@@ -290,12 +290,12 @@ class ReviewEventListenerTest {
         // given
         List<String> urls = List.of("url1");
         ReviewImageDeleteEvent event = new ReviewImageDeleteEvent(urls);
-        willThrow(new RuntimeException("S3 Error")).given(imageUploadService).deleteImages(urls);
+        willThrow(new RuntimeException("S3 Error")).given(imageUploadService).deleteReviewImages(urls);
 
         // when
         reviewEventListener.handleImageDeletion(event);
 
         // then
-        verify(imageUploadService).deleteImages(urls);
+        verify(imageUploadService).deleteReviewImages(urls);
     }
 }
