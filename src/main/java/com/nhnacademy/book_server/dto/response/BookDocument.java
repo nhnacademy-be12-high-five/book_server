@@ -4,12 +4,14 @@ import com.nhnacademy.book_server.dto.BookResponse;
 
 import com.nhnacademy.book_server.entity.BookAuthor;
 import lombok.*;
+import org.springframework.data.elasticsearch.annotations.Document;
 
 import java.awt.print.Book;
 import java.util.List;
 
 @Getter
 @Setter
+@Document(indexName = "high-five")
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder

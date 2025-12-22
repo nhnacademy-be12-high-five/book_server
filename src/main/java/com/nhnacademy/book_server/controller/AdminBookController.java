@@ -2,13 +2,17 @@ package com.nhnacademy.book_server.controller;
 
 import com.nhnacademy.book_server.controller.swagger.bookSwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
+import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.parser.ParsingDto;
+import com.nhnacademy.book_server.service.BookRegistrationService;
 import com.nhnacademy.book_server.service.BookService;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -20,14 +24,16 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 @RestController
 @Tag(name = "도서 API - 관리자", description = "관리자를 위한 도서 API 입니다.")
-@RequestMapping("/api/admin")
+@RequestMapping("/api/admin/books")
 @RequiredArgsConstructor
 // 관리자 권한 책 컨트롤러
 public class AdminBookController implements bookSwagger{
 
     private final BookService bookService;
+    private final BookRegistrationService bookRegistrationService;
 
 //    private final DataParsingService dataParsingService; // [1] 대용량 저장 서비스 주입
 //    private final CsvBookParser csvBookParser;           // [2] 파서 주입
@@ -65,21 +71,20 @@ public class AdminBookController implements bookSwagger{
 
     // 북 생성
     @PostMapping
-    public ResponseEntity<Book> createBook(@RequestBody ParsingDto parsingDto,
-                                           @RequestHeader(value = "X-USER-Id",required = true) Long memberId){
-
-        Book savedBook=bookService.createBook(parsingDto);
-        return new ResponseEntity<>(savedBook, HttpStatus.CREATED);
+    public ResponseEntity<BookResponse> createBook(@RequestBody BookCreateRequest request) {
+        log.info("관리자 도서 등록 요청 - ISBN: {}, 제목: {}", request.getIsbn(), request.getTitle());
+        BookResponse response = bookService.createBook(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-//    // 도서 전체 조회
+    // 도서 전체 조회
     @GetMapping
     public ResponseEntity<List<BookResponse>> getAllBooks(@PageableDefault(size = 10) Pageable pageable) {
         Page<BookResponse> bookPage = bookService.findAllBooks(pageable);
         return ResponseEntity.ok(bookPage.getContent());
     }
-//
-//    // 책 한권 조회
+
+    // 책 한권 조회
     @GetMapping("/{id}")
     public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId) {
         try {
@@ -93,26 +98,16 @@ public class AdminBookController implements bookSwagger{
     // 책 한권 수정
     @PutMapping("/{id}")
     public ResponseEntity<BookResponse> updateBook(@PathVariable("id") Long bookId,
-                                                   @RequestBody BookUpdateRequest updateDto,
-                                           @RequestHeader("X-User-Id") Long memberId){
-        try {
-            Book updatedBook=bookService.updateBook(bookId,updateDto);
-            BookResponse updatedResponse=BookResponse.from(updatedBook);
-            return ResponseEntity.ok(updatedResponse); // 200 OK
-
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build(); // 404 Not Found (책을 찾을 수 없을 때)
-        }
+                                                   @RequestBody BookUpdateRequest updateDto){
+        log.info("도서 수정 요청 받음 - ID: {}, Body: {}", bookId, updateDto);
+        BookResponse updatedResponse=bookService.updateBook(bookId, updateDto);
+        log.info("도서 수정 응답 전송 - Response: {}", updatedResponse);
+        return ResponseEntity.ok(updatedResponse); // 200 OK
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteBook(@PathVariable("id") Long bookId,
-                                           @RequestHeader("X-User-Id") Long memberId){
-        try {
-            bookService.deleteBook(bookId,memberId);
-            return ResponseEntity.status(204).build();
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build(); // 404 Not Found (책을 찾을 수 없을 때)
-        }
+    @GetMapping("/search-api")
+    public ResponseEntity<BookCreateRequest> searchBookWithAi(@RequestParam String isbn) {
+        BookCreateRequest response = bookRegistrationService.getBookInfoWithAi(isbn);
+        return ResponseEntity.ok(response);
     }
 }

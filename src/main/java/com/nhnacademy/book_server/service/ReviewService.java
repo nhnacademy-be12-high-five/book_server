@@ -14,7 +14,7 @@ public interface ReviewService {
     Page<BookReviewResponse> getReviewList(Long bookId, Pageable pageable, Long memberId);
     BookReviewResponse getMyReview(Long memberId, Long bookId);
     Page<MyPageReviewResponse> getMyReviewList(Long memberId, Pageable pageable);
-    void removeReview(Long reviewId);
+    Page<BookReviewResponse> getCachedReviewPage(Long bookId, Pageable pageable);
     UpdateReviewResponse updateReview(ReviewUpdateRequest request, Long bookId, Long reviewId, Long memberId, List<MultipartFile> images);
     boolean toggleReviewLike(Long reviewId, Long memberId, Long bookId);
 }

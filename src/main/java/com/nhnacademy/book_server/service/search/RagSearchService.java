@@ -10,7 +10,7 @@ import com.nhnacademy.book_server.dto.response.TagResponse;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.Review;
 import com.nhnacademy.book_server.repository.BookRepository;
-import com.nhnacademy.book_server.repository.ReviewRepository;
+import com.nhnacademy.book_server.repository.review.ReviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;

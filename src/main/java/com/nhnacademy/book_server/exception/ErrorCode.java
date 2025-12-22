@@ -13,7 +13,7 @@ public enum ErrorCode {
     // Common
     INVALID_INPUT_VALUE(HttpStatus.BAD_REQUEST, "C001", "잘못된 입력값입니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "C002", "서버 내부 오류가 발생했습니다."),
-
+    TOO_MANY_REQUESTS(HttpStatus.TOO_MANY_REQUESTS, "C003","너무 많은 요청을 보냈습니다." ),
     // Review
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "R001", "존재하지 않는 리뷰입니다."),
     REVIEW_NOT_AUTHOR(HttpStatus.NON_AUTHORITATIVE_INFORMATION, "R002", "작성자의 리뷰가 아닙니다."),

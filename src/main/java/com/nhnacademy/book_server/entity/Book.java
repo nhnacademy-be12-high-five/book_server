@@ -112,7 +112,8 @@ public class Book {
     @Column(nullable = false)
     private Double averageRating = 0.0;
 
-    private Long salesVolume;
+    @Column(name = "sales_volume", nullable = false)
+    private Long salesVolume = 0L;
 
     public void setStock(Integer stock) {
         this.stock = stock;
