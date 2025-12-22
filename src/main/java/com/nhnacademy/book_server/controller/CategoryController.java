@@ -3,14 +3,15 @@ package com.nhnacademy.book_server.controller;
 import com.nhnacademy.book_server.controller.swagger.CategorySwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.CategoryResponse;
+import com.nhnacademy.book_server.entity.Category;
 import com.nhnacademy.book_server.service.category.CategoryService;
+import org.springframework.web.bind.annotation.RequestBody;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -21,6 +22,12 @@ import java.util.List;
 public class CategoryController implements CategorySwagger {
 
     private final CategoryService categoryService;
+
+    @PostMapping
+    public ResponseEntity<Void> createCategory(@RequestBody Category category) {
+        categoryService.createCategory(category.getCategoryId(), category.getCategoryName(), category.getParentId(), category.getDepth());
+        return ResponseEntity.ok().build();
+    }
 
     @Override
     @GetMapping("/parent")
@@ -36,8 +43,8 @@ public class CategoryController implements CategorySwagger {
 
     @Override
     @GetMapping("/{categoryId}/books")
-    public ResponseEntity<List<BookResponse>> getBooksByCategory(@PathVariable("categoryId") int categoryId) {
-        log.info("GET /api/categories/{}/books called", categoryId);
+    public ResponseEntity<List<BookResponse>> getBooksByCategory(int categoryId) {
         return ResponseEntity.ok(categoryService.getBooksByCategory(categoryId));
+
     }
 }

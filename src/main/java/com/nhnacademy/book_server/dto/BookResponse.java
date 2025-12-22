@@ -1,11 +1,14 @@
 package com.nhnacademy.book_server.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.nhnacademy.book_server.dto.response.TagResponse;
 import com.nhnacademy.book_server.entity.*;
-
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record BookResponse(
         @JsonProperty("id") Long bookId,
         String title,
@@ -13,18 +16,20 @@ public record BookResponse(
         String isbn,
         Integer price,
         String image,
-        Integer categoryId,
+        // 단일 ID에서 리스트 형태로 변경
+        List<CategoryResponse> categories,
+        List<TagResponse> tags,
         String content,
         String publisher,
         String publishedDate,
         Double avgRating,
         Long reviewCount,
-        String aiSummary,       // (1) RAG 검색용 요약
-        String aiReviewSummary  // (2) 리뷰 요약 (상세페이지용)
+        String aiSummary,
+        String aiReviewSummary
 ) {
 
     // =================================================================================
-    // [1] 상세 페이지용 (리뷰 요약 포함) - 이름 변경으로 모호성 제거
+    // [1] 상세 페이지용 (리뷰 요약 포함)
     // =================================================================================
     public static BookResponse fromWithReviewSummary(Book book, String aiReviewSummary, List<Review> reviews) {
         double avg = 0.0;
@@ -37,28 +42,27 @@ public record BookResponse(
                     .average()
                     .orElse(0.0);
         }
-        // Category는 null로 전달
-        return build(book, book.getCategory(), avg, count, null, aiReviewSummary);
+        return build(book, book.getBookCategories(), avg, count, null, aiReviewSummary);
     }
 
     // =================================================================================
-    // [2] 일반 목록/검색용 (기존 유지)
+    // [2] 일반 목록/검색용
     // =================================================================================
-    public static BookResponse from(Book book, Category category, Double avgRating, Long reviewCount) {
-        return build(book, category, avgRating, reviewCount, null, null);
+    public static BookResponse from(Book book, List<BookCategory> bookCategories, Double avgRating, Long reviewCount) {
+        return build(book, bookCategories, avgRating, reviewCount, null, null);
     }
 
     // =================================================================================
-    // [3] RAG 검색용 (기존 유지)
+    // [3] RAG 검색용
     // =================================================================================
-    public static BookResponse fromWithAiSummary(Book book, Category category, Double avgRating, Long reviewCount, String aiSummary) {
-        return build(book, category, avgRating, reviewCount, aiSummary, null);
+    public static BookResponse fromWithAiSummary(Book book, List<BookCategory> bookCategories, Double avgRating, Long reviewCount, String aiSummary) {
+        return build(book, bookCategories, avgRating, reviewCount, aiSummary, null);
     }
 
     // =================================================================================
-    // [4] 리뷰 리스트로 평점 계산 (무한루프 수정됨)
+    // [4] 리뷰 리스트로 평점 계산
     // =================================================================================
-    public static BookResponse from(Book book, Category category, List<Review> reviews) {
+    public static BookResponse from(Book book, List<BookCategory> bookCategories, List<Review> reviews) {
         double avg = 0.0;
         long count = 0L;
 
@@ -69,29 +73,38 @@ public record BookResponse(
                     .average()
                     .orElse(0.0);
         }
-        // 여기서 build를 직접 호출하여 재귀 방지
-        return build(book, category, avg, count, null, null);
+        return build(book, bookCategories, avg, count, null, null);
     }
 
-    public static BookResponse from(Book book, Category category) {
-        return build(book, category, 0.0, 0L, null, null);
+    // =================================================================================
+    // [5] 기본 변환 메서드들
+    // =================================================================================
+    public static BookResponse from(Book book, List<BookCategory> bookCategories) {
+        return build(book, bookCategories,
+                book.getAverageRating(),
+                book.getReviewCount().longValue(),
+                null, null);
     }
 
     public static BookResponse from(Book book) {
-        return from(book, book.getCategory());
+        // Book 엔티티에 매핑된 bookCategories 리스트를 직접 사용
+        return build(book, book.getBookCategories(),
+                book.getAverageRating(),
+                book.getReviewCount().longValue(),
+                null, null);
     }
 
-
     // ---------------------------------------------------------------------------------
-    // [Internal Helper] 생성 로직 통합 (중복 제거)
+    // [Internal Helper] 생성 로직 통합
     // ---------------------------------------------------------------------------------
     private static BookResponse build(Book book,
-                                      Category category,
+                                      List<BookCategory> bookCategories,
                                       Double avgRating,
                                       Long reviewCount,
                                       String aiSummary,
                                       String aiReviewSummary
     ) {
+        // 작가 정보 처리
         String authorNames = null;
         if (book.getBookAuthors() != null && !book.getBookAuthors().isEmpty()) {
             authorNames = book.getBookAuthors().stream()
@@ -103,12 +116,29 @@ public record BookResponse(
                     .collect(Collectors.joining(", "));
         }
 
-        String publisherName = null;
-        if (book.getPublisher() != null) {
-            publisherName = book.getPublisher().getName();
+        // 출판사 정보 처리
+        String publisherName = (book.getPublisher() != null) ? book.getPublisher().getName() : null;
+
+        // 카테고리 리스트 처리 (N:M 대응) ✅
+        List<CategoryResponse> categoryList = Collections.emptyList();
+
+        if (bookCategories != null && !bookCategories.isEmpty()) {
+            categoryList = bookCategories.stream()
+                    .map(bc -> new CategoryResponse(
+                            bc.getCategory().getCategoryId(),
+                            bc.getCategory().getCategoryName()))
+                    .collect(Collectors.toList());
         }
 
-        Integer categoryIdValue = (category != null) ? category.getCategoryId() : null;
+        List<TagResponse> tagList = Collections.emptyList();
+        if (book.getBookTags() != null && !book.getBookTags().isEmpty()){
+            tagList=book.getBookTags().stream().map(bookTag -> {
+                Tag tag1=new Tag();
+                return new TagResponse(tag1.getTagId(),tag1.getName()
+                );
+            })
+                    .collect(Collectors.toList());
+        }
 
         return new BookResponse(
                 book.getId(),
@@ -117,7 +147,8 @@ public record BookResponse(
                 book.getIsbn13(),
                 book.getPrice(),
                 book.getImage(),
-                categoryIdValue,
+                categoryList, // List<CategoryResponse> 전달
+                tagList,
                 book.getContent(),
                 publisherName,
                 book.getPublishedDate(),
@@ -127,4 +158,5 @@ public record BookResponse(
                 aiReviewSummary
         );
     }
+
 }

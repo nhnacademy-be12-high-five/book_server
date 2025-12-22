@@ -2,14 +2,13 @@ package com.nhnacademy.book_server.dto.response;
 
 import com.nhnacademy.book_server.entity.Publisher;
 import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+
 import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.List;
 
 // 책 상세 페이지 response
-@Getter
 @RequiredArgsConstructor
 @AllArgsConstructor
 public class BookDetailResponse {
@@ -24,11 +23,8 @@ public class BookDetailResponse {
     private String content;
     private boolean stock;
 
-//포장 여부
-    private boolean WrappedOr;
-
     // 할인가의 1%
     private Integer priceSale;
 
-    // 배송정보는 고정 
+//    private List<TagResponse> tags;
 }

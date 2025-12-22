@@ -3,7 +3,6 @@ package com.nhnacademy.book_server.service;
 import com.nhnacademy.book_server.dto.request.ReviewCreateRequest;
 import com.nhnacademy.book_server.dto.request.ReviewUpdateRequest;
 import com.nhnacademy.book_server.dto.response.*;
-import com.nhnacademy.book_server.entity.MemberPrincipal;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;

@@ -95,13 +95,13 @@ public class Book {
 //    private String isbnNO;
 
     //  private String tag;
-//    private String FbookLike;
+//    private String bookLike;
 
     private Boolean isPortalSiteBookExist;
 
-    @ManyToOne
-    @JoinColumn(name = "category_category_id")
-    private Category category;
+    @Builder.Default
+    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<BookCategory> bookCategories = new ArrayList<>();
     //  도서와 카테고리는 1:N관계
 
     private Integer stock;
@@ -118,4 +118,7 @@ public class Book {
     public void setStock(Integer stock) {
         this.stock = stock;
     }
+
+    @OneToMany(mappedBy = "book", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<BookTag> bookTags = new ArrayList<>();
 }
