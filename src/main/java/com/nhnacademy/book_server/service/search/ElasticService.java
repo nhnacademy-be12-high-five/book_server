@@ -7,7 +7,9 @@ import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.BookSortType;
+import com.nhnacademy.book_server.dto.CategoryResponse;
 import com.nhnacademy.book_server.dto.SearchResult;
+import com.nhnacademy.book_server.dto.response.TagResponse;
 import com.nhnacademy.book_server.entity.SearchFieldType;
 import com.nhnacademy.book_server.repository.ElasticRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,7 @@ import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -142,11 +145,13 @@ public class ElasticService {
 
         String image = (String) source.get("image");
 
-        Integer categoryId = null;
-        Object catObj = source.get("categoryId");
-        if (catObj instanceof Number nCat) {
-            categoryId = nCat.intValue();
-        }
+//        Integer categoryId = null;
+//        Object catObj = source.get("categoryId");
+//        if (catObj instanceof Number nCat) {
+//            categoryId = nCat.intValue();
+//        }
+
+        List<CategoryResponse> categoryList = Collections.emptyList();
 
         String content = (String) source.get("content");
         String publisher = (String) source.get("publisher");
@@ -170,6 +175,8 @@ public class ElasticService {
 
         String aiSummary = (String) source.get("aiSummary");
 
+        List<TagResponse> tagList = Collections.emptyList();
+
         return new BookResponse(
                 bookId,
                 title,
@@ -177,7 +184,8 @@ public class ElasticService {
                 isbn,
                 price,
                 image,
-                categoryId,
+                categoryList,
+                tagList,
                 content,
                 publisher,
                 publishedDate,

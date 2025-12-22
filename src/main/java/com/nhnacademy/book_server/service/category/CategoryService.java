@@ -2,15 +2,13 @@ package com.nhnacademy.book_server.service.category;
 
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.CategoryResponse;
-import com.nhnacademy.book_server.entity.Book;
-import com.nhnacademy.book_server.entity.BookCategory;
+
 import com.nhnacademy.book_server.entity.Category;
-import com.nhnacademy.book_server.repository.BookCategoryRepository;
-import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.CategoryRepository;
 import com.nhnacademy.book_server.service.BookService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -18,11 +16,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class CategoryService {
     private final CategoryRepository categoryRepository;
-    private final BookCategoryRepository bookCategoryRepository;
-    private final BookRepository bookRepository;
     private final BookService bookService;
 
+    @Transactional
+    public void createCategory(int id, String name, int parentId, int depth) {
+        Category category = new Category(id, name, parentId, depth);
+        categoryRepository.save(category);
+    }
+
     // 대분류
+    @Transactional(readOnly = true)
     public List<CategoryResponse> getParents() {
         return categoryRepository.findByDepth(1)
                 .stream()
@@ -31,6 +34,7 @@ public class CategoryService {
     }
 
     // 하위 카테고리 조회
+    @Transactional(readOnly = true)
     public List<CategoryResponse> getChilds(int parentId) {
         return categoryRepository.findByParentId(parentId)
                 .stream()
@@ -39,7 +43,7 @@ public class CategoryService {
     }
 
     // 카테고리별 도서 조회
-    // CategoryService
+    @Transactional(readOnly = true)
     public List<BookResponse> getBooksByCategory(int categoryId) {
         // category 존재 검증만 수행
         categoryRepository.findByCategoryId(categoryId)

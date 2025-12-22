@@ -4,7 +4,9 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.nhnacademy.book_server.dto.BookResponse;
+import com.nhnacademy.book_server.dto.CategoryResponse;
 import com.nhnacademy.book_server.dto.SearchResult;
+import com.nhnacademy.book_server.dto.response.TagResponse;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.Review;
 import com.nhnacademy.book_server.repository.BookRepository;
@@ -124,10 +126,12 @@ public class RagSearchService implements RagSearchable {
 
         String image = (String) source.get("image");
 
-        Integer categoryId = null;
-        if (source.get("categoryId") != null) {
-            categoryId = ((Number) source.get("categoryId")).intValue();
-        }
+//        Integer categoryId = null;
+//        if (source.get("categoryId") != null) {
+//            categoryId = ((Number) source.get("categoryId")).intValue();
+//        }
+
+        List<CategoryResponse> categoryList = Collections.emptyList();
 
         String content = (String) source.get("content");
         String publisher = (String) source.get("publisher");
@@ -149,6 +153,8 @@ public class RagSearchService implements RagSearchable {
 
         String aiSummary = (String) source.get("aiSummary");
 
+        List<TagResponse> tagList = Collections.emptyList();
+
         return new BookResponse(
                 bookId,
                 title,
@@ -156,7 +162,8 @@ public class RagSearchService implements RagSearchable {
                 isbn,
                 price,
                 image,
-                categoryId,
+                categoryList,
+                tagList,
                 content,
                 publisher,
                 publishedDate,
@@ -241,7 +248,6 @@ public class RagSearchService implements RagSearchable {
                         document.put("isbn", bookResponse.isbn());
                         document.put("price", bookResponse.price());
                         document.put("image", bookResponse.image());
-                        document.put("categoryId", bookResponse.categoryId());
                         document.put("content", bookResponse.content());
                         document.put("publisher", bookResponse.publisher());
                         document.put("publishedDate", bookResponse.publishedDate());

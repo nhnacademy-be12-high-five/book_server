@@ -2,13 +2,16 @@ package com.nhnacademy.book_server.entity;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
 import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
 @Entity
 @RequiredArgsConstructor
+@AllArgsConstructor
 @Getter
 @Setter
 public class Category {
@@ -20,6 +23,6 @@ public class Category {
     private String categoryName;
 
     @NotNull
-    private int parentId;
+    private int parentId; //대분류
     private int depth;
 }

@@ -147,7 +147,7 @@ public class DataParsingService {
 
                         // dto에 categoryId/categoryName이 들어있는 경우에만 매핑
                         if (dto.getCategoryId() != null && StringUtils.hasText(dto.getCategoryName())) {
-                            categoryMappingService.upsertCategoryAndMap(bookEntity, dto.getCategoryId(), dto.getCategoryName());
+                            categoryMappingService.CategoryAndMap(bookEntity, dto.getCategoryId(), dto.getCategoryName());
                         }
                     }
 

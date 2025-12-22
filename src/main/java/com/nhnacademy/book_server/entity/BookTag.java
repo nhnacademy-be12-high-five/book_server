@@ -5,13 +5,13 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.springframework.data.relational.core.mapping.Column;
 
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name = "BookTag")
+@Table(name = "book_tag")
+@Entity
 public class BookTag {
 
     @Id // 별도의 PK 생성
@@ -20,9 +20,9 @@ public class BookTag {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "tag_id", nullable = false)
-    private Tag tagId;
+    private Tag tag;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "book_id") // DB 컬럼명
-    private Book bookId;
+    private Book book;
 }

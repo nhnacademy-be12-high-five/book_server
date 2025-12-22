@@ -1,25 +1,28 @@
 package com.nhnacademy.book_server.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.io.Serializable;
 
 @Entity
-@Getter
-@NoArgsConstructor
-@AllArgsConstructor
 @Table(name = "book_category")
+@NoArgsConstructor
+@Getter
 public class BookCategory {
 
-    @EmbeddedId
-    private Pk pk;
+    @Id
+    private Pk id;
+
+    public BookCategory(Pk category1, Book book, Category category) {
+        this.id=category1;
+        this.book=book;
+        this.category=category;
+    }
 
     @Embeddable
     @Getter
+    @Setter
     @NoArgsConstructor
     @AllArgsConstructor
     @EqualsAndHashCode
@@ -40,11 +43,4 @@ public class BookCategory {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
-
-    // setter 안 쓰고 생성으로만 연결하고 싶을 때 편의 생성자
-    public BookCategory(Book book, Category category) {
-        this.book = book;
-        this.category = category;
-        this.pk = new Pk(book.getId(), category.getCategoryId());
-    }
 }
