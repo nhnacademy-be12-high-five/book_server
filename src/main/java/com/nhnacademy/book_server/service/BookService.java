@@ -67,7 +67,6 @@ public class BookService {
     private final JdbcTemplate jdbcTemplate;
 
 
-
     @Lazy
     @Autowired
     private BookService self;
