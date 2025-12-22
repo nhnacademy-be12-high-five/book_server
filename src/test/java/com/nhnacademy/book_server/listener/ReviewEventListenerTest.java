@@ -7,7 +7,7 @@ import com.nhnacademy.book_server.dto.request.PointEarnRequest;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.BookReviewAi;
 import com.nhnacademy.book_server.repository.BookRepository;
-import com.nhnacademy.book_server.repository.review.BookReviewAiRepository;
+import com.nhnacademy.book_server.repository.BookReviewAiRepository;
 import com.nhnacademy.book_server.repository.review.ReviewRepository;
 import com.nhnacademy.book_server.service.MinioImageService;
 import com.nhnacademy.book_server.service.search.GeminiTextClientService;
@@ -20,7 +20,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
-import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 import java.util.Optional;

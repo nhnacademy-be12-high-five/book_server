@@ -225,7 +225,7 @@ public class DataParsingService {
                 ps.setInt(4, parsePrice(dto.getPrice()));
                 ps.setString(5, dto.getDescription());
                 ps.setString(6, convertToFrontendImageUrl(dto.getImageUrl()));
-                LocalDate pubDate = dto.getPubDate();
+               String pubDate = dto.getPubDate();
                 ps.setString(7, pubDate != null ? pubDate.toString() : LocalDate.now().toString());
             }
 
@@ -393,7 +393,7 @@ public class DataParsingService {
                 for (ParsingDto dto : batchDtos) {
                     Book book = bookMap.get(dto.getIsbn().trim());
                     if (book != null) {
-                        LocalDate pubDate = dto.getPubDate();
+                        String pubDate = dto.getPubDate();
                         String newDateStr = pubDate != null ? pubDate.toString() : LocalDate.now().toString();
                         if (!newDateStr.equals(book.getPublishedDate())) {
                             book.setPublishedDate(newDateStr);
