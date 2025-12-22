@@ -90,20 +90,15 @@ public class CategoryMapper {
         return 1; // 기본값
     }
 
-    public static Integer findCategoryId(String title, String description) {
+    public static Integer findCategoryId(String title) {
         // 제목과 설명을 합쳐서 소문자로 변환 (검색 확률 높임)
-        String fullText = (title + " " + (description != null ? description : "")).toLowerCase();
 
         // 1. 소분류(8~14)부터 먼저 검색 (더 구체적이기 때문)
         for (int i = 8; i <= 14; i++) {
             List<String> keywords = CATEGORY_RULES.get(i);
             if (keywords == null) continue;
 
-            for (String keyword : keywords) {
-                if (fullText.contains(keyword)) { // 이미 소문자로 변환했으므로 toLowerCase() 불필요
-                    return i;
-                }
-            }
+
         }
 
         // 2. 소분류 매칭이 없으면 대분류(1~7) 검색
@@ -111,11 +106,6 @@ public class CategoryMapper {
             List<String> keywords = CATEGORY_RULES.get(i);
             if (keywords == null) continue;
 
-            for (String keyword : keywords) {
-                if (fullText.contains(keyword)) {
-                    return i;
-                }
-            }
         }
 
         return null; // 매칭되는 카테고리 없음
