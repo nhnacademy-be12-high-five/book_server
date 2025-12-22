@@ -6,6 +6,7 @@ import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
 import com.nhnacademy.book_server.entity.*;
+import com.nhnacademy.book_server.mapper.CategoryMapper;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.repository.*;
 import com.nhnacademy.book_server.repository.review.BookReviewAiRepository;
@@ -44,6 +45,7 @@ public class BookService {
     private final BookReviewAiRepository bookReviewAiRepository;
     private final BookSearchService bookSearchService;
     private final MinioImageService minioImageService;
+    private final CategoryRepository categoryRepository;
 
     @Lazy
     @Autowired
@@ -126,6 +128,12 @@ public class BookService {
             String publisherName = request.getPublisher().trim();
             publisher = publisherRepository.findByName(publisherName)
                     .orElseGet(() -> publisherRepository.save(Publisher.builder().name(publisherName).build()));
+        }
+
+        Integer matchedId = CategoryMapper.findCategoryId(request.getTitle());
+        Category category = null;
+        if (matchedId != null) {
+            category = categoryRepository.findByCategoryId(matchedId).orElse(null);
         }
 
         Book newBook = Book.builder()
