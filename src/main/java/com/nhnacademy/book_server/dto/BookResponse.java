@@ -1,5 +1,6 @@
 package com.nhnacademy.book_server.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.nhnacademy.book_server.dto.response.TagResponse;
 import com.nhnacademy.book_server.entity.*;
@@ -7,6 +8,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record BookResponse(
         @JsonProperty("id") Long bookId,
         String title,
