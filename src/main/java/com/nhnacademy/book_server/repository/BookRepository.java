@@ -1,8 +1,9 @@
 package com.nhnacademy.book_server.repository;
 
 import com.nhnacademy.book_server.entity.Book;
-import com.nhnacademy.book_server.parser.ParsingDto;
+import com.nhnacademy.book_server.entity.BookCategory;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -51,22 +52,22 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     List<Book> findByIdIn(List<Long> ids); //카테고리-> 북리스트 후 정렬
 
 
-        @Query("""
-        select distinct b
-        from Book b
-        join BookCategory bc on bc.book = b
-        join bc.category c
-        left join fetch b.bookAuthors ba
-        left join fetch ba.author a
-        where c.categoryId = :categoryId
-    """)
-        List<Book> findBooksByCategoryWithAuthors(@Param("categoryId") int categoryId);
+    @Query("SELECT bc FROM BookCategory bc " +
+            "JOIN FETCH bc.book b " +
+            "LEFT JOIN FETCH b.publisher p " + // 출판사 추가
+            "LEFT JOIN FETCH b.bookAuthors ba " +
+            "LEFT JOIN FETCH ba.author " +
+            "WHERE bc.category.categoryId = :categoryId")
+        List<BookCategory> findBooksByCategoryWithAuthors(@Param("categoryId") int categoryId);
 
 
+//    @Query("SELECT b FROM Book b WHERE b.bookCategories IS EMPTY")
+//    List<Book> findBooksWithNoCategories(PageRequest pageRequest);
 
 
-
-
-
-
+    @Query("SELECT b FROM Book b " +
+            "WHERE b.id > :lastId " +
+            "AND NOT EXISTS (SELECT bc FROM BookCategory bc WHERE bc.book = b) " +
+            "ORDER BY b.id ASC")
+    List<Book> findNextBatch(@Param("lastId") Long lastId, Pageable pageable);
 }

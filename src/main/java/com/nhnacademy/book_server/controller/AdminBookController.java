@@ -66,7 +66,7 @@ public class AdminBookController implements bookSwagger{
     // 북 생성
     @PostMapping
     public ResponseEntity<Book> createBook(@RequestBody ParsingDto parsingDto,
-                                           @RequestHeader("X-User-Id") Long memberId){
+                                           @RequestHeader(value = "X-USER-Id",required = true) Long memberId){
 
         Book savedBook=bookService.createBook(parsingDto);
         return new ResponseEntity<>(savedBook, HttpStatus.CREATED);

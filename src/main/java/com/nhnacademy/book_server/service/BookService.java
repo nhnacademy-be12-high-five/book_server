@@ -9,6 +9,8 @@ import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
 import com.nhnacademy.book_server.entity.*;
+import com.nhnacademy.book_server.feign.OrderFeignClient;
+import com.nhnacademy.book_server.mapper.CategoryMapper;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.repository.*;
 import jakarta.annotation.PostConstruct;
@@ -22,15 +24,21 @@ import org.springframework.cglib.core.Local;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.annotation.Order;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PathVariable;
 
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -52,6 +60,14 @@ public class BookService {
     private final ReviewRepository reviewRepository;
     private final BookReviewAiRepository bookReviewAiRepository;
 
+    private final OrderFeignClient orderFeignClient;
+    private final CategoryRepository categoryRepository;
+    private final BookCategoryRepository bookCategoryRepository;
+
+    private final JdbcTemplate jdbcTemplate;
+
+
+
     @Lazy
     @Autowired
     private BookService self;
@@ -70,6 +86,13 @@ public class BookService {
                     ));
         }
 
+        Integer matchedId = CategoryMapper.findCategoryId(dto.getTitle(), dto.getDescription());
+        Category category = null;
+        if (matchedId != null) {
+            category = categoryRepository.findByCategoryId(matchedId).orElse(null);
+        }
+
+
         Book newBook = Book.builder()
                 .isbn13(dto.getIsbn())
                 .title(dto.getTitle())
@@ -81,6 +104,13 @@ public class BookService {
                 .build();
 
         Book savedBook = bookRepository.save(newBook);
+
+        if (category != null) {
+            BookCategory.Pk pk = new BookCategory.Pk(savedBook.getId(), category.getCategoryId());
+            BookCategory bookCategory = new BookCategory(pk, savedBook, category);
+            bookCategoryRepository.save(bookCategory);
+            log.info("저장 완료 : {}",bookCategory);
+        }
 
         if (StringUtils.hasText(dto.getAuthor())) {
             String[] authorNames = dto.getAuthor().split(",");
@@ -168,6 +198,7 @@ public class BookService {
                 .map(BookResponse::from)
                 .collect(Collectors.toList());
     }
+
     // 책 업데이트
     @Transactional // 💡 트랜잭션 적용
     public Book updateBook(Long id, BookUpdateRequest request) {
@@ -306,6 +337,29 @@ public class BookService {
     public List<BookResponse> getWeeklyPopularBooks(int limit) {
         String weeklyKey = "weekly_ranking";
 
+        String today = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+
+        List<String> recentKeys = new ArrayList<>();
+        for (int i = 0; i < 7; i++) {
+            String date = LocalDate.now().minusDays(i).format(DateTimeFormatter.BASIC_ISO_DATE);
+            recentKeys.add("daily_ranking:" + date);
+            log.info("추가됨 : {}",date);
+        }
+
+        if (!recentKeys.isEmpty()) {
+            // 첫 번째 키를 기준으로 나머지 키들과 합산
+            String firstKey = recentKeys.get(0);
+            List<String> otherKeys = recentKeys.subList(1, recentKeys.size());
+
+            if (otherKeys.isEmpty()) {
+                // 키가 하나뿐이면 그냥 복사하거나 그대로 사용 (여기선 생략 가능하지만 안전하게 복사)
+                redisTemplate.opsForZSet().unionAndStore(firstKey, Collections.emptyList(), weeklyKey);
+            } else {
+                redisTemplate.opsForZSet().unionAndStore(firstKey, otherKeys, weeklyKey);
+            }
+            // 계산된 키는 10분 정도만 유지 (잦은 연산 방지)
+            redisTemplate.expire(weeklyKey, Duration.ofMinutes(10));
+        }
 
         Set<String> topBookIds = redisTemplate.opsForZSet().reverseRange(weeklyKey, 0, limit - 1);
 
@@ -317,12 +371,9 @@ public class BookService {
                 .map(Long::valueOf)
                 .collect(Collectors.toList());
 
-        System.out.println("1. Redis 요청 ID 목록: " + bookIds);
-
         // 2. [수정됨] Redis가 알려준 ID로 DB 조회 (findAllById 사용)
         List<Book> books = bookRepository.findAllById(bookIds);
 
-        System.out.println("2. DB에서 찾은 책 개수: " + books.size());
 
         // 3. Map 변환
         Map<Long, Book> bookMap = books.stream()
@@ -385,9 +436,95 @@ public class BookService {
 
     @Transactional(readOnly = true)
     public List<BookResponse> getBooksByCategory(int categoryId) {
-        List<Book> books = bookRepository.findBooksByCategoryWithAuthors(categoryId);
+        List<BookCategory> books = bookRepository.findBooksByCategoryWithAuthors(categoryId);
         return books.stream()
-                .map(BookResponse::from)
+                .map(bc -> BookResponse.from(bc.getBook()))
                 .toList();
+    }
+
+    // BookService나 도서 등록 로직 내부
+    @Transactional
+    public void saveBookWithCategory(Long bookId,Integer targetCategoryId) {
+
+        Book book = bookRepository.findById(bookId)
+                .orElseThrow(() -> new RuntimeException("도서를 찾을 수 없습니다. ID: " + bookId));
+
+        // 1. DB에서 카테고리 조회 (API로 미리 넣어둔 데이터)
+        Category category = categoryRepository.findByCategoryId(targetCategoryId)
+                .orElseThrow(() -> new RuntimeException("데이터를 생성해주세요!"));
+
+        BookCategory.Pk pk = new BookCategory.Pk(bookId, targetCategoryId);
+
+        BookCategory bookCategory = new BookCategory(pk, book, category);
+        bookCategoryRepository.save(bookCategory);
+
+    }
+
+    // 책과 카테고리 아이디로 매핑
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public synchronized void migrateCategories() {
+        log.info("============== [마이그레이션 시작] ==============");
+
+        // 1. 카테고리 맵 로딩
+        Map<Integer, Integer> categoryMap = categoryRepository.findAll().stream()
+                .collect(Collectors.toMap(Category::getCategoryId, Category::getCategoryId));
+        log.info("▶ 카테고리 로딩 완료 (총 {}개)", categoryMap.size());
+
+        int totalProcessed = 0;
+        int batchSize = 10;
+        Long lastId = 0L; // 커서 역할 (마지막으로 조회한 책 ID)
+
+        while (true) {
+            // [핵심] pageNumber 대신 lastId를 사용하여 다음 데이터를 가져옵니다.
+            // Repository에 findNextBatch 메서드가 필요합니다. (아래 참고)
+            PageRequest pageRequest = PageRequest.of(0, batchSize);
+            List<Book> targetBooks = bookRepository.findNextBatch(lastId, pageRequest);
+
+            if (targetBooks.isEmpty()) {
+                log.info("✅ 더 이상 처리할 도서가 없습니다. (총 {}권 매핑 완료)", totalProcessed);
+                break;
+            }
+
+            List<Object[]> batchArgs = new ArrayList<>();
+
+            for (Book book : targetBooks) {
+                Integer matchedId = CategoryMapper.findCategoryId(book.getTitle(), book.getContent());
+
+                if (matchedId != null && categoryMap.containsKey(matchedId)) {
+                    batchArgs.add(new Object[]{book.getId(), matchedId});
+                }
+
+                // [핵심] 다음 조회를 위해 마지막 ID를 기억합니다.
+                lastId = book.getId();
+            }
+
+            // DB 저장 (트랜잭션 없이 JDBC 바로 실행 -> 자동 커밋됨)
+            if (!batchArgs.isEmpty()) {
+                try {
+                    String sql = "INSERT INTO book_category (book_id, category_id) VALUES (?, ?)";
+                    jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
+                        @Override
+                        public void setValues(PreparedStatement ps, int i) throws SQLException {
+                            Object[] args = batchArgs.get(i);
+                            ps.setLong(1, (Long) args[0]);
+                            ps.setInt(2, (Integer) args[1]);
+                        }
+                        @Override
+                        public int getBatchSize() {
+                            return batchArgs.size();
+                        }
+                    });
+                    totalProcessed += batchArgs.size();
+                    log.info("▷ {}권 저장 성공! (마지막 ID: {}, 누적: {}권)", batchArgs.size(), lastId, totalProcessed);
+                } catch (Exception e) {
+                    log.error("❌ 저장 중 에러 발생 (계속 진행함): {}", e.getMessage());
+                }
+            } else {
+                // 매핑된 게 없어도 lastId가 갱신되었으므로 무한 루프에 빠지지 않습니다.
+                log.info("⚠️ 이번 배치({}권)에서는 매칭된 카테고리가 없습니다. (진행 중...)", targetBooks.size());
+            }
+        }
+
+        log.info("============== [마이그레이션 정상 종료] ==============");
     }
 }

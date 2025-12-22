@@ -46,7 +46,6 @@ public class BookDocument {
                 .isbn13(response.isbn())
                 .price(response.price())
                 .image(response.image())
-                .categoryId(response.categoryId())
                 .content(response.content())
                 .publisher(response.publisher())
                 .publishedDate(response.publishedDate())
