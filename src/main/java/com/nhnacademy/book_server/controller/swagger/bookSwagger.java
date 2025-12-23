@@ -68,7 +68,7 @@ public interface bookSwagger{
             @ApiResponse(responseCode = "404", description = "도서를 찾을 수 없음")
     })
     @GetMapping("/search-api")
-    ResponseEntity<BookCreateRequest> searchBookWithAi(@RequestParam @Pattern(regexp = "^(\\d{10}|\\d{13})$", message = "ISBN은 10자리 또는 13자리 숫자여야 합니다.") String isbn);
+    ResponseEntity<ParsingDto> searchBookWithAi(@RequestParam @Pattern(regexp = "^(\\d{10}|\\d{13})$", message = "ISBN은 10자리 또는 13자리 숫자여야 합니다.") String isbn);
 
 
 //    // 도서 삭제
