@@ -14,7 +14,7 @@ public interface OrderFeignClient {
     @PostMapping("/books/bulk")
     List<Boolean> getBooksBulk(@RequestBody List<Long> bookIds);
 
-    @GetMapping("check-purchase")
+    @GetMapping("/api/orders/check-purchase")
     Boolean hasPurchasedBook(@RequestParam("memberId") Long memberId,
                              @RequestParam("bookId") Long bookId);
 }
