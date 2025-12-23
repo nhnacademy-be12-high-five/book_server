@@ -103,8 +103,9 @@ public class AdminBookController implements bookSwagger{
     }
 
     @GetMapping("/search-api")
-    public ResponseEntity<BookCreateRequest> searchBookWithAi(@RequestParam String isbn) {
-        BookCreateRequest response = bookRegistrationService.getBookInfoWithAi(isbn);
-        return ResponseEntity.ok(response);
+    public ResponseEntity<ParsingDto> searchBookWithAi(@RequestParam String isbn) {
+        log.info("AI 도서 정보 검색 요청 -ISBN: {}", isbn);
+        ParsingDto dto = bookRegistrationService.getBookInfoWithAi(isbn);
+        return ResponseEntity.ok(dto);
     }
 }

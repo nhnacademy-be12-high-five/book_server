@@ -1,5 +1,6 @@
 package com.nhnacademy.book_server.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.nhnacademy.book_server.entity.Publisher;
 import lombok.AllArgsConstructor;
 
@@ -18,8 +19,10 @@ public class BookDetailResponse {
     private Publisher publisher;
     private LocalDate dateTime;
     private Integer price;  // 원가
+    @JsonProperty("imageUrl")
     private String image;
-    private String publishedDate;
+    @JsonProperty("pubDate")
+    private String publishDate;
     private String content;
     private boolean stock;
 

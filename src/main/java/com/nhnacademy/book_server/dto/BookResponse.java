@@ -17,12 +17,14 @@ public record BookResponse(
         String author,
         String isbn,
         Integer price,
+        @JsonProperty("imageUrl")
         String image,
         // 단일 ID에서 리스트 형태로 변경
         List<CategoryResponse> categories,
         List<TagResponse> tags,
         String content,
         String publisher,
+        @JsonProperty("pubDate")
         String publishedDate,
         Double avgRating,
         Long reviewCount,
