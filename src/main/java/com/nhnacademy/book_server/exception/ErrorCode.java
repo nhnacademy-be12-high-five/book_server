@@ -17,7 +17,7 @@ public enum ErrorCode {
     // Review
     REVIEW_NOT_FOUND(HttpStatus.NOT_FOUND, "R001", "존재하지 않는 리뷰입니다."),
     REVIEW_NOT_AUTHOR(HttpStatus.NON_AUTHORITATIVE_INFORMATION, "R002", "작성자의 리뷰가 아닙니다."),
-    REVIEW_WRITE_AUTHOR(HttpStatus.NON_AUTHORITATIVE_INFORMATION, "R003", "해당 책을 구매한 맴버가 아닙니다."),
+    REVIEW_WRITE_AUTHOR(HttpStatus.FORBIDDEN, "R003", "해당 책을 구매한 맴버가 아닙니다."),
     REVIEW_DUP(HttpStatus.NOT_ACCEPTABLE, "R004", "이미 해당 도서에 대한 리뷰를 작성하셨습니다"),
     REVIEW_IMAGE_LIMIT_EXCEEDED(HttpStatus.NOT_ACCEPTABLE,"R005" , "등록 가능한 이미지 수를 넘었습니다."),
     REVIEW_NOT_MATCH_BOOK(HttpStatus.NOT_FOUND, "R006" , "해당 리뷰는 이 책에 작성된 리뷰가 아닙니다." ),

@@ -36,6 +36,14 @@ public class MinioImageService {
     private static final String PROXY_BASE_URL_REVIEW = "https://nhnbook.shop/hi-five-bucket-review";
     private static final List<String> ALLOWED_EXTENSIONS = List.of("jpg", "jpeg", "png", "gif", "webp");
 
+    public void clearBookImageBucket() {
+        deleteAllObjectsInBucket(bookBucketName);
+    }
+
+    public void clearReviewImageBucket() {
+        deleteAllObjectsInBucket(reviewBucketName);
+    }
+
     public String uploadImageFromUrl(String imageUrl, String isbn) {
         if (!StringUtils.hasText(imageUrl)) {
             return defaultImageUrl;
@@ -209,17 +217,55 @@ public class MinioImageService {
 
         String protocol = url.getProtocol();
         if (!"http".equalsIgnoreCase(protocol) && !"https".equalsIgnoreCase(protocol)) {
-            throw new IllegalArgumentException("허용되지 않는 프로토콜입니다: " + protocol);
+            throw new IllegalArgumentException("허용되지 않는 프로토콜: " + protocol);
         }
 
-        InetAddress address = InetAddress.getByName(url.getHost());
+        String host = url.getHost();
+        if (host.equalsIgnoreCase("localhost")
+                || host.startsWith("127.")
+                || host.startsWith("10.")
+                || host.startsWith("192.168.")
+                || host.endsWith(".internal")) {
 
-        if (address.isLoopbackAddress() ||
-                address.isSiteLocalAddress() ||
-                address.isLinkLocalAddress() ||
-                address.isAnyLocalAddress()) {
-
-            throw new IllegalArgumentException("내부 네트워크(Private IP) 접근이 차단되었습니다: " + url.getHost());
+            throw new IllegalArgumentException("내부 네트워크 접근 차단: " + host);
         }
     }
+
+    public void deleteAllObjectsInBucket(String bucketName) {
+        log.warn("⚠️ [{}] 버킷 전체 삭제 시작", bucketName);
+
+        String continuationToken = null;
+
+        do {
+            ListObjectsV2Request listReq = ListObjectsV2Request.builder()
+                    .bucket(bucketName)
+                    .continuationToken(continuationToken)
+                    .build();
+
+            ListObjectsV2Response listRes = s3Client.listObjectsV2(listReq);
+
+            if (listRes.contents().isEmpty()) {
+                break;
+            }
+
+            List<ObjectIdentifier> objectsToDelete = listRes.contents().stream()
+                    .map(obj -> ObjectIdentifier.builder().key(obj.key()).build())
+                    .toList();
+
+            DeleteObjectsRequest deleteReq = DeleteObjectsRequest.builder()
+                    .bucket(bucketName)
+                    .delete(Delete.builder().objects(objectsToDelete).build())
+                    .build();
+
+            s3Client.deleteObjects(deleteReq);
+
+            log.info("🗑️ {}개 객체 삭제 완료", objectsToDelete.size());
+
+            continuationToken = listRes.nextContinuationToken();
+
+        } while (continuationToken != null);
+
+        log.warn("✅ [{}] 버킷 전체 삭제 완료", bucketName);
+    }
+
 }

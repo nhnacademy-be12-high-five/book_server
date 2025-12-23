@@ -31,9 +31,7 @@ public class ParsingDto {
     private String publisher;
 
     @CsvBindByName(column = "TWO_PBLICTE_DE")
-    @JsonProperty("pubDate")
-    @JsonFormat(pattern = "yyyy-MM-dd")
-    private LocalDate pubDate;
+    private String pubDate;
 
     @CsvBindByName(column = "PRC_VALUE")
     private String price;

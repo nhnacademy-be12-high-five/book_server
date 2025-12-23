@@ -22,6 +22,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -63,7 +65,7 @@ public class BookService {
     @Autowired
     private BookService self;
 
-//    @Transactional
+    //    @Transactional
 //    public Book createBook(ParsingDto dto) {
 //        if (bookRepository.existsByIsbn13(dto.getIsbn())) {
 //            log.warn("이미 존재하는 ISBN입니다: {}", dto.getIsbn());
@@ -140,12 +142,6 @@ public class BookService {
             String publisherName = request.getPublisher().trim();
             publisher = publisherRepository.findByName(publisherName)
                     .orElseGet(() -> publisherRepository.save(Publisher.builder().name(publisherName).build()));
-        }
-
-        Integer matchedId = CategoryMapper.findCategoryId(dto.getTitle(), dto.getDescription());
-        Category category = null;
-        if (matchedId != null) {
-            category = categoryRepository.findByCategoryId(matchedId).orElse(null);
         }
 
 
