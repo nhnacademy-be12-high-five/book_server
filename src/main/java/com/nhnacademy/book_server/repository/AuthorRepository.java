@@ -10,6 +10,8 @@ import java.util.Set;
 
 public interface AuthorRepository extends JpaRepository<Author,Long> {
 
+    Optional<Author> findByName(String name);
+
     List<Author> findByNameIn(Collection<String> name);
 
     List<Author> findAllByNameIn(Set<String> names);

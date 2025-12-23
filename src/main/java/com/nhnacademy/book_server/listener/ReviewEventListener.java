@@ -7,7 +7,7 @@ import com.nhnacademy.book_server.dto.request.PointEarnRequest;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.BookReviewAi;
 import com.nhnacademy.book_server.repository.BookRepository;
-import com.nhnacademy.book_server.repository.review.BookReviewAiRepository;
+import com.nhnacademy.book_server.repository.BookReviewAiRepository;
 import com.nhnacademy.book_server.repository.review.ReviewRepository;
 import com.nhnacademy.book_server.service.MinioImageService;
 import com.nhnacademy.book_server.service.search.GeminiTextClientService;

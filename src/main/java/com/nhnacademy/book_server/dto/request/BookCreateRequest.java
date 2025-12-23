@@ -30,5 +30,7 @@ public class BookCreateRequest {
     private String description;
     private String image;
 
+    private Integer categoryId;
+
     private List<String> authors;
 }

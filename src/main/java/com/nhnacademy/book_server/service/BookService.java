@@ -1,6 +1,10 @@
 package com.nhnacademy.book_server.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
@@ -10,24 +14,30 @@ import com.nhnacademy.book_server.feign.OrderFeignClient;
 import com.nhnacademy.book_server.mapper.CategoryMapper;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.repository.*;
-import com.nhnacademy.book_server.repository.review.BookReviewAiRepository;
 import com.nhnacademy.book_server.repository.review.ReviewRepository;
-import com.nhnacademy.book_server.service.search.BookSearchService;
+import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.Cookie;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.iterators.CartesianProductIterator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cglib.core.Local;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.core.annotation.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -40,6 +50,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 @RequiredArgsConstructor
+@Transactional
 public class BookService {
 
     private final BookRepository bookRepository;
@@ -50,8 +61,6 @@ public class BookService {
     private final ObjectMapper objectMapper;
     private final ReviewRepository reviewRepository;
     private final BookReviewAiRepository bookReviewAiRepository;
-    private final BookSearchService bookSearchService;
-    private final MinioImageService minioImageService;
 
     private final OrderFeignClient orderFeignClient;
     private final CategoryRepository categoryRepository;
@@ -60,144 +69,70 @@ public class BookService {
     private final JdbcTemplate jdbcTemplate;
 
 
-
     @Lazy
     @Autowired
     private BookService self;
 
-    //    @Transactional
-//    public Book createBook(ParsingDto dto) {
-//        if (bookRepository.existsByIsbn13(dto.getIsbn())) {
-//            log.warn("이미 존재하는 ISBN입니다: {}", dto.getIsbn());
-//        }
-//
-//        Publisher publisher = null;
-//        if (StringUtils.hasText(dto.getPublisher())) {
-//            String publisherName = dto.getPublisher().trim();
-//            publisher = publisherRepository.findByName(publisherName)
-//                    .orElseGet(() -> publisherRepository.save(
-//                            Publisher.builder().name(publisherName).build()
-//                    ));
-//        }
-//
-//        Book newBook = Book.builder()
-//                .isbn13(dto.getIsbn())
-//                .title(dto.getTitle())
-//                .publisher(publisher)
-//                .publishedDate(dto.getPubDate() != null ? dto.getPubDate().toString() : null)
-//                .price(parsePrice(dto.getPrice()))
-//                .image(dto.getImageUrl())
-//                .content(dto.getDescription())
-//                .build();
-//
-//        Book savedBook = bookRepository.save(newBook);
-//
-//        if (StringUtils.hasText(dto.getAuthor())) {
-//            String[] authorNames = dto.getAuthor().split(",");
-//            for (String name : authorNames) {
-//                String trimmedName = name.trim();
-//                if (trimmedName.isEmpty()) continue;
-//
-//                // 작가 조회 없으면 생성
-//                Author author = authorRepository.findByName(trimmedName)
-//                        .orElseGet(() -> authorRepository.save(
-//                                Author.builder().name(trimmedName).build()
-//                        ));
-//
-//                // BookAuthor 연결 관계 저장
-//                BookAuthor bookAuthor = BookAuthor.builder()
-//                        .book(savedBook)
-//                        .author(author)
-//                        .build();
-//
-//                bookAuthorRepository.save(bookAuthor);
-//            }
-//        }
-//
-//        return savedBook;
-//    }
-    public BookResponse createBook(BookCreateRequest request) {
-        String imageUrl = null;
-        if (StringUtils.hasText(request.getImage())) {
-            imageUrl = minioImageService.uploadImageFromUrl(request.getImage(), request.getIsbn());
-        }
-        Book savedBook = self.createBookInTx(request, imageUrl);
-        try {
-            bookSearchService.indexBook(savedBook);
-        } catch (Exception e) {
-            log.error("Elasticsearch 인덱싱 실패 (도서 등록은 성공): {}", savedBook.getId(), e);
-        }
-
-        return BookResponse.from(savedBook);
-    }
-
-    @Transactional
-    public Book createBookInTx(BookCreateRequest request, String uploadedImageUrl) {
-        if (bookRepository.existsByIsbn13(request.getIsbn())) {
-            throw new IllegalArgumentException("이미 존재하는 ISBN입니다: " + request.getIsbn());
+    public Book createBook(ParsingDto dto) {
+        if (bookRepository.existsByIsbn13(dto.getIsbn())) {
+            log.warn("이미 존재하는 ISBN입니다: {}", dto.getIsbn());
         }
 
         Publisher publisher = null;
-        if (StringUtils.hasText(request.getPublisher())) {
-            String publisherName = request.getPublisher().trim();
+        if (StringUtils.hasText(dto.getPublisher())) {
+            String publisherName = dto.getPublisher().trim();
             publisher = publisherRepository.findByName(publisherName)
-                    .orElseGet(() -> publisherRepository.save(Publisher.builder().name(publisherName).build()));
+                    .orElseGet(() -> publisherRepository.save(
+                            Publisher.builder().name(publisherName).build()
+                    ));
+        }
+
+        Integer matchedId = CategoryMapper.findCategoryId(dto.getTitle());
+        Category category = null;
+        if (matchedId != null) {
+            category = categoryRepository.findByCategoryId(matchedId).orElse(null);
         }
 
 
         Book newBook = Book.builder()
-                .isbn13((request.getIsbn()))
-                .title(request.getTitle())
-                .price(request.getPrice())
+                .isbn13(dto.getIsbn())
+                .title(dto.getTitle())
                 .publisher(publisher)
-                .publishedDate(request.getPublishedDate())
-                .image(uploadedImageUrl)
-                .content(request.getDescription())
-                .averageRating(0.0)
-                .reviewCount(0)
-                .salesVolume(0L)
+                .publishedDate(dto.getPubDate())
+                .price(parsePrice(dto.getPrice()))
+                .image(dto.getImageUrl())
+                .content(dto.getDescription())
                 .build();
 
         Book savedBook = bookRepository.save(newBook);
 
-        if (request.getAuthors() != null && !request.getAuthors().isEmpty()) {
-            Set<String> requestAuthorNames = request.getAuthors().stream()
-                    .map(String::trim)
-                    .filter(StringUtils::hasText)
-                    .collect(Collectors.toSet());
-
-            if (!requestAuthorNames.isEmpty()) {
-                List<Author> existingAuthors = new ArrayList<>(authorRepository.findByNameIn(requestAuthorNames));
-                Set<String> existingAuthorNames = existingAuthors.stream()
-                        .map(Author::getName)
-                        .collect(Collectors.toSet());
-
-                List<Author> newAuthors = requestAuthorNames.stream()
-                        .filter(name -> !existingAuthorNames.contains(name))
-                        .map(name -> Author.builder().name(name).build())
-                        .toList();
-
-                if (!newAuthors.isEmpty()) {
-                    authorRepository.saveAll(newAuthors);
-                    existingAuthors.addAll(newAuthors);
-                }
-
-                List<BookAuthor> bookAuthors = existingAuthors.stream()
-                        .map(author -> BookAuthor.builder()
-                                .book(savedBook)
-                                .author(author)
-                                .build())
-                        .toList();
-
-                bookAuthorRepository.saveAll(bookAuthors);
-                savedBook.getBookAuthors().addAll(bookAuthors);
-            }
+        if (category != null) {
+            BookCategory.Pk pk = new BookCategory.Pk(savedBook.getId(), category.getCategoryId());
+            BookCategory bookCategory = new BookCategory(pk, savedBook, category);
+            bookCategoryRepository.save(bookCategory);
+            log.info("저장 완료 : {}",bookCategory);
         }
 
-        try {
-            bookSearchService.indexBook(savedBook);
-        }catch (Exception e){
-            log.error("Elasticsearch 인덱싱 실패 (도서 등록 성공)", e);
+        if (StringUtils.hasText(dto.getAuthor())) {
+            String[] authorNames = dto.getAuthor().split(",");
+            for (String name : authorNames) {
+                String trimmedName = name.trim();
+                if (trimmedName.isEmpty()) continue;
+
+                // 작가 조회 없으면 생성
+                Author author = authorRepository.findByName(trimmedName)
+                        .orElseGet(() -> authorRepository.save(
+                                Author.builder().name(trimmedName).build()
+                        ));
+
+                // BookAuthor 연결 관계 저장
+                BookAuthor bookAuthor = BookAuthor.builder()
+                        .book(savedBook)
+                        .author(author)
+                        .build();
+
+                bookAuthorRepository.save(bookAuthor);
+            }
         }
 
         return savedBook;
@@ -266,75 +201,13 @@ public class BookService {
     }
 
     // 책 업데이트
+    @Transactional // 💡 트랜잭션 적용
     public BookResponse updateBook(Long id, BookUpdateRequest request) {
-        Book savedBook = self.updateBookInTx(id, request);
-        try {
-            bookSearchService.indexBook(savedBook);
-        } catch (Exception e) {
-            log.error("Elasticsearch 갱신 실패", e);
-        }
-        String cachedKey = "bookDetail::" + id;
-        try {
-            redisTemplate.delete(cachedKey);
-        } catch (Exception e) {
-            log.error("Redis 캐시 삭제 실패", e);
-        }
+        BookResponse existingBook = BookResponse.from(bookRepository.findById(id).orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다.")));
 
-        return BookResponse.from(savedBook);
-    }
-    @Transactional
-    public Book updateBookInTx(Long id, BookUpdateRequest request) {
-        log.debug("도서 수정 요청 시작 - ID:{}", id);
-        Book existingBook = bookRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다."));
+        existingBook.price();
 
-        if (request.getPrice() != null) existingBook.setPrice(request.getPrice());
-        if (StringUtils.hasText(request.getTitle())) existingBook.setTitle(request.getTitle());
-        if (StringUtils.hasText(request.getIsbn())) existingBook.setIsbn13(request.getIsbn());
-        if (StringUtils.hasText(request.getDescription())) existingBook.setContent(request.getDescription());
-        if (StringUtils.hasText(request.getPublishedDate())) existingBook.setPublishedDate(request.getPublishedDate());
-
-        if (StringUtils.hasText(request.getImage())){
-            existingBook.setImage(request.getImage());
-        }
-
-        if (request.getAuthors() != null) {
-            // 4-1. 기존 저자 연결 끊기 (orphanRemoval=true 설정 시 DB에서도 삭제됨)
-            existingBook.getBookAuthors().clear();
-
-            Set<String> requestAuthorNames = request.getAuthors().stream()
-                    .map(String::trim)
-                    .filter(StringUtils::hasText)
-                    .collect(Collectors.toSet());
-
-            if (!requestAuthorNames.isEmpty()) {
-                List<Author> existingAuthors = new ArrayList<>(authorRepository.findByNameIn(requestAuthorNames));
-                Set<String> foundAuthorNames = existingAuthors.stream()
-                        .map(Author::getName)
-                        .collect(Collectors.toSet());
-
-                List<Author> newAuthors = requestAuthorNames.stream()
-                        .filter(name -> !foundAuthorNames.contains(name))
-                        .map(name -> Author.builder().name(name).build())
-                        .toList();
-
-                if (!newAuthors.isEmpty()) {
-                    authorRepository.saveAll(newAuthors);
-                    existingAuthors.addAll(newAuthors);
-                }
-
-                for (Author author : existingAuthors) {
-                    BookAuthor bookAuthor = BookAuthor.builder()
-                            .book(existingBook)
-                            .author(author)
-                            .build();
-
-                    existingBook.getBookAuthors().add(bookAuthor);
-                }
-            }
-        }
-
-        return bookRepository.save(existingBook);
+        return  existingBook;
     }
 
     // 책 삭제
@@ -581,7 +454,7 @@ public class BookService {
             List<Object[]> batchArgs = new ArrayList<>();
 
             for (Book book : targetBooks) {
-                Integer matchedId = CategoryMapper.findCategoryId(book.getTitle(), book.getContent());
+                Integer matchedId = CategoryMapper.findCategoryId(book.getTitle());
 
                 if (matchedId != null && categoryMap.containsKey(matchedId)) {
                     batchArgs.add(new Object[]{book.getId(), matchedId});
