@@ -79,7 +79,8 @@ class ReviewServiceImplTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(reviewService, "self", self);
-
+        lenient().when(orderFeignClient.hasPurchasedBook(anyLong(), anyLong()))
+                .thenReturn(true);
         testBook = Book.builder().id(BOOK_ID).title("Test Book").build();
         testReview = new Review(5, "Content", testBook, MEMBER_ID);
         ReflectionTestUtils.setField(testReview, "id", REVIEW_ID);

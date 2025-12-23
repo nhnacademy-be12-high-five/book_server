@@ -101,7 +101,7 @@ public class DataParsingService {
             // 병렬 스트림(parallelStream)을 써서 속도를 획기적으로 높입니다.
             // =========================================================
             log.info("🖼️ 이미지 업로드 시작 (배치 {} ~ {})...", i, end);
-            batchDtos.parallelStream().forEach(dto -> {
+            batchDtos.forEach(dto -> {
                 try {
                     if (StringUtils.hasText(dto.getImageUrl())) {
                         String newUrl = minioImageService.uploadImageFromUrl(dto.getImageUrl(), dto.getIsbn());
@@ -192,41 +192,62 @@ public class DataParsingService {
      * 핵심 기술: ON DUPLICATE KEY UPDATE (있으면 수정, 없으면 입력)
      */
     private void bulkUpsertBooks(List<ParsingDto> dtos, Map<String, Publisher> publisherMap) {
-        String sql = "INSERT INTO book (isbn13, title, publisher_id, price, content, image_url, published_date) " +
-                "VALUES (?, ?, ?, ?, ?, ?, ?) " +
-                "ON DUPLICATE KEY UPDATE " +
-                "title = VALUES(title), " +
-                "publisher_id = VALUES(publisher_id), " +
-                "price = VALUES(price), " +
-                "content = VALUES(content), " +
-                "image_url = VALUES(image_url), " +
-                "published_date = VALUES(published_date)";
+
+        String sql = """
+        INSERT INTO book (
+            isbn13,
+            title,
+            publisher_id,
+            price,
+            image_url,
+            content,
+            published_date,
+            review_count,
+            average_rating,
+            sales_volume
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE
+            title = VALUES(title),
+            publisher_id = VALUES(publisher_id),
+            price = VALUES(price),
+            image_url = VALUES(image_url),
+            content = VALUES(content),
+            published_date = VALUES(published_date)
+        """;
 
         jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
+
             @Override
             public void setValues(PreparedStatement ps, int i) throws SQLException {
                 ParsingDto dto = dtos.get(i);
-                String pubName = dto.getPublisher() != null ? dto.getPublisher().trim() : "";
-                Publisher pub = publisherMap.get(pubName);
 
-                String finalUrl = convertToFrontendImageUrl(dto.getImageUrl());
+                Publisher pub = publisherMap.get(
+                        dto.getPublisher() != null ? dto.getPublisher().trim() : ""
+                );
 
-                ps.setString(1, dto.getIsbn().trim());
-                ps.setString(2, dto.getTitle());
+                ps.setString(1, dto.getIsbn().trim());                 // isbn13
+                ps.setString(2, dto.getTitle());                       // title
 
-                // 🔥 [수정됨] 출판사 ID 안전하게 넣기
                 if (pub != null && pub.getPublisherId() != null) {
                     ps.setLong(3, pub.getPublisherId());
                 } else {
-                    // 출판사가 없거나 ID가 없으면 NULL (DB 컬럼이 Not Null이면 에러남 -> 이 경우 기본값 넣어야 함)
                     ps.setNull(3, Types.BIGINT);
                 }
 
-                ps.setInt(4, parsePrice(dto.getPrice()));
-                ps.setString(5, dto.getDescription());
-                ps.setString(6, convertToFrontendImageUrl(dto.getImageUrl()));
-               String pubDate = dto.getPubDate();
-                ps.setString(7, pubDate != null ? pubDate.toString() : LocalDate.now().toString());
+                ps.setInt(4, parsePrice(dto.getPrice()));              // price
+                ps.setString(5, convertToFrontendImageUrl(dto.getImageUrl())); // image_url
+                ps.setString(6, dto.getDescription());                 // content
+
+                // TWO_PBLICTE_DE → published_date
+                ps.setString(7,
+                        dto.getPubDate() != null ? dto.getPubDate() : LocalDate.now().toString()
+                );
+
+                // 🔥 NOT NULL 기본값
+                ps.setInt(8, 0);       // review_count
+                ps.setDouble(9, 0.0);  // average_rating
+                ps.setLong(10, 0L);    // sales_volume
             }
 
             @Override
@@ -394,7 +415,7 @@ public class DataParsingService {
                     Book book = bookMap.get(dto.getIsbn().trim());
                     if (book != null) {
                         String pubDate = dto.getPubDate();
-                        String newDateStr = pubDate != null ? pubDate.toString() : LocalDate.now().toString();
+                        String newDateStr = pubDate != null ? pubDate : LocalDate.now().toString();
                         if (!newDateStr.equals(book.getPublishedDate())) {
                             book.setPublishedDate(newDateStr);
                             dirtyBooks.add(book);
