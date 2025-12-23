@@ -3,6 +3,7 @@ package com.nhnacademy.book_server.service;
 import com.nhnacademy.book_server.dto.KakaoBookSearchResponse;
 import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.response.GoogleBookResponse;
+import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.service.search.GeminiTextClientService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,23 +36,23 @@ public class BookRegistrationService {
     @Value("${kakao.api.key}")
     private String kakaoApiKey;
 
-    public BookCreateRequest getBookInfoWithAi(String isbn) {
+    public ParsingDto getBookInfoWithAi(String isbn) {
         if (isbn == null || !isbn.matches("^(\\d{10}|\\d{13})$")) {
             throw new IllegalArgumentException("유효하지 않은 ISBN 형식입니다: " + isbn);
         }
 
-        BookCreateRequest request = null;
+        ParsingDto dto = null;
 
         try {
-            request = searchKakao(isbn);
+            dto = searchKakao(isbn);
         } catch (Exception e) {
             log.warn("카카오 검색 실패 또는 결과 없음. 구글 검색으로 전환합니다. ISBN: {}", isbn);
         }
 
         // 2. [2순위] 카카오에 없으면 구글 API 검색 시도
-        if (request == null) {
+        if (dto == null) {
             try {
-                request = searchGoogle(isbn);
+                dto = searchGoogle(isbn);
             } catch (Exception e) {
                 log.error("구글 검색 실패. ISBN: {}", isbn, e);
                 throw new RuntimeException("해당 ISBN으로 도서를 찾을 수 없습니다: " + isbn);
@@ -59,16 +60,16 @@ public class BookRegistrationService {
         }
 
         String kyoboImageUrl = "https://contents.kyobobook.co.kr/sih/fit-in/200x0/pdt/" + isbn + ".jpg";
-        request.setImage(kyoboImageUrl);
+        dto.setImageUrl(kyoboImageUrl);
 
         // Gemini에게 서평 작성 요청
-        String aiGeneratedContent = enhanceDescriptionWithGemini(request.getTitle(), request.getAuthors(), request.getDescription());
-        request.setDescription(aiGeneratedContent);
+        String aiGeneratedContent = enhanceDescriptionWithGemini(dto.getTitle(), dto.getAuthor(), dto.getDescription());
+        dto.setDescription(aiGeneratedContent);
 
-        return request;
+        return dto;
     }
 
-    private BookCreateRequest searchKakao(String isbn) {
+    private ParsingDto searchKakao(String isbn) {
         // 헤더 설정 (KakaoAK)
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "KakaoAK " + kakaoApiKey);
@@ -95,27 +96,29 @@ public class BookRegistrationService {
         // 첫 번째 결과 매핑
         KakaoBookSearchResponse.Document doc = body.getDocuments().get(0);
 
-        BookCreateRequest req = new BookCreateRequest();
-        req.setIsbn(isbn);
-        req.setTitle(doc.getTitle());
-        req.setPublisher(StringUtils.hasText(doc.getPublisher()) ? doc.getPublisher() : "출판사 정보 없음");
+        ParsingDto dto = new ParsingDto();
+        dto.setIsbn(isbn);
+        dto.setTitle(doc.getTitle());
+        dto.setPublisher(StringUtils.hasText(doc.getPublisher()) ? doc.getPublisher() : "출판사 정보 없음");
 
         // 날짜 포맷 (ISO 8601 -> YYYY-MM-DD)
-        req.setPublishedDate(formatDate(doc.getDatetime()));
+        dto.setPubDate(formatDate(doc.getDatetime()));
 
         // 가격 (카카오는 정가를 제공함)
-        req.setPrice(doc.getPrice() != null ? doc.getPrice() : 0);
+        dto.setPrice(doc.getPrice() != null ? String.valueOf(doc.getPrice()) : "0");
 
-        req.setAuthors(doc.getAuthors() != null ? doc.getAuthors() : new ArrayList<>());
+        if (doc.getAuthors() != null && !doc.getAuthors().isEmpty()) {
+            dto.setAuthor(String.join(", ", doc.getAuthors()));
+        }
 
         // 카카오의 contents는 줄거리 요약이 포함되어 있어 품질이 좋음
-        req.setDescription(doc.getContents());
+        dto.setDescription(doc.getContents());
 
         log.info("카카오 API 검색 성공: {}", doc.getTitle());
-        return req;
+        return dto;
     }
 
-    private BookCreateRequest searchGoogle(String isbn) {
+    private ParsingDto searchGoogle(String isbn) {
         URI uri = UriComponentsBuilder.fromHttpUrl(GOOGLE_BOOKS_API_URL)
                 .queryParam("q", "isbn:" + isbn)
                 .build()
@@ -129,27 +132,28 @@ public class BookRegistrationService {
 
         GoogleBookResponse.VolumeInfo info = response.getItems().get(0).getVolumeInfo();
 
-        BookCreateRequest req = new BookCreateRequest();
-        req.setIsbn(isbn);
-        req.setTitle(info.getTitle());
-        req.setPublisher(StringUtils.hasText(info.getPublisher()) ? info.getPublisher() : "출판사 정보 없음");
-        req.setPublishedDate(formatDate(info.getPublishedDate()));
-        req.setPrice(0); // 구글은 가격 정보가 없는 경우가 많음
-        req.setAuthors(info.getAuthors() != null ? info.getAuthors() : new ArrayList<>());
-        req.setDescription(info.getDescription());
+        ParsingDto dto = new ParsingDto();
+        dto.setIsbn(isbn);
+        dto.setTitle(info.getTitle());
+        dto.setPublisher(StringUtils.hasText(info.getPublisher()) ? info.getPublisher() : "출판사 정보 없음");
+        dto.setPubDate(formatDate(info.getPublishedDate()));
+        dto.setPrice("0"); // 구글은 가격 정보가 없는 경우가 많음
+        if (info.getAuthors() != null && !info.getAuthors().isEmpty()) {
+            dto.setAuthor(String.join(", ", info.getAuthors()));
+        }
+        dto.setDescription(info.getDescription());
 
         log.info("구글 API 검색 성공: {}", info.getTitle());
-        return req;
+        return dto;
     }
 
-    private String enhanceDescriptionWithGemini(String title, List<String> authors, String originalDescription) {
-        String authorStr = (authors != null && !authors.isEmpty()) ? String.join(", ", authors) : "미상";
+    private String enhanceDescriptionWithGemini(String title, String author, String originalDescription) {
 
         StringBuilder prompt = new StringBuilder();
         // 해외 도서(구글 검색 결과)일 수도 있으므로 '한국어로 작성해달라'는 요청을 명시
         prompt.append("너는 전문 도서 MD야. 다음 책에 대해 독자의 구매욕구를 자극하는 상세한 서평 스타일의 소개글을 **한국어로** 작성해줘.\n");
         prompt.append("책 제목: ").append(title).append("\n");
-        prompt.append("저자: ").append(authorStr).append("\n");
+        prompt.append("저자: ").append(author != null ? author : "미상").append("\n");
 
         if (StringUtils.hasText(originalDescription)) {
             prompt.append("참고할 원문 설명: ").append(originalDescription).append("\n");
