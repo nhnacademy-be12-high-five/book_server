@@ -123,7 +123,7 @@ public record BookResponse(
         // 출판사 정보 처리
         String publisherName = (book.getPublisher() != null) ? book.getPublisher().getName() : null;
 
-        // 카테고리 리스트 처리 (N:M 대응) ✅
+        // 카테고리 리스트 처리 (N:M 대응)
         List<CategoryResponse> categoryList = Collections.emptyList();
 
         if (bookCategories != null && !bookCategories.isEmpty()) {
