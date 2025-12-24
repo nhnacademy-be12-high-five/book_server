@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.nhnacademy.book_server.dto.response.TagResponse;
 import com.nhnacademy.book_server.entity.*;
+import com.nhnacademy.book_server.mapper.CategoryMapper;
+import lombok.Builder;
 import lombok.Getter;
 
 import java.util.Collections;
@@ -11,6 +13,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
+@Builder
 public record BookResponse(
         @JsonProperty("id") Long bookId,
         String title,
@@ -127,6 +130,22 @@ public record BookResponse(
         List<CategoryResponse> categoryList = Collections.emptyList();
 
         if (bookCategories != null && !bookCategories.isEmpty()) {
+
+            for (BookCategory bookCategory:bookCategories){
+
+                // 자식 카테고리를 가져온다음
+                int child=bookCategory.getCategory().getCategoryId();
+                String childName=bookCategory.getCategory().getCategoryName();
+
+                categoryList.add(new CategoryResponse(child,childName));
+
+                // 부모 카테고리를 가져옴
+                int parentId = CategoryMapper.getParentId(child);
+                String parentName=bookCategory.getCategory().getCategoryName();
+
+                categoryList.add(new CategoryResponse(parentId,parentName));
+            }
+
             categoryList = bookCategories.stream()
                     .map(bc -> new CategoryResponse(
                             bc.getCategory().getCategoryId(),

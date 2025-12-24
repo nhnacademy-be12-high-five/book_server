@@ -55,7 +55,7 @@ public class Book {
 
     // 초판 발행일
     // PBLICTE_DE : 초판 발행일
-    private LocalDate dateTime;
+    private String dateTime;
 
     // ADTION_SMBL_NM : 판차 기호명
     private String edition;

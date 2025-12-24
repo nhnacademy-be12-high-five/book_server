@@ -70,7 +70,6 @@ public class UserBookController implements UserBookSwagger {
     @GetMapping("/books/popular")
     public ResponseEntity<List<BookResponse>> getWeeklyPopular(@RequestParam(defaultValue = "5") int size){
         List<BookResponse> books = bookService.getWeeklyPopularBooks(size);
-//        System.out.println("컨트롤러 호출됨! 찾은 책 개수: " + books.size());
         return ResponseEntity.ok(books);
     }
 
@@ -100,9 +99,6 @@ public class UserBookController implements UserBookSwagger {
         bookService.migrateCategories();
         return ResponseEntity.ok("2000권의 도서 카테고리 매핑이 완료되었습니다.");
     }
-
-    // UserBookController.java 안에 추가하세요
-
 
     @GetMapping("/books/safe-cleanup")
     public ResponseEntity<String> safeCleanup() {

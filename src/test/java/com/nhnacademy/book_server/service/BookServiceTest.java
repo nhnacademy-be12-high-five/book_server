@@ -1,90 +1,105 @@
-//package com.nhnacademy.book_server.service;
-//
-//import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
-//import com.nhnacademy.book_server.entity.*;
-//import com.nhnacademy.book_server.parser.ParsingDto;
-//import com.nhnacademy.book_server.repository.AuthorRepository;
-//import com.nhnacademy.book_server.repository.BookAuthorRepository;
-//import com.nhnacademy.book_server.repository.BookRepository;
-//import com.nhnacademy.book_server.repository.PublisherRepository;
-//import org.junit.jupiter.api.DisplayName;
-//import org.junit.jupiter.api.Test;
-//import org.junit.jupiter.api.extension.ExtendWith;
-//import org.mockito.InjectMocks;
-//import org.mockito.Mock;
-//import org.mockito.junit.jupiter.MockitoExtension;
-//
-//import java.util.List;
-//import java.util.Optional;
-//
-//import static org.assertj.core.api.Assertions.assertThat;
-//import static org.assertj.core.api.Assertions.assertThatThrownBy;
-//import static org.mockito.ArgumentMatchers.any;
-//import static org.mockito.BDDMockito.given;
-//import static org.mockito.Mockito.*;
-//
-//@ExtendWith(MockitoExtension.class) // Mockito 환경에서 실행 (속도가 빠름)
-//class BookServiceTest {
-//
-//    @InjectMocks
-//    private BookService bookService; // Mock 객체들이 주입될 대상
-//
-//    @Mock
-//    private BookRepository bookRepository;
-//    @Mock
-//    private PublisherRepository publisherRepository;
-//    @Mock
-//    private AuthorRepository authorRepository;
-//    @Mock
-//    private BookAuthorRepository bookAuthorRepository;
-//
-//    @Test
-//    @DisplayName("도서 생성")
-//    void createBook(){
-//        ParsingDto dto=new ParsingDto();
-//        dto.setIsbn("1234567789012");
-//        dto.setTitle("title");
-//        dto.setPrice("15000");
-//        dto.setPublisher("Publisher");
-//        dto.setAuthor("Author");
-//        // isbn 중복 체크
-//        given(bookRepository.existsByIsbn13(any())).willReturn(true);
-//
-//        // 3. 책 저장시 반환될 객체
-//        Book savedBook = Book.builder()
-//                .id(1L)
-//                .title("Test Title")
-//                .price(15000)
-//                .build();
-//
-//        Publisher publisher= Publisher.builder()
-//                .PublisherId(1L)
-//                .name("publisher")
-//                .build();
-//
-//        Author author=Author.builder()
-//                .id(1L)
-//                .name("name")
-//                .build();
-//
-//        BookAuthor bookAuthor=BookAuthor.builder()
-//                .book(savedBook)
-//                .author(author)
-//                .build();
-//
-//        given(bookRepository.save(any(Book.class))).willReturn(savedBook);
-//        given(publisherRepository.save(any(Publisher.class))).willReturn(publisher);
-//        given(authorRepository.save(any(Author.class))).willReturn(author);
-//         given(bookAuthorRepository.save(any(BookAuthor.class))).willReturn(bookAuthor);
-//        //
-//        Book result1=bookService.createBook(dto);
-//        assertThat(result1.getTitle()).isEqualTo("Test Title");
-//
-//        verify(bookRepository, times(1)).save(any(Book.class));
-//        verify(publisherRepository, times(1)).save(any(Publisher.class)); // 출판사 저장됨
-//        verify(authorRepository,times(1)).save(any(Author.class));
-//    }
-//
+
+
+package com.nhnacademy.book_server.service;
+
+import com.nhnacademy.book_server.controller.AdminBookController;
+import com.nhnacademy.book_server.dto.BookResponse;
+import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
+import com.nhnacademy.book_server.entity.*;
+import com.nhnacademy.book_server.parser.ParsingDto;
+import com.nhnacademy.book_server.repository.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willReturn;
+import static org.mockito.Mockito.*;
+
+@WebMvcTest(BookService.class)
+class BookServiceTest {
+
+    @InjectMocks
+    private BookService bookService; // Mock 객체들이 주입될 대상
+
+    @Mock
+    private BookRepository bookRepository;
+
+    @Mock
+    private PublisherRepository publisherRepository;
+
+    @Mock
+    private AuthorRepository authorRepository;
+
+    @Mock
+    private BookAuthorRepository bookAuthorRepository;
+
+    @Mock
+    private CategoryRepository categoryRepository;
+
+    @Mock
+    private BookCategoryRepository bookCategoryRepository;
+
+    @Test
+    @DisplayName("도서 생성")
+    void createBook(){
+
+        ParsingDto dto=new ParsingDto();
+        dto.setIsbn("9876543210");
+        dto.setTitle("title");
+        dto.setPrice("15000");
+        dto.setPublisher("Publisher");
+        dto.setAuthor("Author");
+        // isbn 중복 체크
+        given(bookRepository.existsByIsbn13(any())).willReturn(true);
+
+        // 3. 책 저장시 반환될 객체
+        Book savedBook = Book.builder()
+                .id(1L)
+                .title("Test Title")
+                .price(15000)
+                .build();
+
+        Publisher publisher= Publisher.builder()
+                .PublisherId(1L)
+                .name("publisher")
+                .build();
+
+        Author author=Author.builder()
+                .id(1L)
+                .name("name")
+                .build();
+
+        BookAuthor bookAuthor=BookAuthor.builder()
+                .book(savedBook)
+                .author(author)
+                .build();
+
+        Category category=new Category();
+        category.setParentId(1);
+        category.setCategoryName("소설");
+        category.setCategoryId(2);
+        category.setDepth(2);
+
+        given(bookRepository.save(any(Book.class))).willReturn(savedBook);
+        given(publisherRepository.save(any(Publisher.class))).willReturn(publisher);
+        given(authorRepository.save(any(Author.class))).willReturn(author);
+        given(bookAuthorRepository.save(any(BookAuthor.class))).willReturn(bookAuthor);
+        given(categoryRepository.save(category)).willReturn(category);
+
+
+        Book result1=bookService.createBook(dto);
+        assertThat(result1.getTitle()).isEqualTo("Test Title");
+
+        verify(bookRepository, times(1)).save(any(Book.class));
+        verify(publisherRepository, times(1)).save(any(Publisher.class)); // 출판사 저장됨
+        verify(authorRepository,times(1)).save(any(Author.class));
+    }
+
 ////    @Test
 ////    @DisplayName("도서 전체 조회")
 ////    void findAllBooks() {
@@ -112,7 +127,7 @@
 //        given(bookRepository.findById(bookId)).willReturn(Optional.of(book));
 //
 //        // when
-//        Optional<Book> result = bookService.findBookById(bookId);
+//        BookResponse<Book> result = bookService.findBookById(bookId);
 //
 //        // then
 //        assertThat(result).isPresent();
@@ -196,4 +211,4 @@
 //        // deleteById는 호출되지 않아야 함
 //        verify(bookRepository, never()).deleteById(any());
 //    }
-//}
+}

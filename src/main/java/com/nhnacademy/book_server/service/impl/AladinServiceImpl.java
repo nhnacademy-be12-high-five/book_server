@@ -81,8 +81,9 @@ public class AladinServiceImpl implements AladinService {
 
                 return items; // 저장된 리스트 반환
             }
+        }
 
-        } catch (Exception e) {
+        catch (Exception e) {
             throw new RuntimeException("알라딘 API 오류: " + e.getMessage(), e);
         }
 

@@ -33,6 +33,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.web.authentication.rememberme.JdbcTokenRepositoryImpl;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -68,7 +69,6 @@ public class BookService {
 
     private final JdbcTemplate jdbcTemplate;
 
-
     @Lazy
     @Autowired
     private BookService self;
@@ -79,20 +79,22 @@ public class BookService {
         }
 
         Publisher publisher = null;
-        if (StringUtils.hasText(dto.getPublisher())) {
-            String publisherName = dto.getPublisher().trim();
-            publisher = publisherRepository.findByName(publisherName)
-                    .orElseGet(() -> publisherRepository.save(
-                            Publisher.builder().name(publisherName).build()
-                    ));
-        }
+
+        // 1. 출판사를 먼저 가져오고
+        String publisherName = dto.getPublisher().trim();
+
+        publisher = publisherRepository.findByName(publisherName)
+                .orElseGet(() -> publisherRepository.save(
+                        Publisher.builder().name(publisherName).build()
+        ));
 
         Integer matchedId = CategoryMapper.findCategoryId(dto.getTitle());
+
         Category category = null;
         if (matchedId != null) {
+            // 2. 카테고리 매핑
             category = categoryRepository.findByCategoryId(matchedId).orElse(null);
         }
-
 
         Book newBook = Book.builder()
                 .isbn13(dto.getIsbn())
@@ -107,34 +109,33 @@ public class BookService {
         Book savedBook = bookRepository.save(newBook);
 
         if (category != null) {
+            // 책과 카테고리 연결테이블이니까 책 아이디랑 카테고리 아이디를 가져옴
             BookCategory.Pk pk = new BookCategory.Pk(savedBook.getId(), category.getCategoryId());
             BookCategory bookCategory = new BookCategory(pk, savedBook, category);
             bookCategoryRepository.save(bookCategory);
-            log.info("저장 완료 : {}",bookCategory);
+            log.info("저장 완료 : {}", bookCategory);
         }
 
-        if (StringUtils.hasText(dto.getAuthor())) {
-            String[] authorNames = dto.getAuthor().split(",");
-            for (String name : authorNames) {
-                String trimmedName = name.trim();
-                if (trimmedName.isEmpty()) continue;
+        // 2. 작가를 가져옴
+        String[] authorNames = dto.getAuthor().split(",");
+        for (String name : authorNames) {
+            String trimmedName = name.trim();
+            if (trimmedName.isEmpty()) continue;
 
-                // 작가 조회 없으면 생성
-                Author author = authorRepository.findByName(trimmedName)
-                        .orElseGet(() -> authorRepository.save(
-                                Author.builder().name(trimmedName).build()
-                        ));
+            // 작가 조회 없으면 생성
+            Author author = authorRepository.findByName(trimmedName)
+                    .orElseGet(() -> authorRepository.save(
+                            Author.builder().name(trimmedName).build()
+                    ));
 
-                // BookAuthor 연결 관계 저장
-                BookAuthor bookAuthor = BookAuthor.builder()
-                        .book(savedBook)
-                        .author(author)
-                        .build();
+            // BookAuthor 연결 관계 저장
+            BookAuthor bookAuthor = BookAuthor.builder()
+                    .book(savedBook)
+                    .author(author)
+                    .build();
 
-                bookAuthorRepository.save(bookAuthor);
-            }
+            bookAuthorRepository.save(bookAuthor);
         }
-
         return savedBook;
     }
 
@@ -156,7 +157,6 @@ public class BookService {
         incrementViewCount(id);
 
         // [2] 데이터 조회는 캐시 적용된 메서드 호출
-        // 'this.getCache...'가 아니라 'self.getCache...'로 호출해야 프록시(캐시)가 작동함!
         return self.getCachedBookDetail(id);
     }
 
@@ -200,23 +200,15 @@ public class BookService {
                 .collect(Collectors.toList());
     }
 
-    // 책 업데이트
+    // 책 업데이트 -> 가격만 수정할수있도록
     @Transactional // 💡 트랜잭션 적용
     public BookResponse updateBook(Long id, BookUpdateRequest request) {
         BookResponse existingBook = BookResponse.from(bookRepository.findById(id).orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다.")));
 
         existingBook.price();
 
+
         return  existingBook;
-    }
-
-    // 책 삭제
-    public void deleteBook(Long id, Long memberId) {
-        if (!bookRepository.existsById(id)) {
-            throw new RuntimeException("삭제할 아이디가 없습니다.");
-        }
-
-        bookRepository.deleteById(id);
     }
 
     private Integer parsePrice(String priceStr) {
@@ -231,6 +223,7 @@ public class BookService {
     // bulk api 조회
     // 장바구니에서 책을 조회할때 책을 1번만 호출하도록 하는 API
     // Service Layer
+
     public List<GetBookResponse> getBooksBulk(List<Long> bookIds) {
         List<Book> books = bookRepository.findAllById(bookIds);
 
@@ -243,23 +236,6 @@ public class BookService {
                         book.getImage()                // 이미지
                 ))
                 .collect(Collectors.toList());
-    }
-
-    // 재고 확인 (단순 조회이므로 readOnly)
-    @Transactional(readOnly = true)
-    public int getBookStock(Long bookId) {
-        // 1. 전체 엔티티를 다 가져오는 건 낭비일 수 있음.
-        // 단순히 재고만 확인할 거라면 Repository에서 재고 컬럼만 가져오는 쿼리를 짜는 게 성능상 베스트.
-        // 하지만 일단 기존 로직을 유지하면서 Service로 옮긴다면:
-
-        return bookRepository.findById(bookId)
-                .map(book -> {
-                    // 만약 getStockCheckedAt이 Boolean이 아니라 날짜라거나 로직이 있다면 여기서 처리
-                    // 예시: 재고 필드가 따로 있다면 book.getStock() 반환
-                    boolean inStock = Boolean.TRUE.equals(book.getStockCheckedAt());
-                    return inStock ? 1 : 0;
-                })
-                .orElse(0); // 책이 없으면 재고 0 처리
     }
 
     public void incrementViewCount(Long bookId) {
@@ -303,28 +279,31 @@ public class BookService {
     public List<BookResponse> getWeeklyPopularBooks(int limit) {
         String weeklyKey = "weekly_ranking";
 
-        String today = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
+        if (!redisTemplate.hasKey(weeklyKey)){
+            log.info("캐시가 존재하지 않음 : {}",weeklyKey + "x");
 
-        List<String> recentKeys = new ArrayList<>();
-        for (int i = 0; i < 7; i++) {
-            String date = LocalDate.now().minusDays(i).format(DateTimeFormatter.BASIC_ISO_DATE);
-            recentKeys.add("daily_ranking:" + date);
-            log.info("추가됨 : {}",date);
-        }
+            String today = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
 
-        if (!recentKeys.isEmpty()) {
-            // 첫 번째 키를 기준으로 나머지 키들과 합산
-            String firstKey = recentKeys.get(0);
-            List<String> otherKeys = recentKeys.subList(1, recentKeys.size());
-
-            if (otherKeys.isEmpty()) {
-                // 키가 하나뿐이면 그냥 복사하거나 그대로 사용 (여기선 생략 가능하지만 안전하게 복사)
-                redisTemplate.opsForZSet().unionAndStore(firstKey, Collections.emptyList(), weeklyKey);
-            } else {
-                redisTemplate.opsForZSet().unionAndStore(firstKey, otherKeys, weeklyKey);
+            List<String> recentKeys = new ArrayList<>();
+            for (int i = 0; i < 7; i++) {
+                String date = LocalDate.now().minusDays(i).format(DateTimeFormatter.BASIC_ISO_DATE);
+                recentKeys.add("daily_ranking:" + date);
+                log.info("추가됨 : {}",date);
             }
-            // 계산된 키는 10분 정도만 유지 (잦은 연산 방지)
-            redisTemplate.expire(weeklyKey, Duration.ofMinutes(10));
+
+            if (!recentKeys.isEmpty()) {
+                // 첫 번째 키를 기준으로 나머지 키들과 합산
+                String firstKey = recentKeys.get(0);
+                List<String> otherKeys = recentKeys.subList(1, recentKeys.size());
+
+                if (otherKeys.isEmpty()) {
+                    redisTemplate.opsForZSet().unionAndStore(firstKey, Collections.emptyList(), weeklyKey);
+                } else {
+                    redisTemplate.opsForZSet().unionAndStore(firstKey, otherKeys, weeklyKey);
+                }
+                // 계산된 키는 10분 정도만 유지 (잦은 연산 방지)
+                redisTemplate.expire(weeklyKey, Duration.ofMinutes(10));
+            }
         }
 
         Set<String> topBookIds = redisTemplate.opsForZSet().reverseRange(weeklyKey, 0, limit - 1);
@@ -423,7 +402,6 @@ public class BookService {
 
         BookCategory bookCategory = new BookCategory(pk, book, category);
         bookCategoryRepository.save(bookCategory);
-
     }
 
     // 책과 카테고리 아이디로 매핑

@@ -7,6 +7,8 @@ import java.util.Map;
 public class CategoryMapper {
     private static final Map<Integer, List<String>> CATEGORY_RULES = new HashMap<>();
 
+    private static final Map<Integer, Integer> PARENT_MAP = new HashMap<>();
+
     static {
         // [중요] 키워드를 쪼개고 다양하게 추가했습니다.
 
@@ -81,24 +83,32 @@ public class CategoryMapper {
     }
 
     public static int getParentId(int categoryId) {
-        if (categoryId >= 1 && categoryId <= 7)
-            return 0; // 대분류
+        // 1~7번은 그 자체로 대분류이므로 부모가 0 (혹은 자기 자신)
+        if (categoryId >= 1 && categoryId <= 7) return 0;
 
-        if (categoryId >= 8 && categoryId <= 14) {
-            return categoryId - 7;
-        }
-        return 1; // 기본값
+        // 맵에 등록된 부모 ID 반환, 없으면 기본값(예: 1)
+        return PARENT_MAP.getOrDefault(categoryId, 1);
     }
 
     public static Integer findCategoryId(String title) {
-        // 제목과 설명을 합쳐서 소문자로 변환 (검색 확률 높임)
+
+        if (title == null || title.isEmpty()) {
+            return null;
+        }
+
+        String lowerTitle = title.toLowerCase().replace(" ","");
 
         // 1. 소분류(8~14)부터 먼저 검색 (더 구체적이기 때문)
         for (int i = 8; i <= 14; i++) {
             List<String> keywords = CATEGORY_RULES.get(i);
             if (keywords == null) continue;
 
-
+            // [추가된 로직] 키워드가 제목에 포함되어 있는지 확인
+            for (String keyword : keywords) {
+                if (lowerTitle.contains(keyword)) {
+                    return i; // 매칭된 카테고리 ID 반환
+                }
+            }
         }
 
         // 2. 소분류 매칭이 없으면 대분류(1~7) 검색
@@ -106,6 +116,12 @@ public class CategoryMapper {
             List<String> keywords = CATEGORY_RULES.get(i);
             if (keywords == null) continue;
 
+            // [추가된 로직]
+            for (String keyword : keywords) {
+                if (lowerTitle.contains(keyword)) {
+                    return i;
+                }
+            }
         }
 
         return null; // 매칭되는 카테고리 없음
