@@ -1,8 +1,10 @@
 package com.nhnacademy.book_server.service.search;
 
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -15,10 +17,12 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class GeminiTextClientServiceImpl implements GeminiTextClientService {
 
     @Value("${gemini.api-key}")
@@ -28,15 +32,16 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
 
     /**
      *   AI 호출 폭주 방지 캐시
-     * - 동일 prompt에 대한 성공 응답: 30초 캐시
+     * - 동일 prompt에 대한 성공 응답: 6일 캐시
      * - 429/403 등 실패 응답도: 15초 캐시(폭주 방지)
      */
-    private static final Duration SUCCESS_TTL = Duration.ofSeconds(30);
-    private static final Duration FAIL_TTL = Duration.ofSeconds(15);
+
     private static final long WARN_COOLDOWN_MS = 30_000L; // 30초
     private final AtomicLong lastWarnAt = new AtomicLong(0L);
+    private final StringRedisTemplate redisTemplate;
+    private static final long SUCCESS_TTL_SECONDS = 6 * 60 * 60; // 6시간
+    private static final long FAIL_TTL_SECONDS = 30;            // 실패는 30초
 
-    private final Map<String, CacheEntry> answerCache = new ConcurrentHashMap<>();
 
     private static class CacheEntry {
         final String value;
@@ -54,25 +59,21 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
 
     @Override
     public String generateAnswer(String prompt) {
-        // 1) 캐시 먼저 확인 (API 호출 차단)
-        CacheEntry cached = answerCache.get(prompt);
+        String key = normalizeKey(prompt);
+
+        // Redis 캐시 먼저 확인
+        String cached = redisTemplate.opsForValue().get(key);
         if (cached != null) {
-            if (!cached.isExpired()) {
-                return cached.value;
-            }
-            answerCache.remove(prompt);
+            return cached;
         }
 
-        String url =
-                "https://generativelanguage.googleapis.com/v1beta/models/"
-                        + "gemini-2.5-flash:generateContent"
-                        + "?key=" + apiKey;
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/"
+                + "gemini-2.5-flash:generateContent"
+                + "?key=" + apiKey;
 
         try {
             GeminiRequest request = new GeminiRequest(
-                    List.of(new Content(
-                            List.of(new Part(prompt))
-                    ))
+                    List.of(new Content(List.of(new Part(prompt))))
             );
 
             HttpHeaders headers = new HttpHeaders();
@@ -84,22 +85,16 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
                     restTemplate.postForObject(url, entity, GeminiResponse.class);
 
             // 응답 검증
-            if (response == null ||
-                    response.getCandidates() == null ||
-                    response.getCandidates().isEmpty()) {
-                log.warn("Gemini 응답이 비어 있음.");
+            if (response == null || response.getCandidates() == null || response.getCandidates().isEmpty()) {
                 String msg = "AI 추천 기능은 현재 응답을 생성하지 못했습니다. 잠시 후 다시 이용해 주세요.";
-                answerCache.put(prompt, new CacheEntry(msg,
-                        System.currentTimeMillis() + FAIL_TTL.toMillis()));
+                redisTemplate.opsForValue().set(key, msg, 30, TimeUnit.SECONDS);
                 return msg;
             }
 
             Content c = response.getCandidates().get(0).getContent();
             if (c == null || c.getParts() == null || c.getParts().isEmpty()) {
-                log.warn("Gemini 응답에 content/parts 없음.");
                 String msg = "AI 추천 기능은 현재 응답을 생성하지 못했습니다. 잠시 후 다시 이용해 주세요.";
-                answerCache.put(prompt, new CacheEntry(msg,
-                        System.currentTimeMillis() + FAIL_TTL.toMillis()));
+                redisTemplate.opsForValue().set(key, msg, 30, TimeUnit.SECONDS);
                 return msg;
             }
 
@@ -108,17 +103,11 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
                     ? text
                     : "AI 추천 기능은 현재 응답을 생성하지 못했습니다. 잠시 후 다시 이용해 주세요.";
 
-            // 2) 성공 응답 캐시 저장
-            answerCache.put(prompt, new CacheEntry(answer,
-                    System.currentTimeMillis() + SUCCESS_TTL.toMillis()));
-
+            // 성공 응답 Redis 저장
+            redisTemplate.opsForValue().set(key, answer, 6, TimeUnit.HOURS);
             return answer;
-        }
 
-        // ------------------------ //
-        //        ★ 429 처리        //
-        // ------------------------ //
-        catch (HttpClientErrorException.TooManyRequests e) {
+        } catch (HttpClientErrorException.TooManyRequests e) { // 429
             long now = System.currentTimeMillis();
             long prev = lastWarnAt.get();
 
@@ -130,71 +119,32 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
                     "AI 추천 기능은 현재 요청량 제한으로 일시적으로 사용할 수 없습니다.\n"
                             + "도서 검색 및 목록 조회는 정상적으로 이용하실 수 있습니다.";
 
-            // 실패도 캐시 저장하고 있다면 그대로 유지
-            answerCache.put(prompt, new CacheEntry(msg,
-                    System.currentTimeMillis() + FAIL_TTL.toMillis()));
-
+            redisTemplate.opsForValue().set(key, msg, FAIL_TTL_SECONDS, TimeUnit.SECONDS);
             return msg;
-        }
 
-
-        // ------------------------ //
-        //        ★ 403 처리        //
-        // ------------------------ //
-        catch (HttpClientErrorException.Forbidden e) {
-            log.warn("Gemini 403 - 권한 거부(키 문제 가능). 메시지={}", e.getMessage());
-            String msg =
-                    "AI 추천 기능 설정 문제로 현재 사용할 수 없습니다.\n"
-                            + "(관리자: API 키 상태 확인 필요)";
-            answerCache.put(prompt, new CacheEntry(msg,
-                    System.currentTimeMillis() + FAIL_TTL.toMillis()));
+        } catch (HttpClientErrorException.Forbidden e) { // 403
+            String msg = "AI 추천 기능 인증에 문제가 발생했습니다. 관리자에게 문의해 주세요.";
+            redisTemplate.opsForValue().set(key, msg, FAIL_TTL_SECONDS, TimeUnit.SECONDS);
             return msg;
-        }
 
-        // ------------------------ //
-        //        ★ 기타 4xx        //
-        // ------------------------ //
-        catch (HttpClientErrorException e) {
-            // 4xx는 운영에서 종종 발생하므로 stacktrace 폭주 방지
-            log.warn("Gemini 4xx 오류: status={}, message={}", e.getStatusCode(), e.getMessage());
-            String msg =
-                    "AI 추천 기능을 일시적으로 사용할 수 없습니다.\n"
-                            + "도서 검색 및 목록 조회는 정상적으로 이용하실 수 있습니다.";
-            answerCache.put(prompt, new CacheEntry(msg,
-                    System.currentTimeMillis() + FAIL_TTL.toMillis()));
+        } catch (HttpClientErrorException e) { // 4xx 나머지
+            String msg = "AI 추천 기능 호출 중 오류가 발생했습니다. 잠시 후 다시 이용해 주세요.";
+            redisTemplate.opsForValue().set(key, msg, FAIL_TTL_SECONDS, TimeUnit.SECONDS);
             return msg;
-        }
 
-        // ------------------------ //
-        //        ★ 503 처리        //
-        // ------------------------ //
-        catch (HttpServerErrorException.ServiceUnavailable e) {
-            log.warn("Gemini 503 - 모델 과부하(일시적 혼잡)");
-            String msg = "AI 서버가 현재 혼잡합니다. 잠시 후 다시 시도해 주세요.";
-            answerCache.put(prompt, new CacheEntry(msg,
-                    System.currentTimeMillis() + FAIL_TTL.toMillis()));
+        } catch (HttpServerErrorException.ServiceUnavailable e) { // 503
+            String msg = "AI 추천 기능이 일시적으로 불안정합니다. 잠시 후 다시 이용해 주세요.";
+            redisTemplate.opsForValue().set(key, msg, FAIL_TTL_SECONDS, TimeUnit.SECONDS);
             return msg;
-        }
 
-        // ------------------------ //
-        //        ★ 기타 5xx        //
-        // ------------------------ //
-        catch (HttpServerErrorException e) {
-            log.warn("Gemini 서버 오류: status={}, message={}", e.getStatusCode(), e.getMessage());
-            String msg = "AI 추천 기능 서버에 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
-            answerCache.put(prompt, new CacheEntry(msg,
-                    System.currentTimeMillis() + FAIL_TTL.toMillis()));
+        } catch (HttpServerErrorException e) { // 5xx 나머지
+            String msg = "AI 추천 기능 서버 오류가 발생했습니다. 잠시 후 다시 이용해 주세요.";
+            redisTemplate.opsForValue().set(key, msg, FAIL_TTL_SECONDS, TimeUnit.SECONDS);
             return msg;
-        }
 
-        // ------------------------ //
-        //       ★ 기타 예외        //
-        // ------------------------ //
-        catch (Exception e) {
-            log.warn("Gemini 호출 중 알 수 없는 오류: {}", e.getMessage());
-            String msg = "AI 응답 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
-            answerCache.put(prompt, new CacheEntry(msg,
-                    System.currentTimeMillis() + FAIL_TTL.toMillis()));
+        } catch (Exception e) { // 최후
+            String msg = "AI 추천 기능은 현재 제한으로 일시적으로 사용할 수 없습니다.";
+            redisTemplate.opsForValue().set(key, msg, 30, TimeUnit.SECONDS);
             return msg;
         }
     }
@@ -208,7 +158,7 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
         sb.append("--- 리뷰 리스트 ---\n");
 
         for (String review : reviews) {
-            if(review != null && review.length() > 5){
+            if(review.length() > 5) {
                 sb.append("- ").append(review.replace("\n", " ")).append("\n");
             }
         }
@@ -257,4 +207,13 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
     public static class Candidate {
         private Content content;
     }
+
+    private String normalizeKey(String prompt) {
+        if (prompt == null) return "";
+        return prompt
+                .trim()
+                .replaceAll("\\s+", " ")
+                .toLowerCase();
+    }
+
 }
