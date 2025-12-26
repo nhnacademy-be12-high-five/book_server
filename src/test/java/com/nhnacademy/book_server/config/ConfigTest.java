@@ -98,11 +98,21 @@ class ConfigTest {
     }
 
     @Test
-    @DisplayName("RestTemplateConfig: RestTemplate 빈 등록 테스트")
+    @DisplayName("RestTemplateConfig: RestTemplate 빈 2개 등록 테스트")
     void restTemplateConfigTest() {
         contextRunner.withUserConfiguration(RestTemplateConfig.class)
                 .run(context -> {
-                    assertThat(context).hasSingleBean(RestTemplate.class);
+                    // 1. 빈이 1개가 아니라, 해당 타입의 빈이 존재하는지 확인 (개수 체크 아님)
+                    // 혹은 getBeans(RestTemplate.class)의 사이즈가 2인지 확인
+                    assertThat(context).getBeans(RestTemplate.class).hasSize(2);
+
+                    // 2. 구체적으로 각 빈의 이름으로 존재하는지 확인
+                    assertThat(context).hasBean("restTemplate");
+                    assertThat(context).hasBean("ollamaRestTemplate");
+
+                    // 3. (선택) @Primary가 잘 적용되었는지 확인 (타입으로 가져오면 restTemplate이어야 함)
+                    RestTemplate primaryBean = context.getBean(RestTemplate.class);
+                    // 여기서 primaryBean이 기본 설정(3초/5초)을 가진 녀석인지 검증 가능
                 });
     }
 

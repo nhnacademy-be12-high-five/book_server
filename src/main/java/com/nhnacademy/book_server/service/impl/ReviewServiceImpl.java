@@ -96,6 +96,8 @@ public class ReviewServiceImpl implements ReviewService {
 
         imageSave(images, review);
 
+
+
         // 리뷰 포인트 증가
         if (newImageCount > 0) {
             eventPublisher.publishEvent(
