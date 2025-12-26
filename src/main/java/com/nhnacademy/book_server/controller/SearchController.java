@@ -3,6 +3,7 @@ package com.nhnacademy.book_server.controller;
 import com.nhnacademy.book_server.controller.swagger.SearchSwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.BookSortType;
+import com.nhnacademy.book_server.dto.SearchResult;
 import com.nhnacademy.book_server.service.search.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,13 +25,14 @@ public class SearchController implements SearchSwagger {
     private final BookReindexService bookReindexService;
     private final RagSearchable ragSearchable;
     private final GeminiTextClientService geminiTextClientService;
+    private final RagAnswerService ragAnswerService;
 
     /**
      *  로컬/시연 환경에서 RAG reindex 폭주 방지 토글
      * - 기본값 false
      * - application-local.yml에서 rag.reindex.enabled=true 로 켜면 동작
      */
-    @Value("${rag.reindex.enabled:false}")
+    @Value("${rag.reindex.enabled:true}")
     private boolean ragReindexEnabled;
 
     /**
@@ -102,19 +104,12 @@ public class SearchController implements SearchSwagger {
      * GET /api/search/rag-search?keyword=유아&sort=REVIEW&page=0&size=20
      */
     @GetMapping("/rag-search")
-    public ResponseEntity<Page<BookResponse>> searchBooksByRag(
-            @RequestParam String keyword,
-            @RequestParam(defaultValue = "POPULAR") BookSortType sort,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size
-    ) {
-        log.info("북서버 RAG 검색 keyword=[{}], sort=[{}], page={}, size={}",
-                keyword, sort, page, size);
+    public ResponseEntity<List<BookResponse>> ragSearch(@RequestParam String keyword) {
+        log.info("RAG 검색 요청 (Top 10): keyword=[{}]", keyword);
 
-        Page<BookResponse> result =
-                bookSearchService.searchBooksByRag(keyword, page, size, sort);
+        SearchResult<BookResponse> result = ragSearchable.searchByRag(keyword, 0, 10);
 
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(result.content());
     }
 
     /**
@@ -122,67 +117,15 @@ public class SearchController implements SearchSwagger {
      * GET /api/search/rag-answer?keyword=유아
      */
     @GetMapping("/rag-answer")
-    public ResponseEntity<String> getRagAnswer(@RequestParam String keyword) {
-        //  호출 폭주/반복 여부를 잡기 위한 최소 로그
-        log.info("RAG-ANSWER 호출 keyword=[{}]", keyword);
-
-        // 1. RAG 검색으로 상위 5권 가져오기
-        Page<BookResponse> page =
-                bookSearchService.searchBooksByRag(keyword, 0, 5, BookSortType.POPULAR);
-
-        List<BookResponse> books = page.getContent();
-
-        // 2. 후보가 없으면 기본 메시지
-        if (books.isEmpty()) {
-            String message = "현재 '" + keyword + "' 와(과) 관련된 도서를 찾지 못했습니다. "
-                    + "키워드를 조금 더 구체적으로 입력해 보시겠어요?";
-            return ResponseEntity.ok(message);
-        }
-
-        // 3. Gemini에 줄 컨텍스트 구성
-        StringBuilder ctx = new StringBuilder();
-        for (int i = 0; i < books.size(); i++) {
-            BookResponse b = books.get(i);
-            ctx.append("""
-                    [%d] 제목: %s
-                    - 저자: %s
-                    - 출판사: %s
-                    - 내용 요약: %s
-                    
-                    """.formatted(
-                    i + 1,
-                    b.title(),
-                    b.author(),
-                    b.publisher() != null ? b.publisher() : "정보 없음",
-                    b.content()
-            ));
-        }
-
-        String prompt = """
-        사용자 검색어: "%s"
-        
-        다음은 위 검색어와 연관성이 높은 도서 목록입니다:
-        
-        %s
-        
-        위 도서 목록을 바탕으로, 사용자의 검색 의도에 가장 부합하는 도서를 하나 선정하거나, 전체적인 추천 이유를 요약해 주세요.
-        
-        다음 형식으로만 한국어로 작성하세요:
-        1. 추천 도서: (가장 적합한 책 제목 1개)
-        2. 관련도: %% 숫자 (0~100)
-        3. 추천 이유: (이 책이 검색어와 어떤 관련이 있는지 두 문장으로 설명)
-        
-        ※ 줄거리 요약, 작품 해석, 감상 금지. 제공된 정보에 기반한 사실만 작성할 것.
-        """.formatted(keyword, ctx.toString());
-
-        // 4. Gemini 호출 (429/403 발생해도 서비스는 정상 유지되도록 메시지 반환)
+    public ResponseEntity<String> ragAnswer(@RequestParam String keyword) {
+        log.info("RAG Answer 요청: keyword=[{}]", keyword);
         try {
-            // 4. Gemini 호출
-            String answer = geminiTextClientService.generateAnswer(prompt);
+            // 서비스가 (검색 -> 재순위화 -> 요약) 모든 과정을 처리하고 결과만 줍니다.
+            String answer = ragAnswerService.answer(keyword);
             return ResponseEntity.ok(answer);
         } catch (Exception e) {
-            log.error("AI 요약 생성 중 오류 발생", e);
-            return ResponseEntity.ok("AI 요약 서비스를 일시적으로 사용할 수 없습니다.");
+            log.error("RAG Answer 생성 중 오류", e);
+            return ResponseEntity.ok("현재 AI 추천 서비스를 이용할 수 없습니다. (잠시 후 다시 시도해주세요)");
         }
     }
 }
