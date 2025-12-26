@@ -112,8 +112,7 @@ public class BookService {
                 .isbn13(createRequest.getIsbn())
                 .title(createRequest.getTitle())
                 .publisher(publisher)
-                .publishedDate(pubDate.toString())
-                .price((createRequest.getPrice()))
+                .publishedDate(pubDate != null ? pubDate.toString() : null)
                 .image(createRequest.getImage())
                 .content(createRequest.getDescription())
                 .build();
