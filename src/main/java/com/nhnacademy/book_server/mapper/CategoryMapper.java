@@ -8,7 +8,6 @@ public class CategoryMapper {
     private static final Map<Integer, List<String>> CATEGORY_RULES = new HashMap<>();
 
     static {
-        // [중요] 키워드를 쪼개고 다양하게 추가했습니다.
 
         // 8. 소분류: 소설/시/희곡 (가장 구체적인 것부터 매칭)
         CATEGORY_RULES.put(8, List.of(
@@ -59,7 +58,7 @@ public class CategoryMapper {
         // ---------------------------------------------------------
 
         // 1. 소설/문학
-        CATEGORY_RULES.put(1, List.of("소설", "문학", "작품", "이야기", "픽션"));
+        CATEGORY_RULES.put(1, List.of("소설", "시", "희곡"));
 
         // 2. 경제/경영
         CATEGORY_RULES.put(2, List.of("기업", "혁신", "성공", "관리", "매니지먼트"));
@@ -93,12 +92,17 @@ public class CategoryMapper {
     public static Integer findCategoryId(String title) {
         // 제목과 설명을 합쳐서 소문자로 변환 (검색 확률 높임)
 
+        String searchTitle = title.toLowerCase(); // 최적화를 위해 변수로 빼는 것이 좋습니다
+
         // 1. 소분류(8~14)부터 먼저 검색 (더 구체적이기 때문)
         for (int i = 8; i <= 14; i++) {
             List<String> keywords = CATEGORY_RULES.get(i);
             if (keywords == null) continue;
-
-
+            for (String keyword : keywords) {
+                if (title.toLowerCase().contains(keyword)) {
+                    return i; // 매칭된 카테고리 ID 반환
+                }
+            }
         }
 
         // 2. 소분류 매칭이 없으면 대분류(1~7) 검색
@@ -106,6 +110,11 @@ public class CategoryMapper {
             List<String> keywords = CATEGORY_RULES.get(i);
             if (keywords == null) continue;
 
+            for (String keyword : keywords) {
+                if (searchTitle.contains(keyword)) {
+                    return i;
+                }
+            }
         }
 
         return null; // 매칭되는 카테고리 없음

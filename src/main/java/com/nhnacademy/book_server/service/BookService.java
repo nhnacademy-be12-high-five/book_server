@@ -68,40 +68,54 @@ public class BookService {
 
     private final JdbcTemplate jdbcTemplate;
 
-
     @Lazy
     @Autowired
     private BookService self;
 
-    public Book createBook(ParsingDto dto) {
-        if (bookRepository.existsByIsbn13(dto.getIsbn())) {
-            log.warn("이미 존재하는 ISBN입니다: {}", dto.getIsbn());
+    public Book createBook(BookCreateRequest createRequest) {
+        if (bookRepository.existsByIsbn13(createRequest.getIsbn())) {
+            log.warn("이미 존재하는 ISBN입니다: {}", createRequest.getIsbn());
         }
 
         Publisher publisher = null;
-        if (StringUtils.hasText(dto.getPublisher())) {
-            String publisherName = dto.getPublisher().trim();
+
+        if (StringUtils.hasText(createRequest.getPublisher())) {  // 이게 꼭 필요한가 todo
+            String publisherName = createRequest.getPublisher().trim();
             publisher = publisherRepository.findByName(publisherName)
                     .orElseGet(() -> publisherRepository.save(
                             Publisher.builder().name(publisherName).build()
                     ));
         }
 
-        Integer matchedId = CategoryMapper.findCategoryId(dto.getTitle());
+        Integer targetCategoryId = createRequest.getCategoryId();
         Category category = null;
-        if (matchedId != null) {
-            category = categoryRepository.findByCategoryId(matchedId).orElse(null);
+
+
+        if (targetCategoryId == null) {
+            targetCategoryId = CategoryMapper.findCategoryId(createRequest.getTitle());
+        }
+        if (targetCategoryId != null) {
+            category = categoryRepository.findByCategoryId(targetCategoryId).orElse(null);
         }
 
+        LocalDate pubDate = null;
+        if (StringUtils.hasText(createRequest.getPublishedDate())) {
+            try {
+                // yyyy-MM-dd 형식 파싱
+                pubDate = LocalDate.parse(createRequest.getPublishedDate(), DateTimeFormatter.ISO_DATE);
+            } catch (Exception e) {
+                log.warn("날짜 파싱 실패 (입력값: {}), null로 저장됨", createRequest.getPublishedDate());
+            }
+        }
 
         Book newBook = Book.builder()
-                .isbn13(dto.getIsbn())
-                .title(dto.getTitle())
+                .isbn13(createRequest.getIsbn())
+                .title(createRequest.getTitle())
                 .publisher(publisher)
-                .publishedDate(dto.getPubDate())
-                .price(parsePrice(dto.getPrice()))
-                .image(dto.getImageUrl())
-                .content(dto.getDescription())
+                .publishedDate(pubDate.toString())
+                .price((createRequest.getPrice()))
+                .image(createRequest.getImage())
+                .content(createRequest.getDescription())
                 .build();
 
         Book savedBook = bookRepository.save(newBook);
@@ -113,8 +127,8 @@ public class BookService {
             log.info("저장 완료 : {}",bookCategory);
         }
 
-        if (StringUtils.hasText(dto.getAuthor())) {
-            String[] authorNames = dto.getAuthor().split(",");
+        if (StringUtils.hasText(createRequest.getAuthor())) {
+            String[] authorNames = createRequest.getAuthor().split(",");
             for (String name : authorNames) {
                 String trimmedName = name.trim();
                 if (trimmedName.isEmpty()) continue;
@@ -219,14 +233,14 @@ public class BookService {
         bookRepository.deleteById(id);
     }
 
-    private Integer parsePrice(String priceStr) {
-        if (!StringUtils.hasText(priceStr)) return 0;
-        try {
-            return Integer.parseInt(priceStr.replaceAll("[^0-9]", ""));
-        } catch (NumberFormatException e) {
-            return 0;
-        }
-    }
+//    private Integer parsePrice(Integer priceStr) {
+//        if (!StringUtils.hasText(priceStr)) return 0;
+//        try {
+//            return Integer.parseInt(priceStr.replaceAll("[^0-9]", ""));
+//        } catch (NumberFormatException e) {
+//            return 0;
+//        }
+//    }
 
     // bulk api 조회
     // 장바구니에서 책을 조회할때 책을 1번만 호출하도록 하는 API

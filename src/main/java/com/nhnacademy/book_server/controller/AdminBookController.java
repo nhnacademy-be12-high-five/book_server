@@ -68,10 +68,9 @@ public class AdminBookController implements bookSwagger{
 
     // 북 생성
     @PostMapping
-    public ResponseEntity<ParsingDto> createBook(@RequestBody ParsingDto dto) {
-        log.info("관리자 도서 등록 요청 - ISBN: {}, 제목: {}", dto.getIsbn(), dto.getTitle());
-        Book response = bookService.createBook(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(dto);
+    public ResponseEntity<Book> createBook(@RequestBody BookCreateRequest request) {
+        Book response = bookService.createBook(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     // 도서 전체 조회
@@ -103,7 +102,7 @@ public class AdminBookController implements bookSwagger{
     }
 
     @GetMapping("/search-api")
-    public ResponseEntity<ParsingDto> searchBookWithAi(@RequestParam String isbn) {
+    public ResponseEntity<ParsingDto> searchBookWithAi(@RequestParam("isbn") String isbn) {
         log.info("AI 도서 정보 검색 요청 -ISBN: {}", isbn);
         ParsingDto dto = bookRegistrationService.getBookInfoWithAi(isbn);
         return ResponseEntity.ok(dto);

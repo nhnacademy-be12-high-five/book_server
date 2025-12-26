@@ -3,6 +3,7 @@ package com.nhnacademy.book_server.controller.swagger;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
+import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -26,7 +27,7 @@ public interface bookSwagger{
             @ApiResponse(responseCode = "409", description = "이미 존재하는 ISBN")
     })
     @PostMapping
-    ResponseEntity<ParsingDto> createBook(@RequestBody ParsingDto dto);
+    ResponseEntity<Book> createBook(@RequestBody BookCreateRequest createRequest);
 
     // 도서 전체 조회
     @Operation(summary = "관리자 도서 조회",description = "도서를 조회합니다.")
