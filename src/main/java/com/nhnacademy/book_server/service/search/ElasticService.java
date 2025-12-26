@@ -8,6 +8,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.UpdateRequest;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.BookSortType;
@@ -202,4 +203,52 @@ public class ElasticService {
             throw new RuntimeException("ES bulk 인덱싱 실패", e);
         }
     }
+
+    //리뷰 +1
+    public void increaseReviewCount(Long bookId) {
+        try {
+            client.update(u -> u
+                            .index(INDEX)              // "high-five"
+                            .id(bookId.toString())
+                            .script(sc -> sc
+                                    .lang("painless")
+                                    .source(
+                                            "if (ctx._source.reviewCount == null) { " +
+                                                    "  ctx._source.reviewCount = 1; " +
+                                                    "} else { " +
+                                                    "  ctx._source.reviewCount += 1; " +
+                                                    "}"
+                                    )
+                            ),
+                    Void.class
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("ES reviewCount 증가 실패 bookId=" + bookId, e);
+        }
+    }
+
+    //리뷰 -1
+    public void decreaseReviewCount(Long bookId) {
+        try {
+            client.update(u -> u
+                            .index(INDEX) // "high-five"
+                            .id(bookId.toString())
+                            .script(sc -> sc
+                                    .lang("painless")
+                                    .source(
+                                            "if (ctx._source.reviewCount == null) { " +
+                                                    "  ctx._source.reviewCount = 0; " +
+                                                    "} else { " +
+                                                    "  ctx._source.reviewCount = Math.max(0, ctx._source.reviewCount - 1); " +
+                                                    "}"
+                                    )
+                            ),
+                    Void.class
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("ES reviewCount 감소 실패 bookId=" + bookId, e);
+        }
+    }
+
+
 }

@@ -2,6 +2,7 @@ package com.nhnacademy.book_server.listener;
 
 import com.nhnacademy.book_server.config.RabbitMqConfig;
 import com.nhnacademy.book_server.dto.event.ReviewCreatedEvent;
+import com.nhnacademy.book_server.dto.event.ReviewDeletedEvent;
 import com.nhnacademy.book_server.dto.event.ReviewImageDeleteEvent;
 import com.nhnacademy.book_server.dto.request.PointEarnRequest;
 import com.nhnacademy.book_server.entity.Book;
@@ -10,6 +11,7 @@ import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.BookReviewAiRepository;
 import com.nhnacademy.book_server.repository.review.ReviewRepository;
 import com.nhnacademy.book_server.service.MinioImageService;
+import com.nhnacademy.book_server.service.search.ElasticService;
 import com.nhnacademy.book_server.service.search.GeminiTextClientService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +40,8 @@ public class ReviewEventListener {
     private final GeminiTextClientService geminiService;
     private final CacheManager cacheManager;
     private final MinioImageService imageUploadService;
+    private final ElasticService elasticService;
+
 
     private static final int FIRST_TRIGGER_THRESHOLD = 5;
     private static final int REVIEW_COUNT_DELTA_THRESHOLD = 10;
@@ -51,6 +55,7 @@ public class ReviewEventListener {
         sendPointMessage(event);
         updateBookStats(event);
         evictBookDetailCache(event.bookId());
+        elasticService.increaseReviewCount(event.bookId());
     }
 
     @Async
@@ -155,4 +160,25 @@ public class ReviewEventListener {
             log.warn("Cache eviction failed for bookId={}", bookId, e);
         }
     }
+
+    @Async
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void handleReviewDeleted(ReviewDeletedEvent event) {
+        try {
+            // RDB 통계 재계산(원래 updateBookStats는 생성 때만 호출 중이므로 삭제 때도 호출)
+            bookRepository.updateBookReviewStats(event.bookId());
+
+            // ES reviewCount -1
+            elasticService.decreaseReviewCount(event.bookId());
+
+            // 상세 캐시 삭제(있다면)
+            evictBookDetailCache(event.bookId());
+
+            log.info("리뷰 삭제 반영 완료: bookId={}", event.bookId());
+        } catch (Exception e) {
+            log.error("리뷰 삭제 반영 실패: bookId={}", event.bookId(), e);
+        }
+    }
+
 }
