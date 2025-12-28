@@ -1,14 +1,13 @@
 package com.nhnacademy.book_server.controller;
 
 import com.nhnacademy.book_server.controller.swagger.bookSwagger;
+import com.nhnacademy.book_server.dto.BookInfoDto;
 import com.nhnacademy.book_server.dto.BookResponse;
-import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.service.BookRegistrationService;
 import com.nhnacademy.book_server.service.BookService;
-
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -68,7 +67,7 @@ public class AdminBookController implements bookSwagger{
 
     // 북 생성
     @PostMapping
-    public ResponseEntity<ParsingDto> createBook(@RequestBody ParsingDto dto) {
+    public ResponseEntity<BookInfoDto> createBook(@RequestBody BookInfoDto dto) {
         log.info("관리자 도서 등록 요청 - ISBN: {}, 제목: {}", dto.getIsbn(), dto.getTitle());
         Book response = bookService.createBook(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(dto);
@@ -103,9 +102,16 @@ public class AdminBookController implements bookSwagger{
     }
 
     @GetMapping("/search-api")
-    public ResponseEntity<ParsingDto> searchBookWithAi(@RequestParam String isbn) {
+    public ResponseEntity<BookInfoDto> searchBookWithAi(@RequestParam String isbn) {
         log.info("AI 도서 정보 검색 요청 -ISBN: {}", isbn);
-        ParsingDto dto = bookRegistrationService.getBookInfoWithAi(isbn);
+        BookInfoDto dto = bookRegistrationService.getBookInfoWithAi(isbn);
         return ResponseEntity.ok(dto);
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteBook(@PathVariable("id") Long bookId) {
+        log.info("관리자 도서 삭제 요청 - ID: {}", bookId);
+        bookService.deleteBook(bookId);
+        return ResponseEntity.noContent().build();
     }
 }

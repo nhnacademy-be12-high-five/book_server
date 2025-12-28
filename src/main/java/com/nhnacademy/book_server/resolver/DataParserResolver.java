@@ -2,7 +2,7 @@ package com.nhnacademy.book_server.resolver;
 
 import com.nhnacademy.book_server.parser.DataParser;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j; // 로그 추가
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

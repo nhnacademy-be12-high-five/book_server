@@ -7,10 +7,16 @@ import com.nhnacademy.book_server.dto.response.BookDocument;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.repository.ElasticRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor

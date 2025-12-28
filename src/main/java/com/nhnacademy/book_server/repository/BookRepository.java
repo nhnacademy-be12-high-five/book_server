@@ -3,7 +3,6 @@ package com.nhnacademy.book_server.repository;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.BookCategory;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;

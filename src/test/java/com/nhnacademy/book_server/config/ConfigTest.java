@@ -14,6 +14,7 @@ import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
+import org.springframework.boot.convert.ApplicationConversionService;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.data.redis.cache.RedisCacheManager;
@@ -38,10 +39,19 @@ class ConfigTest {
                 .withPropertyValues(
                         "minio.url=http://localhost:9000",
                         "minio.access-key=test-access-key",
-                        "minio.secret-key=test-secret-key"
+                        "minio.secret-key=test-secret-key",
+                        "minio.connection-timeout=10s",
+                        "minio.socket-timeout=60s"
                 )
+                .withInitializer(context -> {
+                    ApplicationConversionService conversionService = new ApplicationConversionService();
+
+                    context.getBeanFactory().setConversionService(conversionService);
+                    context.getEnvironment().setConversionService(conversionService);
+                })
                 .run(context -> {
-                    assertThat(context).hasSingleBean(S3Client.class);
+                    assertThat(context).hasSingleBean(software.amazon.awssdk.services.s3.S3Client.class);
+                    assertThat(context).hasNotFailed();
                 });
     }
 

@@ -2,7 +2,10 @@ package com.nhnacademy.book_server.controller.review;
 
 import com.nhnacademy.book_server.dto.request.ReviewCreateRequest;
 import com.nhnacademy.book_server.dto.request.ReviewUpdateRequest;
-import com.nhnacademy.book_server.dto.response.*;
+import com.nhnacademy.book_server.dto.response.BookReviewResponse;
+import com.nhnacademy.book_server.dto.response.MyPageReviewResponse;
+import com.nhnacademy.book_server.dto.response.ReviewCreateResponse;
+import com.nhnacademy.book_server.dto.response.UpdateReviewResponse;
 import com.nhnacademy.book_server.service.ReviewService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -10,11 +13,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.http.HttpStatus;
 
 import java.util.List;
 

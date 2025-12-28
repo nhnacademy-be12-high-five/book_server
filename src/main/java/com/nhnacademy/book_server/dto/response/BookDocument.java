@@ -1,12 +1,9 @@
 package com.nhnacademy.book_server.dto.response;
 
 import com.nhnacademy.book_server.dto.BookResponse;
-
-import com.nhnacademy.book_server.entity.BookAuthor;
 import lombok.*;
 import org.springframework.data.elasticsearch.annotations.Document;
 
-import java.awt.print.Book;
 import java.util.List;
 
 @Getter

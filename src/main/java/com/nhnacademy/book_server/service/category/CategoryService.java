@@ -2,7 +2,6 @@ package com.nhnacademy.book_server.service.category;
 
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.CategoryResponse;
-
 import com.nhnacademy.book_server.entity.Category;
 import com.nhnacademy.book_server.repository.CategoryRepository;
 import com.nhnacademy.book_server.service.BookService;

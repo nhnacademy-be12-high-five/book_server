@@ -111,12 +111,15 @@ public class Book {
     private Integer stock;
 
     @Column(nullable = false)
+    @Builder.Default
     private Integer reviewCount = 0;
 
     @Column(nullable = false)
+    @Builder.Default
     private Double averageRating = 0.0;
 
     @Column(name = "sales_volume", nullable = false)
+    @Builder.Default
     private Long salesVolume = 0L;
 
     public void setStock(Integer stock) {

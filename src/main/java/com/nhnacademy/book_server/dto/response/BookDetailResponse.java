@@ -3,11 +3,9 @@ package com.nhnacademy.book_server.dto.response;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.nhnacademy.book_server.entity.Publisher;
 import lombok.AllArgsConstructor;
-
 import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDate;
-import java.util.List;
 
 // 책 상세 페이지 response
 @RequiredArgsConstructor

@@ -1,27 +1,26 @@
 package com.nhnacademy.book_server.service;
 
+import com.nhnacademy.book_server.dto.BookInfoDto;
 import com.nhnacademy.book_server.dto.KakaoBookSearchResponse;
-import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.response.GoogleBookResponse;
+import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.service.search.GeminiTextClientService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
+import java.time.LocalDate;
+import java.util.Collections;
 
 @Slf4j
 @Service
@@ -29,6 +28,7 @@ import java.util.List;
 public class BookRegistrationService {
     private final RestTemplate restTemplate;
     private final GeminiTextClientService geminiService;
+    private final MinioImageService minioImageService;
 
     private static final String KAKAO_BOOKS_API_URL = "https://dapi.kakao.com/v3/search/book";
     private static final String GOOGLE_BOOKS_API_URL = "https://www.googleapis.com/books/v1/volumes";
@@ -36,12 +36,12 @@ public class BookRegistrationService {
     @Value("${kakao.api.key}")
     private String kakaoApiKey;
 
-    public ParsingDto getBookInfoWithAi(String isbn) {
+    public BookInfoDto getBookInfoWithAi(String isbn) {
         if (isbn == null || !isbn.matches("^(\\d{10}|\\d{13})$")) {
             throw new IllegalArgumentException("유효하지 않은 ISBN 형식입니다: " + isbn);
         }
 
-        ParsingDto dto = null;
+        BookInfoDto dto = null;
 
         try {
             dto = searchKakao(isbn);
@@ -60,27 +60,27 @@ public class BookRegistrationService {
         }
 
         String kyoboImageUrl = "https://contents.kyobobook.co.kr/sih/fit-in/200x0/pdt/" + isbn + ".jpg";
-        dto.setImageUrl(kyoboImageUrl);
+        String minioImageUrl = minioImageService.uploadImageFromUrl(kyoboImageUrl, isbn);
+        dto.setImage(minioImageUrl);
 
         // Gemini에게 서평 작성 요청
-        String aiGeneratedContent = enhanceDescriptionWithGemini(dto.getTitle(), dto.getAuthor(), dto.getDescription());
+        String authorStr = (dto.getAuthors() != null && !dto.getAuthors().isEmpty()) ? dto.getAuthors().get(0) : "미상";
+        String aiGeneratedContent = enhanceDescriptionWithGemini(dto.getTitle(), authorStr, dto.getDescription());
         dto.setDescription(aiGeneratedContent);
 
         return dto;
     }
 
-    private ParsingDto searchKakao(String isbn) {
-        // 헤더 설정 (KakaoAK)
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "KakaoAK " + kakaoApiKey);
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-
+    private BookInfoDto searchKakao(String isbn) {
         // URL 생성
         URI uri = UriComponentsBuilder.fromHttpUrl(KAKAO_BOOKS_API_URL)
                 .queryParam("target", "isbn")
                 .queryParam("query", isbn)
                 .build()
                 .toUri();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "KakaoAK " + kakaoApiKey);
+        HttpEntity<String> entity = new HttpEntity<>(headers);
 
         // 호출
         ResponseEntity<KakaoBookSearchResponse> response = restTemplate.exchange(
@@ -96,29 +96,18 @@ public class BookRegistrationService {
         // 첫 번째 결과 매핑
         KakaoBookSearchResponse.Document doc = body.getDocuments().get(0);
 
-        ParsingDto dto = new ParsingDto();
-        dto.setIsbn(isbn);
-        dto.setTitle(doc.getTitle());
-        dto.setPublisher(StringUtils.hasText(doc.getPublisher()) ? doc.getPublisher() : "출판사 정보 없음");
-
-        // 날짜 포맷 (ISO 8601 -> YYYY-MM-DD)
-        dto.setPubDate(formatDate(doc.getDatetime()));
-
-        // 가격 (카카오는 정가를 제공함)
-        dto.setPrice(doc.getPrice() != null ? String.valueOf(doc.getPrice()) : "0");
-
-        if (doc.getAuthors() != null && !doc.getAuthors().isEmpty()) {
-            dto.setAuthor(String.join(", ", doc.getAuthors()));
-        }
-
-        // 카카오의 contents는 줄거리 요약이 포함되어 있어 품질이 좋음
-        dto.setDescription(doc.getContents());
-
-        log.info("카카오 API 검색 성공: {}", doc.getTitle());
-        return dto;
+        return BookInfoDto.builder()
+                .isbn(isbn)
+                .title(doc.getTitle())
+                .publisher(StringUtils.hasText(doc.getPublisher()) ? doc.getPublisher() : "출판사 정보 없음")
+                .publishedDate(parseToLocalDate(doc.getDatetime()))
+                .price(doc.getPrice() != null ? doc.getPrice() : 0)
+                .authors(doc.getAuthors() != null ? doc.getAuthors() : Collections.emptyList())
+                .description(doc.getContents())
+                .build();
     }
 
-    private ParsingDto searchGoogle(String isbn) {
+    private BookInfoDto searchGoogle(String isbn) {
         URI uri = UriComponentsBuilder.fromHttpUrl(GOOGLE_BOOKS_API_URL)
                 .queryParam("q", "isbn:" + isbn)
                 .build()
@@ -132,19 +121,15 @@ public class BookRegistrationService {
 
         GoogleBookResponse.VolumeInfo info = response.getItems().get(0).getVolumeInfo();
 
-        ParsingDto dto = new ParsingDto();
-        dto.setIsbn(isbn);
-        dto.setTitle(info.getTitle());
-        dto.setPublisher(StringUtils.hasText(info.getPublisher()) ? info.getPublisher() : "출판사 정보 없음");
-        dto.setPubDate(formatDate(info.getPublishedDate()));
-        dto.setPrice("0"); // 구글은 가격 정보가 없는 경우가 많음
-        if (info.getAuthors() != null && !info.getAuthors().isEmpty()) {
-            dto.setAuthor(String.join(", ", info.getAuthors()));
-        }
-        dto.setDescription(info.getDescription());
-
-        log.info("구글 API 검색 성공: {}", info.getTitle());
-        return dto;
+        return BookInfoDto.builder()
+                .isbn(isbn)
+                .title(info.getTitle())
+                .publisher(StringUtils.hasText(info.getPublisher()) ? info.getPublisher() : "출판사 정보 없음")
+                .publishedDate(parseToLocalDate(info.getPublishedDate()))
+                .price(0)
+                .authors(info.getAuthors() != null ? info.getAuthors() : Collections.emptyList())
+                .description(info.getDescription())
+                .build();
     }
 
     private String enhanceDescriptionWithGemini(String title, String author, String originalDescription) {
@@ -176,18 +161,25 @@ public class BookRegistrationService {
         }
     }
 
-    private String formatDate(String date) {
-        if (date == null) return null;
-        // 연도만 있는 경우 (예: "2023")
-        if (date.matches("^\\d{4}$")) {
-            return date + "-01-01";
+    private LocalDate parseToLocalDate(String dateStr) {
+        if (!StringUtils.hasText(dateStr)) return null;
+        try {
+            // ISO Date Time (2023-12-25T10:00:00...)
+            if (dateStr.length() >= 10) {
+                return LocalDate.parse(dateStr.substring(0, 10));
+            }
+            // YYYY (2023) -> 2023-01-01
+            if (dateStr.matches("^\\d{4}$")) {
+                return LocalDate.of(Integer.parseInt(dateStr), 1, 1);
+            }
+            // YYYY-MM (2023-05) -> 2023-05-01
+            if (dateStr.matches("^\\d{4}-\\d{2}$")) {
+                return LocalDate.parse(dateStr + "-01");
+            }
+        } catch (Exception e) {
+            log.warn("날짜 파싱 실패: {}", dateStr);
         }
-        // 연도-월 형식 (예: "2023-05")
-        if (date.matches("^\\d{4}-\\d{2}$")) {
-            return date + "-01";
-        }
-        // 이미 완전한 형식이거나 기타 형식
-        return date;
+        return null; // 파싱 실패 시 null (BookService에서 기본값 처리)
     }
 
 }
