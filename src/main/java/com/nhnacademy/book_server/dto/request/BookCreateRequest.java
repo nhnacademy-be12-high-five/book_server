@@ -1,5 +1,6 @@
 package com.nhnacademy.book_server.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -24,11 +25,13 @@ public class BookCreateRequest {
     private Integer price;
 
     private String publisher;
+    @JsonProperty("pubDate")
     private String publishedDate;
     private String description;
+    @JsonProperty("imageUrl")
     private String image;
 
     private Integer categoryId;
 
-    private List<String> authors;
+    private String author;
 }

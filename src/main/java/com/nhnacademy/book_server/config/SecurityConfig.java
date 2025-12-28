@@ -24,7 +24,7 @@ public class SecurityConfig {
                                 "/api/tag/**",
                                 "/api/tags/**",
                                 "/api/admin/**",
-                                "/"
+                                "/api/admin/books/search-api"
                         ).permitAll()
                         .requestMatchers("/api/test/**").permitAll()
                         .anyRequest().authenticated()

@@ -1,8 +1,13 @@
 package com.nhnacademy.book_server.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.nhnacademy.book_server.dto.BookInfoDto;
 import com.nhnacademy.book_server.dto.BookResponse;
+import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
 import com.nhnacademy.book_server.entity.*;
@@ -12,29 +17,35 @@ import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.repository.*;
 import com.nhnacademy.book_server.repository.review.ReviewRepository;
 import com.nhnacademy.book_server.service.search.ElasticService;
+import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import jakarta.servlet.http.Cookie;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.iterators.CartesianProductIterator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cglib.core.Local;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.core.annotation.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -84,10 +95,16 @@ public class BookService {
                     ));
         }
 
-        Integer matchedId = CategoryMapper.findCategoryId(dto.getTitle());
+        ParsingDto createRequest= new ParsingDto();
+        Integer targetCategoryId = createRequest.getCategoryId();
         Category category = null;
-        if (matchedId != null) {
-            category = categoryRepository.findByCategoryId(matchedId).orElse(null);
+
+
+        if (targetCategoryId == null) {
+            targetCategoryId = CategoryMapper.findCategoryId(createRequest.getTitle());
+        }
+        if (targetCategoryId != null) {
+            category = categoryRepository.findByCategoryId(targetCategoryId).orElse(null);
         }
 
         String publishedDateStr = (dto.getPublishedDate() != null)
@@ -220,7 +237,7 @@ public class BookService {
     }
 
     // 책 삭제
-    public void deleteBook(Long id) {
+    public void deleteBook(Long id, Long memberId) {
         if (!bookRepository.existsById(id)) {
             throw new RuntimeException("삭제할 아이디가 없습니다.");
         }

@@ -40,7 +40,7 @@ public class CategoryController implements CategorySwagger {
 
     @Override
     @GetMapping("/{categoryId}/books")
-    public ResponseEntity<List<BookResponse>> getBooksByCategory(int categoryId) {
+    public ResponseEntity<List<BookResponse>> getBooksByCategory(@PathVariable("categoryId") int categoryId) {
         return ResponseEntity.ok(categoryService.getBooksByCategory(categoryId));
 
     }

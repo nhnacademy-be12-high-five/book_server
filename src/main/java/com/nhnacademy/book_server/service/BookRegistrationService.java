@@ -59,6 +59,11 @@ public class BookRegistrationService {
             }
         }
 
+        if (dto == null) {
+            throw new RuntimeException("도서 정보를 찾을 수 없습니다. (ISBN: " + isbn + ")");
+        }
+
+
         String kyoboImageUrl = "https://contents.kyobobook.co.kr/sih/fit-in/200x0/pdt/" + isbn + ".jpg";
         String minioImageUrl = minioImageService.uploadImageFromUrl(kyoboImageUrl, isbn);
         dto.setImage(minioImageUrl);
@@ -147,10 +152,10 @@ public class BookRegistrationService {
         }
 
         prompt.append("\n[작성 규칙]\n");
-        prompt.append("1. **책 제목과 '이 책을 선택해야 하는 이유' 같은 소제목은 반드시 <h3> 태그를 사용해.**\n");
+        prompt.append("1. 책 제목과 '이 책을 선택해야 하는 이유' 같은 소제목은 반드시 <h3> 태그를 사용해.\n");
         prompt.append("2. <h3> 태그 앞에는 반드시 줄바꿈을 두 번 넣어줘.\n");
         prompt.append("3. 본문 내용은 <p> 태그로 감싸고, 핵심 내용은 <ul>, <li> 리스트로 작성해.\n");
-        prompt.append("4. **모든 내용은 반드시 자연스러운 한국어로 작성해.**\n");
+        prompt.append("4. 모든 내용은 반드시 자연스러운 한국어로 작성해.\n");
         prompt.append("5. 문단 사이에는 적절한 줄바꿈을 넣어줘.\n");
 
         try {
