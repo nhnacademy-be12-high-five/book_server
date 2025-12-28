@@ -56,6 +56,7 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
 
     @Override
     public String generateAnswer(String prompt) {
+        //캐시 키 생성
         String key = normalizeKey(prompt);
 
         // Redis 캐시 먼저 확인
@@ -100,7 +101,7 @@ public class GeminiTextClientServiceImpl implements GeminiTextClientService {
                     ? text
                     : "AI 추천 기능은 현재 응답을 생성하지 못했습니다. 잠시 후 다시 이용해 주세요.";
 
-            // 성공 응답 Redis 저장
+            // Gemini 성공 응답 Redis 저장
             redisTemplate.opsForValue().set(key, answer, 6, TimeUnit.HOURS);
             return answer;
 
