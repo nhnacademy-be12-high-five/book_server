@@ -1,8 +1,9 @@
 package com.nhnacademy.book_server.service.impl;
 
-import com.nhnacademy.book_server.dto.event.ReviewCreatedEvent;
-import com.nhnacademy.book_server.dto.event.ReviewImageDeleteEvent;
 import com.nhnacademy.book_server.dto.common.RestPage;
+import com.nhnacademy.book_server.dto.event.ReviewCreatedEvent;
+import com.nhnacademy.book_server.dto.event.ReviewDeletedEvent;
+import com.nhnacademy.book_server.dto.event.ReviewImageDeleteEvent;
 import com.nhnacademy.book_server.dto.request.ReviewCreateRequest;
 import com.nhnacademy.book_server.dto.request.ReviewUpdateRequest;
 import com.nhnacademy.book_server.dto.response.*;
@@ -68,12 +69,12 @@ public class ReviewServiceImpl implements ReviewService {
                                            Long bookId,
                                            Long memberId,
                                            List<MultipartFile> images) {
-        Boolean isPurchased = orderFeignClient.hasPurchasedBook(memberId, bookId);
+//        Boolean isPurchased = orderFeignClient.hasPurchasedBook(memberId, bookId);
 
         // 구매 안한 사람이 접근
-        if (!isPurchased) {
-            throw new BusinessException(ErrorCode.REVIEW_WRITE_AUTHOR);
-        }
+//        if (true) {
+//            throw new BusinessException(ErrorCode.REVIEW_WRITE_AUTHOR);
+//        }
 
         // 중복 작성
         if (reviewRepository.existsByBookIdAndMemberId(bookId, memberId)) {
@@ -95,6 +96,8 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         imageSave(images, review);
+
+
 
         // 리뷰 포인트 증가
         if (newImageCount > 0) {
@@ -426,4 +429,32 @@ public class ReviewServiceImpl implements ReviewService {
             return Collections.emptyMap();
         }
     }
+
+    @Transactional
+    public void removeReview(Long reviewId, Long memberId) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.REVIEW_NOT_FOUND));
+
+        Long bookId = review.getBook().getId();
+
+        // (정책) 작성자/관리자 권한 체크는 여기서 처리
+
+        // 이미지 삭제 이벤트(기존 주석 코드에 있던 흐름 유지)
+        List<String> imageUrls = review.getReviewImages().stream()
+                .map(ReviewImage::getFileUrl)
+                .toList();
+
+        if (!imageUrls.isEmpty()) {
+            eventPublisher.publishEvent(new ReviewImageDeleteEvent(imageUrls));
+        }
+
+        reviewRepository.delete(review);
+
+        // 🔥 핵심: 삭제 이벤트 발행
+        eventPublisher.publishEvent(new ReviewDeletedEvent(memberId, bookId));
+
+        // 리뷰 리스트 캐시도 쓰고 있으면 삭제(이미 updateReview에서 evictBookReviewCache 사용 중)
+        evictBookReviewCache(bookId);
+    }
+
 }

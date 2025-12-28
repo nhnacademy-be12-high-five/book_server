@@ -1,7 +1,7 @@
 package com.nhnacademy.book_server.controller.swagger;
 
-import com.nhnacademy.book_server.dto.BookSortType;
 import com.nhnacademy.book_server.dto.BookResponse;
+import com.nhnacademy.book_server.dto.BookSortType;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;

@@ -2,7 +2,11 @@ package com.nhnacademy.book_server.service.search;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.query_dsl.FunctionBoostMode;
 import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import co.elastic.clients.elasticsearch.core.BulkRequest;
+import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.nhnacademy.book_server.dto.BookResponse;
@@ -11,11 +15,8 @@ import com.nhnacademy.book_server.dto.CategoryResponse;
 import com.nhnacademy.book_server.dto.SearchResult;
 import com.nhnacademy.book_server.dto.response.TagResponse;
 import com.nhnacademy.book_server.entity.SearchFieldType;
-import com.nhnacademy.book_server.repository.ElasticRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import co.elastic.clients.elasticsearch.core.BulkRequest;
-import co.elastic.clients.elasticsearch.core.BulkResponse;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -27,9 +28,7 @@ import java.util.Map;
 public class ElasticService {
 
     private static final String INDEX = "high-five";
-
     private final ElasticsearchClient client;
-    private final GeminiTextClientService geminiTextClientService;
 
     public SearchResult<BookResponse> search(String keyword, BookSortType sort, int page, int size) {
         if (keyword == null || keyword.isBlank()) {
@@ -38,77 +37,80 @@ public class ElasticService {
 
         int from = page * size;
 
-        // 필드별 가중치
-        int titleBoost = SearchFieldType.TITLE.getWeight();
-        int authorBoost = SearchFieldType.AUTHOR.getWeight();
-        int tagBoost = SearchFieldType.TAG.getWeight();
-        int isbnBoost = SearchFieldType.ISBN.getWeight();
-        int publisherBoost = SearchFieldType.PUBLISHER.getWeight();
-        int contentBoost = SearchFieldType.CONTENT.getWeight();
+        // 1. 필드별 가중치 설정
+        String[] fields = {
+                "title^" + SearchFieldType.TITLE.getWeight(),
+                "author^" + SearchFieldType.AUTHOR.getWeight(),
+                "tags^" + SearchFieldType.TAG.getWeight(),
+                "isbn^" + SearchFieldType.ISBN.getWeight(),
+                "publisher^" + SearchFieldType.PUBLISHER.getWeight(),
+                "content^" + SearchFieldType.CONTENT.getWeight(),
+                "reviews^" + SearchFieldType.REVIEWCONTENT.getWeight()
+        };
 
         try {
             SearchResponse<Map> response = client.search(s -> {
-                        s.index(INDEX)
-                                .from(from)
-                                .size(size)
-                                // ★ 키워드 기반 필수 검색 조건 (AND로 강하게 매칭)
-                                .query(q -> q.multiMatch(m -> m
-                                        .query(keyword)
-                                        .fields(
-                                                "title^" + titleBoost,
-                                                "author^" + authorBoost,
-                                                "tags^" + tagBoost,
-                                                "isbn^" + isbnBoost,
-                                                "publisher^" + publisherBoost,
-                                                "content^" + contentBoost
-                                        )
-                                        // "만화" AND "스펀지" 처럼 모두 포함해야 매칭되도록
-                                        .operator(Operator.And)
-                                ));
+                s.index(INDEX)
+                        .from(from)
+                        .size(size);
 
-                // ★ 정렬 기준
-                if (sort != null) {
+                // 2. 기본 검색 쿼리 (가중치 적용)
+                Query multiMatch = Query.of(q -> q.multiMatch(m -> m
+                        .query(keyword)
+                        .fields(List.of(fields))
+                        .operator(Operator.And)
+                ));
+
+                // 3. 정렬 및 필터링 로직
+                if (sort == BookSortType.POPULAR || sort == null) {
+                    // [인기도 정렬]
+                    s.query(q -> q.functionScore(fs -> fs
+                            .query(multiMatch)
+                            .functions(f -> f.scriptScore(ss -> ss.script(sc -> sc
+                                    .source(
+                                            "_score * 10 " +
+                                                    "+ Math.log1p(doc.containsKey('searchCount') ? doc['searchCount'].value : 0) * 2 " +
+                                                    "+ Math.log1p(doc.containsKey('viewCount') ? doc['viewCount'].value : 0)"
+                                    )
+                            )))
+                            .boostMode(FunctionBoostMode.Sum) // [수정1] Enum 이름 변경
+                    ));
+
+                } else if (sort == BookSortType.RATING) {
+                    // [평점순 정렬] (리뷰 100개 이상만)
+
+                    // [수정2] RangeQuery 사용법 변경 (8.15.0+): .number()로 감싸야 함
+                    Query filterQuery = Query.of(q -> q.range(r -> r
+                            .number(n -> n
+                                    .field("reviewCount")
+                                    .gte(100.0) // JsonData 없이 double 사용 가능
+                            )
+                    ));
+
+                    s.query(q -> q.bool(b -> b
+                            .must(multiMatch)
+                            .filter(filterQuery)
+                    ));
+
+                    s.sort(so -> so.field(f -> f.field("avgRating").order(SortOrder.Desc)));
+
+                } else {
+                    // [그 외 정렬]
+                    s.query(multiMatch);
+
                     switch (sort) {
-                        case LOW_PRICE -> s.sort(so -> so
-                                .field(f -> f.field("price").order(SortOrder.Asc)));
-
-                        case HIGH_PRICE -> s.sort(so -> so
-                                .field(f -> f.field("price").order(SortOrder.Desc)));
-
-                        case RATING -> s.sort(so -> so
-                                .field(f -> f.field("avgRating").order(SortOrder.Desc)));
-
-                        case REVIEW -> s.sort(so -> so
-                                .field(f -> f.field("reviewCount").order(SortOrder.Desc)));
-
-                        case NEW -> s.sort(so -> so
-                                .field(f -> f.field("publishedDate").order(SortOrder.Desc)));
-
-                        case POPULAR -> {
-                            // POPULAR / 기본: score(관련도) 순으로만 정렬
-                            // → 추가 sort 설정 안 함
-                        }
-
-                        default -> {
-                            // 혹시 null 등 예외값이 들어오면 score 순
-                        }
+                        case LOW_PRICE -> s.sort(so -> so.field(f -> f.field("price").order(SortOrder.Asc)));
+                        case HIGH_PRICE -> s.sort(so -> so.field(f -> f.field("price").order(SortOrder.Desc)));
+                        case REVIEW -> s.sort(so -> so.field(f -> f.field("reviewCount").order(SortOrder.Desc)));
+                        case NEW -> s.sort(so -> so.field(f -> f.field("publishedDate").order(SortOrder.Desc)));
                     }
                 }
 
-                        return s;
-                    },
-                    Map.class
-            );
+                return s;
+            }, Map.class);
 
-            // totalHits 계산
-            long totalHits;
-            if (response.hits().total() != null) {
-                totalHits = response.hits().total().value();
-            } else {
-                totalHits = response.hits().hits().size();
-            }
-
-            // Map → BookResponse 변환
+            // 4. 결과 매핑
+            long totalHits = response.hits().total() != null ? response.hits().total().value() : response.hits().hits().size();
             List<BookResponse> books = response.hits().hits().stream()
                     .map(Hit::source)
                     .map(this::toBookResponse)
@@ -122,9 +124,7 @@ public class ElasticService {
     }
 
     private BookResponse toBookResponse(Map<String, Object> source) {
-        if (source == null) {
-            return null;
-        }
+        if (source == null) return null;
 
         Long bookId = null;
         if (source.get("id") instanceof Number nId) {
@@ -144,15 +144,7 @@ public class ElasticService {
         }
 
         String image = (String) source.get("image");
-
-//        Integer categoryId = null;
-//        Object catObj = source.get("categoryId");
-//        if (catObj instanceof Number nCat) {
-//            categoryId = nCat.intValue();
-//        }
-
         List<CategoryResponse> categoryList = Collections.emptyList();
-
         String content = (String) source.get("content");
         String publisher = (String) source.get("publisher");
 
@@ -174,42 +166,21 @@ public class ElasticService {
         }
 
         String aiSummary = (String) source.get("aiSummary");
-
         List<TagResponse> tagList = Collections.emptyList();
 
         return new BookResponse(
-                bookId,
-                title,
-                author,
-                isbn,
-                price,
-                image,
-                categoryList,
-                tagList,
-                content,
-                publisher,
-                publishedDate,
-                avgRating,
-                reviewCount,
-                aiSummary,
-                null
+                bookId, title, author, isbn, price, image, categoryList, tagList,
+                content, publisher, publishedDate, avgRating, reviewCount, aiSummary, null
         );
     }
 
-
     public void saveAll(List<BookResponse> books) {
-        if (books == null || books.isEmpty()) {
-            return;
-        }
+        if (books == null || books.isEmpty()) return;
 
         try {
             BulkRequest.Builder bulkBuilder = new BulkRequest.Builder();
-
             for (BookResponse book : books) {
-                if (book == null || book.bookId() == null) {
-                    continue;
-                }
-
+                if (book == null || book.bookId() == null) continue;
                 bulkBuilder.operations(op -> op
                         .index(idx -> idx
                                 .index(INDEX)
@@ -218,22 +189,65 @@ public class ElasticService {
                         )
                 );
             }
-
             BulkResponse response = client.bulk(bulkBuilder.build());
-
             if (response.errors()) {
-                // 개별 실패 건 로깅
                 response.items().forEach(item -> {
                     if (item.error() != null) {
-                        System.err.println("ES bulk 인덱싱 실패 - id=" +
-                                item.id() + " reason=" + item.error().reason());
+                        System.err.println("ES bulk 인덱싱 실패 - id=" + item.id() + " reason=" + item.error().reason());
                     }
                 });
                 throw new RuntimeException("ES bulk 인덱싱 중 일부 문서 실패 발생");
             }
-
         } catch (IOException e) {
             throw new RuntimeException("ES bulk 인덱싱 실패", e);
         }
     }
+
+    //리뷰 +1
+    public void increaseReviewCount(Long bookId) {
+        try {
+            client.update(u -> u
+                            .index(INDEX)              // "high-five"
+                            .id(bookId.toString())
+                            .script(sc -> sc
+                                    .lang("painless")
+                                    .source(
+                                            "if (ctx._source.reviewCount == null) { " +
+                                                    "  ctx._source.reviewCount = 1; " +
+                                                    "} else { " +
+                                                    "  ctx._source.reviewCount += 1; " +
+                                                    "}"
+                                    )
+                            ),
+                    Void.class
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("ES reviewCount 증가 실패 bookId=" + bookId, e);
+        }
+    }
+
+    //리뷰 -1
+    public void decreaseReviewCount(Long bookId) {
+        try {
+            client.update(u -> u
+                            .index(INDEX) // "high-five"
+                            .id(bookId.toString())
+                            .script(sc -> sc
+                                    .lang("painless")
+                                    .source(
+                                            "if (ctx._source.reviewCount == null) { " +
+                                                    "  ctx._source.reviewCount = 0; " +
+                                                    "} else { " +
+                                                    "  ctx._source.reviewCount = Math.max(0, ctx._source.reviewCount - 1); " +
+                                                    "}"
+                                    )
+                            ),
+                    Void.class
+            );
+        } catch (Exception e) {
+            throw new RuntimeException("ES reviewCount 감소 실패 bookId=" + bookId, e);
+        }
+    }
+
+
 }

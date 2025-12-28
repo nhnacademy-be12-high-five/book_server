@@ -5,8 +5,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
-
 public interface BookLikeRepository extends JpaRepository<BookLike,Long> {
 //
 //    // 책의 아이디랑 멤버 아이디가 존재하는지 확인하는 메서드

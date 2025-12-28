@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.nhnacademy.book_server.dto.BookInfoDto;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
@@ -15,7 +16,10 @@ import com.nhnacademy.book_server.mapper.CategoryMapper;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.repository.*;
 import com.nhnacademy.book_server.repository.review.ReviewRepository;
+import com.nhnacademy.book_server.service.search.ElasticService;
 import jakarta.annotation.PostConstruct;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.servlet.http.Cookie;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -61,32 +65,37 @@ public class BookService {
     private final ObjectMapper objectMapper;
     private final ReviewRepository reviewRepository;
     private final BookReviewAiRepository bookReviewAiRepository;
+    private final ElasticService elasticService;
 
     private final OrderFeignClient orderFeignClient;
     private final CategoryRepository categoryRepository;
     private final BookCategoryRepository bookCategoryRepository;
 
+    @PersistenceContext
+    private EntityManager em;
+
     private final JdbcTemplate jdbcTemplate;
+
 
     @Lazy
     @Autowired
     private BookService self;
 
-    public Book createBook(BookCreateRequest createRequest) {
-        if (bookRepository.existsByIsbn13(createRequest.getIsbn())) {
-            log.warn("이미 존재하는 ISBN입니다: {}", createRequest.getIsbn());
+    public Book createBook(BookInfoDto dto) {
+        if (bookRepository.existsByIsbn13(dto.getIsbn())) {
+            log.warn("이미 존재하는 ISBN입니다: {}", dto.getIsbn());
         }
 
         Publisher publisher = null;
-
-        if (StringUtils.hasText(createRequest.getPublisher())) {  // 이게 꼭 필요한가 todo
-            String publisherName = createRequest.getPublisher().trim();
+        if (StringUtils.hasText(dto.getPublisher())) {
+            String publisherName = dto.getPublisher().trim();
             publisher = publisherRepository.findByName(publisherName)
                     .orElseGet(() -> publisherRepository.save(
                             Publisher.builder().name(publisherName).build()
                     ));
         }
 
+        ParsingDto createRequest= new ParsingDto();
         Integer targetCategoryId = createRequest.getCategoryId();
         Category category = null;
 
@@ -98,23 +107,19 @@ public class BookService {
             category = categoryRepository.findByCategoryId(targetCategoryId).orElse(null);
         }
 
-        LocalDate pubDate = null;
-        if (StringUtils.hasText(createRequest.getPublishedDate())) {
-            try {
-                // yyyy-MM-dd 형식 파싱
-                pubDate = LocalDate.parse(createRequest.getPublishedDate(), DateTimeFormatter.ISO_DATE);
-            } catch (Exception e) {
-                log.warn("날짜 파싱 실패 (입력값: {}), null로 저장됨", createRequest.getPublishedDate());
-            }
-        }
+        String publishedDateStr = (dto.getPublishedDate() != null)
+                ? dto.getPublishedDate().toString() // "2023-12-25" 형식으로 변환됨
+                : LocalDate.now().toString();
+
 
         Book newBook = Book.builder()
-                .isbn13(createRequest.getIsbn())
-                .title(createRequest.getTitle())
+                .isbn13(dto.getIsbn())
+                .title(dto.getTitle())
                 .publisher(publisher)
-                .publishedDate(pubDate != null ? pubDate.toString() : null)
-                .image(createRequest.getImage())
-                .content(createRequest.getDescription())
+                .publishedDate(publishedDateStr)
+                .price(dto.getPrice() != null ? dto.getPrice() : 0)
+                .image(dto.getImage())
+                .content(dto.getDescription())
                 .build();
 
         Book savedBook = bookRepository.save(newBook);
@@ -126,9 +131,8 @@ public class BookService {
             log.info("저장 완료 : {}",bookCategory);
         }
 
-        if (StringUtils.hasText(createRequest.getAuthor())) {
-            String[] authorNames = createRequest.getAuthor().split(",");
-            for (String name : authorNames) {
+        if (dto.getAuthors() != null && !dto.getAuthors().isEmpty()) {
+            for (String name : dto.getAuthors()) {
                 String trimmedName = name.trim();
                 if (trimmedName.isEmpty()) continue;
 
@@ -146,6 +150,15 @@ public class BookService {
 
                 bookAuthorRepository.save(bookAuthor);
             }
+        }
+
+        try {
+            em.flush();
+            em.refresh(savedBook);
+            elasticService.saveAll(List.of(BookResponse.from(savedBook)));
+            log.info("Elasticsearch 인덱싱 완료 (작가/카테고리 포함): {}", savedBook.getTitle());
+        } catch (Exception e) {
+            log.error("Elasticsearch 인덱싱 실패 (DB는 저장됨): {}", e.getMessage());
         }
 
         return savedBook;
@@ -228,18 +241,28 @@ public class BookService {
         if (!bookRepository.existsById(id)) {
             throw new RuntimeException("삭제할 아이디가 없습니다.");
         }
+        bookReviewAiRepository.findByBook_Id(id)
+                        .ifPresent(bookReviewAiRepository::delete);
+        List<Review> reviews = reviewRepository.findByBookId(id, Pageable.unpaged()).getContent();
+        if (!reviews.isEmpty()) {
+            reviewRepository.deleteAll(reviews);
+            log.info("도서 삭제 전 연관 리뷰 {}건 삭제 완료", reviews.size());
+        }
+
+        bookRepository.deleteById(id);
+        log.info("도서 삭제 완료 - ID: {}", id);
 
         bookRepository.deleteById(id);
     }
 
-//    private Integer parsePrice(Integer priceStr) {
-//        if (!StringUtils.hasText(priceStr)) return 0;
-//        try {
-//            return Integer.parseInt(priceStr.replaceAll("[^0-9]", ""));
-//        } catch (NumberFormatException e) {
-//            return 0;
-//        }
-//    }
+    private Integer parsePrice(String priceStr) {
+        if (!StringUtils.hasText(priceStr)) return 0;
+        try {
+            return Integer.parseInt(priceStr.replaceAll("[^0-9]", ""));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
 
     // bulk api 조회
     // 장바구니에서 책을 조회할때 책을 1번만 호출하도록 하는 API

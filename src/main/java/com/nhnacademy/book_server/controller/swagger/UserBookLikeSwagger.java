@@ -1,6 +1,6 @@
 package com.nhnacademy.book_server.controller.swagger;
 
-import com.nhnacademy.book_server.dto.BookResponse; // 기존에 사용하시던 DTO
+import com.nhnacademy.book_server.dto.BookResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

@@ -83,3 +83,6 @@ X-USER-ID: 1
 ### 책 카테고리 조회
 GET http://localhost:9002/api/books/category
 
+###
+POST http://localhost:9002/api/search/reindex-rag
+
