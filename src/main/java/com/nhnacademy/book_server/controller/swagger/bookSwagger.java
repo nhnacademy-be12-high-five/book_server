@@ -26,7 +26,7 @@ public interface bookSwagger{
             @ApiResponse(responseCode = "409", description = "이미 존재하는 ISBN")
     })
     @PostMapping
-    ResponseEntity<BookInfoDto> createBook(@RequestBody BookInfoDto dto);
+    ResponseEntity<ParsingDto> createBook(@RequestBody ParsingDto dto);
 
     // 도서 전체 조회
     @Operation(summary = "관리자 도서 조회",description = "도서를 조회합니다.")
