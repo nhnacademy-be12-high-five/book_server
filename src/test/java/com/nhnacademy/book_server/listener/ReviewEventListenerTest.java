@@ -10,6 +10,7 @@ import com.nhnacademy.book_server.repository.BookRepository;
 import com.nhnacademy.book_server.repository.BookReviewAiRepository;
 import com.nhnacademy.book_server.repository.review.ReviewRepository;
 import com.nhnacademy.book_server.service.MinioImageService;
+import com.nhnacademy.book_server.service.search.ElasticService;
 import com.nhnacademy.book_server.service.search.GeminiTextClientService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,17 +42,33 @@ class ReviewEventListenerTest {
     @Mock private GeminiTextClientService geminiService;
     @Mock private CacheManager cacheManager;
     @Mock private MinioImageService imageUploadService;
+    @Mock private ElasticService elasticService;
     @Mock private Cache cache;
 
     @Test
-    @DisplayName("기본 리뷰 이벤트 처리 (포인트, 통계)")
+    @DisplayName("기본 리뷰 이벤트 처리 (포인트, 통계, ES 카운트 증가)")
     void handleReviewCreated_Success() {
-        ReviewCreatedEvent event = new ReviewCreatedEvent(100L, 1L, "EARN_REVIEW");
+        // Given
+        Long memberId = 100L;
+        Long bookId = 1L;
+        String eventType = "EARN_REVIEW";
+        ReviewCreatedEvent event = new ReviewCreatedEvent(memberId, bookId, eventType);
+
+        given(cacheManager.getCache("bookDetail")).willReturn(cache);
 
         reviewEventListener.handleReviewCreated(event);
 
-        verify(rabbitTemplate).convertAndSend(eq(RabbitMqConfig.POINT_EXCHANGE), eq(RabbitMqConfig.ROUTING_KEY), any(PointEarnRequest.class));
-        verify(bookRepository).updateBookReviewStats(1L);
+        verify(rabbitTemplate).convertAndSend(
+                eq(RabbitMqConfig.POINT_EXCHANGE),
+                eq(RabbitMqConfig.ROUTING_KEY),
+                any(PointEarnRequest.class)
+        );
+
+        verify(bookRepository).updateBookReviewStats(bookId);
+
+        verify(elasticService).increaseReviewCount(bookId);
+
+        verify(cache).evict(bookId);
     }
 
     @Test
