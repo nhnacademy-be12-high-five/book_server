@@ -121,7 +121,9 @@ class CategoryControllerTest {
                 4.8,                    // avgRating
                 100L,                   // reviewCount
                 null,                   // aiSummary
-                null                    // aiReviewSummary
+                null,                    // aiReviewSummary
+                null,
+                null
         );
 
         given(categoryService.getBooksByCategory(categoryId))

@@ -69,6 +69,8 @@ class UserBookControllerTest {
                 4.5,
                 100L,
                 null,
+                null,
+                null,
                 null
         );
     }
