@@ -1,9 +1,9 @@
 package com.nhnacademy.book_server.service.impl;
 
+import com.nhnacademy.book_server.dto.common.RestPage;
 import com.nhnacademy.book_server.dto.event.ReviewCreatedEvent;
 import com.nhnacademy.book_server.dto.event.ReviewDeletedEvent;
 import com.nhnacademy.book_server.dto.event.ReviewImageDeleteEvent;
-import com.nhnacademy.book_server.dto.common.RestPage;
 import com.nhnacademy.book_server.dto.request.ReviewCreateRequest;
 import com.nhnacademy.book_server.dto.request.ReviewUpdateRequest;
 import com.nhnacademy.book_server.dto.response.*;

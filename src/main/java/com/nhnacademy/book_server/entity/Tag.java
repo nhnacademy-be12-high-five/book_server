@@ -2,9 +2,6 @@ package com.nhnacademy.book_server.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.springframework.data.jpa.repository.EntityGraph;
-
-import java.nio.file.FileStore;
 
 @Entity
 @Table(name = "Tag")

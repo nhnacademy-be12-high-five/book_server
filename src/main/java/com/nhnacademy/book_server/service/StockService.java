@@ -1,6 +1,7 @@
 package com.nhnacademy.book_server.service;
 
 import com.nhnacademy.book_server.dto.request.StockRequest;
+
 import java.util.List;
 
 public interface StockService {

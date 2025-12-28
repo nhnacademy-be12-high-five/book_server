@@ -91,21 +91,39 @@ public class CategoryMapper {
     }
 
     public static Integer findCategoryId(String title) {
-        // 제목과 설명을 합쳐서 소문자로 변환 (검색 확률 높임)
+        // 1. 방어 로직: 제목이 없으면 null 반환
+        if (title == null || title.isEmpty()) {
+            return null;
+        }
 
-        // 1. 소분류(8~14)부터 먼저 검색 (더 구체적이기 때문)
+        // 2. 매칭 확률을 높이기 위해 소문자로 변환
+        String searchTitle = title.toLowerCase();
+
+        // 3. 소분류(8~14)부터 먼저 검색 (더 구체적이기 때문)
         for (int i = 8; i <= 14; i++) {
             List<String> keywords = CATEGORY_RULES.get(i);
             if (keywords == null) continue;
 
-
+            // [누락되었던 부분] 실제 키워드 비교 로직 추가
+            for (String keyword : keywords) {
+                // 키워드도 소문자로 변환해서 포함 여부 확인
+                if (searchTitle.contains(keyword.toLowerCase())) {
+                    return i; // 매칭되면 바로 카테고리 ID 반환
+                }
+            }
         }
 
-        // 2. 소분류 매칭이 없으면 대분류(1~7) 검색
+        // 4. 소분류 매칭이 없으면 대분류(1~7) 검색
         for (int i = 1; i <= 7; i++) {
             List<String> keywords = CATEGORY_RULES.get(i);
             if (keywords == null) continue;
 
+            // [누락되었던 부분] 실제 키워드 비교 로직 추가
+            for (String keyword : keywords) {
+                if (searchTitle.contains(keyword.toLowerCase())) {
+                    return i;
+                }
+            }
         }
 
         return null; // 매칭되는 카테고리 없음

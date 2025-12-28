@@ -2,7 +2,7 @@ package com.nhnacademy.book_server.service.search;
 
 import com.nhnacademy.book_server.dto.BookResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier; // import 확인
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
