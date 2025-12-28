@@ -57,7 +57,7 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             "LEFT JOIN FETCH b.bookAuthors ba " +
             "LEFT JOIN FETCH ba.author " +
             "WHERE bc.category.categoryId = :categoryId")
-        List<BookCategory> findBooksByCategoryWithAuthors(@Param("categoryId") int categoryId);
+        Page<BookCategory> findBooksByCategoryWithAuthors(@Param("categoryId") int categoryId, Pageable pageable);
 
 
 //    @Query("SELECT b FROM Book b WHERE b.bookCategories IS EMPTY")
