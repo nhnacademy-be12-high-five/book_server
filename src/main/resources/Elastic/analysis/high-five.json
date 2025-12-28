@@ -1,22 +1,42 @@
 {
   "settings": {
     "analysis": {
+      "char_filter": {
+        "html_strip_filter": {
+          "type": "html_strip"
+        }
+      },
+      "tokenizer": {
+        "nori_user_dict": {
+          "type": "nori_tokenizer",
+          "decompound_mode": "mixed"
+        }
+      },
       "filter": {
         "synonym_filter": {
           "type": "synonym",
           "synonyms": [
             "자바, Java",
             "스프링, Spring",
-            "엘라스틱서치, Elasticsearch, es",
-            "JPA, Hibernate, 하이버네이트"
+            "JPA, Hibernate"
+          ]
+        },
+        "nori_pos_filter": {
+          "type": "nori_part_of_speech",
+          "stoptags": [
+            "E", "IC", "J", "MAG", "MAJ", "MM", "SP", "SSC", "SSO", "SC", "SE", "XPN", "XSA", "XSN", "XSV", "UNA", "NA", "VSV"
           ]
         }
       },
       "analyzer": {
-        "synonym_analyzer": {
-          "tokenizer": "standard",
+        "korean_html_analyzer": {
+          "type": "custom",
+          "char_filter": ["html_strip_filter"],
+          "tokenizer": "nori_user_dict",
           "filter": [
+            "nori_readingform",
             "lowercase",
+            "nori_pos_filter",
             "synonym_filter"
           ]
         }
@@ -26,16 +46,20 @@
   "mappings": {
     "properties": {
       "bookId": { "type": "keyword" },
-      "title": { "type": "text", "analyzer": "synonym_analyzer" },
-      "author": { "type": "text", "analyzer": "synonym_analyzer" },
-      "publisher": { "type": "text", "analyzer": "synonym_analyzer" },
-      "isbn": { "type": "keyword" },
-      "content": { "type": "text", "analyzer": "synonym_analyzer" },
-      "tags": { "type": "text", "analyzer": "synonym_analyzer" },
 
+      "title": {
+        "type": "text",
+        "analyzer": "korean_html_analyzer",
+        "search_analyzer": "korean_html_analyzer"
+      },
+      "author": { "type": "text", "analyzer": "korean_html_analyzer" },
+      "publisher": { "type": "text", "analyzer": "korean_html_analyzer" },
+      "content": { "type": "text", "analyzer": "korean_html_analyzer" },
+      "tags": { "type": "text", "analyzer": "korean_html_analyzer" },
+
+      "isbn": { "type": "keyword" },
       "publishedDate": { "type": "date" },
       "price": { "type": "integer" },
-
       "avgRating": { "type": "float" },
       "reviewCount": { "type": "integer" },
 

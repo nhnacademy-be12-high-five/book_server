@@ -1,12 +1,7 @@
 package com.nhnacademy.book_server.repository;
 
-import com.nhnacademy.book_server.dto.BookResponse;
-import com.nhnacademy.book_server.dto.BookSortType;
-import com.nhnacademy.book_server.dto.SearchResult;
 import com.nhnacademy.book_server.dto.response.BookDocument;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
-
-import java.util.List;
 
 /**
  * Elasticsearch 도서 검색용 Repository 인터페이스

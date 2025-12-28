@@ -90,7 +90,13 @@ public class CategoryMapper {
     }
 
     public static Integer findCategoryId(String title) {
-        // 제목과 설명을 합쳐서 소문자로 변환 (검색 확률 높임)
+        // 1. 방어 로직: 제목이 없으면 null 반환
+        if (title == null || title.isEmpty()) {
+            return null;
+        }
+
+        // 2. 매칭 확률을 높이기 위해 소문자로 변환
+        String searchTitle = title.toLowerCase();
 
         String searchTitle = title.toLowerCase(); // 최적화를 위해 변수로 빼는 것이 좋습니다
 
@@ -105,7 +111,7 @@ public class CategoryMapper {
             }
         }
 
-        // 2. 소분류 매칭이 없으면 대분류(1~7) 검색
+        // 4. 소분류 매칭이 없으면 대분류(1~7) 검색
         for (int i = 1; i <= 7; i++) {
             List<String> keywords = CATEGORY_RULES.get(i);
             if (keywords == null) continue;

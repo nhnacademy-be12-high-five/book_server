@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.annotations.BatchSize;
+
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +43,7 @@ public class Book {
     @NotNull
     @Builder.Default
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true) // todo
+    @BatchSize(size = 100)
     private List<BookAuthor> bookAuthors = new ArrayList<>(); // List 초기화는 @Builder에서 처리됨
     // AUTHR_NM : 저자이름
     // 도서와 저자는 1:N 관계 -> 한권의 책에 여러 저자가 있을 수 있음
@@ -101,18 +104,22 @@ public class Book {
 
     @Builder.Default
     @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 100)
     private List<BookCategory> bookCategories = new ArrayList<>();
     //  도서와 카테고리는 1:N관계
 
     private Integer stock;
 
     @Column(nullable = false)
+    @Builder.Default
     private Integer reviewCount = 0;
 
     @Column(nullable = false)
+    @Builder.Default
     private Double averageRating = 0.0;
 
     @Column(name = "sales_volume", nullable = false)
+    @Builder.Default
     private Long salesVolume = 0L;
 
     public void setStock(Integer stock) {
@@ -120,5 +127,6 @@ public class Book {
     }
 
     @OneToMany(mappedBy = "book", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @BatchSize(size = 100)
     private List<BookTag> bookTags = new ArrayList<>();
 }

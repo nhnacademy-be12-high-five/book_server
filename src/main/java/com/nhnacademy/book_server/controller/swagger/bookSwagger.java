@@ -1,7 +1,7 @@
 package com.nhnacademy.book_server.controller.swagger;
 
+import com.nhnacademy.book_server.dto.BookInfoDto;
 import com.nhnacademy.book_server.dto.BookResponse;
-import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.parser.ParsingDto;
@@ -27,7 +27,7 @@ public interface bookSwagger{
             @ApiResponse(responseCode = "409", description = "이미 존재하는 ISBN")
     })
     @PostMapping
-    ResponseEntity<BookResponse> createBook(@RequestBody BookCreateRequest createRequest);
+    ResponseEntity<BookInfoDto> createBook(@RequestBody BookInfoDto dto);
 
     // 도서 전체 조회
     @Operation(summary = "관리자 도서 조회",description = "도서를 조회합니다.")
@@ -69,7 +69,7 @@ public interface bookSwagger{
             @ApiResponse(responseCode = "404", description = "도서를 찾을 수 없음")
     })
     @GetMapping("/search-api")
-    ResponseEntity<ParsingDto> searchBookWithAi(@RequestParam @Pattern(regexp = "^(\\d{10}|\\d{13})$", message = "ISBN은 10자리 또는 13자리 숫자여야 합니다.") String isbn);
+    ResponseEntity<BookInfoDto> searchBookWithAi(@RequestParam @Pattern(regexp = "^(\\d{10}|\\d{13})$", message = "ISBN은 10자리 또는 13자리 숫자여야 합니다.") String isbn);
 
 
 //    // 도서 삭제

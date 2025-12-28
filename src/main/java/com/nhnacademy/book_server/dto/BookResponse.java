@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.nhnacademy.book_server.dto.response.TagResponse;
 import com.nhnacademy.book_server.entity.*;
-import lombok.Getter;
 
 import java.util.Collections;
 import java.util.List;

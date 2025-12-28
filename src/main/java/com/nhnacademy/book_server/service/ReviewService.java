@@ -2,7 +2,10 @@ package com.nhnacademy.book_server.service;
 
 import com.nhnacademy.book_server.dto.request.ReviewCreateRequest;
 import com.nhnacademy.book_server.dto.request.ReviewUpdateRequest;
-import com.nhnacademy.book_server.dto.response.*;
+import com.nhnacademy.book_server.dto.response.BookReviewResponse;
+import com.nhnacademy.book_server.dto.response.MyPageReviewResponse;
+import com.nhnacademy.book_server.dto.response.ReviewCreateResponse;
+import com.nhnacademy.book_server.dto.response.UpdateReviewResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;

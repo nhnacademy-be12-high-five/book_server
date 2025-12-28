@@ -1,9 +1,9 @@
 package com.nhnacademy.book_server.service.impl;
 
+import com.nhnacademy.book_server.dto.response.AladinSearchResponse;
 import com.nhnacademy.book_server.entity.AladinItem;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.repository.BookRepository;
-import com.nhnacademy.book_server.dto.response.AladinSearchResponse;
 import com.nhnacademy.book_server.service.MinioImageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +15,6 @@ import org.springframework.web.client.RestTemplate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
