@@ -3,6 +3,7 @@ package com.nhnacademy.book_server.controller.book;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nhnacademy.book_server.controller.AdminBookController;
+import com.nhnacademy.book_server.dto.BookInfoDto;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
@@ -76,6 +77,15 @@ class AdminBookControllerTest {
         BookCreateRequest request = new BookCreateRequest();
         // 리플렉션 등으로 필드 주입 필요하다면 여기에 작성 (생략)
 
+        BookInfoDto requestDto = BookInfoDto.builder()
+                .title("테스트 책")
+                .isbn("9791112345678") // DTO 필드명은 isbn
+                .price(10000)
+                .authors(List.of("김작가"))
+                .publisher("테스트출판사")
+                .categoryId(1)
+                .build();
+
         Book mockBook = Book.builder()
                 .id(1L)
                 .title("테스트 책")
@@ -84,13 +94,13 @@ class AdminBookControllerTest {
                 .reviewCount(1)
                 .build();
 
-        given(bookService.createBook(any(BookCreateRequest.class))).willReturn(mockBook);
+        given(bookService.createBook(any(BookInfoDto.class))).willReturn(mockBook);
 
         // when & then
         mockMvc.perform(post("/api/admin/books")
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(csrf())
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content(objectMapper.writeValueAsString(requestDto)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.title").value("테스트 책"))
                 .andExpect(jsonPath("$.isbn").value("9791112345678")) // Entity 필드명 확인 필요 (isbn -> isbn13)
@@ -177,7 +187,7 @@ class AdminBookControllerTest {
     void searchBookWithAi() throws Exception {
         // given
         String isbn = "9788912345678";
-        ParsingDto mockParsingDto = new ParsingDto();
+        BookInfoDto mockParsingDto = new BookInfoDto();
         mockParsingDto.setIsbn(isbn);
         mockParsingDto.setTitle("AI가 찾은 책");
         mockParsingDto.setDescription("이 책은 AI가 설명합니다...");
