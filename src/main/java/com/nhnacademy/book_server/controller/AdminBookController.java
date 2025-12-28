@@ -68,8 +68,10 @@ public class AdminBookController implements bookSwagger{
 
     // 북 생성
     @PostMapping
-    public ResponseEntity<Book> createBook(@RequestBody BookCreateRequest request) {
-        Book response = bookService.createBook(request);
+    public ResponseEntity<BookResponse> createBook(@RequestBody BookCreateRequest request) {
+        Book savedBook = bookService.createBook(request);
+        // 엔티티를 DTO로 변환하여 반환
+        BookResponse response = BookResponse.from(savedBook);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -102,7 +104,7 @@ public class AdminBookController implements bookSwagger{
     }
 
     @GetMapping("/search-api")
-    public ResponseEntity<ParsingDto> searchBookWithAi(@RequestParam("isbn") String isbn) {
+    public ResponseEntity<ParsingDto> searchBookWithAi(@RequestParam String isbn) {
         log.info("AI 도서 정보 검색 요청 -ISBN: {}", isbn);
         ParsingDto dto = bookRegistrationService.getBookInfoWithAi(isbn);
         return ResponseEntity.ok(dto);

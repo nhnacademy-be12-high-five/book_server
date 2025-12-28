@@ -24,7 +24,6 @@ import java.util.Optional;
 public class AladinServiceImpl implements AladinService {
 
     private final RestTemplate restTemplate;
-    private final BookRepository bookRepository; // Repository 필수 사용
     private final MinioImageService minioImageService;
 
     @Value("${aladin.ttb-key}")
@@ -159,11 +158,6 @@ public class AladinServiceImpl implements AladinService {
         return res.getItem().get(0);
     }
 
-
-
-
-
-
     public List<AladinItem> getBookList(String queryType) {
         try {
             AladinSearchResponse response = restTemplate.getForObject(
@@ -210,7 +204,6 @@ public class AladinServiceImpl implements AladinService {
                 isbn13
         );
 
-        //
         log.info("===== ALADIN LOOKUP RAW RESPONSE =====");
         log.info(response);
         log.info("=====================================");
