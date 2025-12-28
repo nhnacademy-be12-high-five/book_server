@@ -28,7 +28,9 @@ public record BookResponse(
         Double avgRating,
         Long reviewCount,
         String aiSummary,
-        String aiReviewSummary
+        String aiReviewSummary,
+        Integer categoryId,
+        Integer parentId
 ) {
 
     // =================================================================================
@@ -124,6 +126,8 @@ public record BookResponse(
 
         // 카테고리 리스트 처리 (N:M 대응)
         List<CategoryResponse> categoryList = Collections.emptyList();
+        Integer mainCategoryId = null;
+        Integer mainParentId = null;
 
         if (bookCategories != null && !bookCategories.isEmpty()) {
             categoryList = bookCategories.stream()
@@ -131,13 +135,20 @@ public record BookResponse(
                             bc.getCategory().getCategoryId(),
                             bc.getCategory().getCategoryName()))
                     .collect(Collectors.toList());
+
+            Category firstCategory = bookCategories.get(0).getCategory();
+            mainCategoryId = firstCategory.getCategoryId();
+
+            if (firstCategory.getParentId() != 0) {
+                mainParentId =firstCategory.getParentId();
+            }
         }
 
         List<TagResponse> tagList = Collections.emptyList();
         if (book.getBookTags() != null && !book.getBookTags().isEmpty()){
             tagList=book.getBookTags().stream().map(bookTag -> {
-                Tag tag1=new Tag();
-                return new TagResponse(tag1.getTagId(),tag1.getName()
+                Tag t = bookTag.getTag();
+                return new TagResponse(t.getTagId(),t.getName()
                 );
             })
                     .collect(Collectors.toList());
@@ -158,7 +169,9 @@ public record BookResponse(
                 avgRating,
                 reviewCount,
                 aiSummary,
-                aiReviewSummary
+                aiReviewSummary,
+                mainCategoryId,
+                mainParentId
         );
     }
 

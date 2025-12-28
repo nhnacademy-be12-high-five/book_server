@@ -170,7 +170,8 @@ public class ElasticService {
 
         return new BookResponse(
                 bookId, title, author, isbn, price, image, categoryList, tagList,
-                content, publisher, publishedDate, avgRating, reviewCount, aiSummary, null
+                content, publisher, publishedDate, avgRating, reviewCount, aiSummary, null,
+                null,null
         );
     }
 
