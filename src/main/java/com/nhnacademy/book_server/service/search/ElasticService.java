@@ -187,6 +187,7 @@ public class ElasticService {
                 bookId, title, author, isbn, price, image,
                 categoryList, tagList,
                 content, publisher, publishedDate, avgRating, reviewCount, aiSummary, null
+                ,null, null
         );
     }
 
