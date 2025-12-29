@@ -212,9 +212,9 @@ class RagSearchServiceTest {
         when(reviewRepository.findByBookIdIn(List.of(1L, 2L))).thenReturn(List.of());
 
         BookResponse br1 = new BookResponse(1L, "제목1", "저자1", "isbn1", 1000, "img1",
-                List.of(), List.of(), "내용1", "출판사1", "2025-01-01", 4.5, 10L, "aisum1", null,null,null);
+                List.of(), List.of(), "내용1", "출판사1", "2025-01-01", 4.5, 10L, "aisum1", null, null, null);
         BookResponse br2 = new BookResponse(2L, "제목2", "저자2", "isbn2", 2000, "img2",
-                List.of(), List.of(), "내용2", "출판사2", "2025-01-02", 4.0, 5L, "aisum2", null,null,null);
+                List.of(), List.of(), "내용2", "출판사2", "2025-01-02", 4.0, 5L, "aisum2", null, null, null);
 
         List<Float> vec1024 = Collections.nCopies(1024, 0.01f);
         when(embeddingClientService.embed(anyString())).thenReturn(vec1024);
@@ -257,7 +257,8 @@ class RagSearchServiceTest {
         BookResponse br1 = new BookResponse(
                 1L, "제목1", "저자1", "isbn1", 1000, "img1",
                 List.of(), List.of(),
-                "내용1", "출판사1", "2025-01-01", 4.5, 10L, "aisum1", null,null, null
+                "내용1", "출판사1", "2025-01-01", 4.5, 10L, "aisum1", null,
+                null, null
         );
 
         when(embeddingClientService.embed(anyString())).thenReturn(null);
@@ -284,7 +285,8 @@ class RagSearchServiceTest {
         BookResponse br1 = new BookResponse(
                 1L, "제목1", "저자1", "isbn1", 1000, "img1",
                 List.of(), List.of(),
-                "내용1", "출판사1", "2025-01-01", 4.5, 10L, "aisum1", null,null,null
+                "내용1", "출판사1", "2025-01-01", 4.5, 10L, "aisum1", null,
+                null, null
         );
 
         when(embeddingClientService.embed(anyString())).thenReturn(List.of(0.1f, 0.2f, 0.3f));
@@ -313,7 +315,8 @@ class RagSearchServiceTest {
         BookResponse br2 = new BookResponse(
                 2L, "제목2", "저자2", "isbn2", 2000, "img2",
                 List.of(), List.of(),
-                "내용2", "출판사2", "2025-01-02", 4.0, 5L, "aisum2", null,null,null
+                "내용2", "출판사2", "2025-01-02", 4.0, 5L, "aisum2", null
+                ,null, null
         );
 
         List<Float> vec1024 = Collections.nCopies(1024, 0.01f);
