@@ -10,16 +10,17 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -35,7 +36,7 @@ class CategoryControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private CategoryService categoryService;
 
     @Autowired
@@ -121,17 +122,19 @@ class CategoryControllerTest {
                 4.8,                    // avgRating
                 100L,                   // reviewCount
                 null,                   // aiSummary
-                null                    // aiReviewSummary
+                null,                    // aiReviewSummary
+                null,
+                null
         );
 
-        given(categoryService.getBooksByCategory(categoryId))
-                .willReturn(List.of(bookResponse));
+        given(categoryService.getBooksByCategory(eq(categoryId), any(Pageable.class)))
+                .willReturn(new PageImpl<>(List.of(bookResponse)));
 
         // when & then
         mockMvc.perform(get("/api/categories/{categoryId}/books", categoryId)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.size()").value(1))
-                .andExpect(jsonPath("$[0].title").value("테스트 도서"));
+                .andExpect(jsonPath("$.content.size()").value(1))
+                .andExpect(jsonPath("$.content[0].title").value("테스트 도서"));
     }
 }

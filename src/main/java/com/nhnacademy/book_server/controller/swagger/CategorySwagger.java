@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 
@@ -60,7 +61,8 @@ public interface CategorySwagger {
             @ApiResponse(responseCode = "404", description = "카테고리 없음")
     })
 
-    ResponseEntity<List<BookResponse>> getBooksByCategory(
+    ResponseEntity<Page<BookResponse>> getBooksByCategory(
             @Parameter(description = "카테고리 ID", example = "10")
-            @PathVariable int categoryId);
+            @PathVariable int categoryId,
+            @Parameter(hidden = true) Pageable pageable);
 }

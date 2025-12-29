@@ -67,6 +67,8 @@ class AdminBookControllerTest {
                 10L,
                 "AI Summary",
                 "AI Review Summary"
+                ,null
+                ,null
         );
     }
 
