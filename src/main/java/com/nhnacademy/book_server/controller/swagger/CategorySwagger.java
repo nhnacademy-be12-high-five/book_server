@@ -63,5 +63,6 @@ public interface CategorySwagger {
 
     ResponseEntity<Page<BookResponse>> getBooksByCategory(
             @Parameter(description = "카테고리 ID", example = "10")
-            @PathVariable int categoryId, Pageable pageable);
+            @PathVariable int categoryId,
+            @Parameter(hidden = true) Pageable pageable);
 }

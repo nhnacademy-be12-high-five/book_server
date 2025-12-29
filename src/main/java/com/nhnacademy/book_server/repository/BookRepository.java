@@ -51,13 +51,12 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     List<Book> findByIdIn(List<Long> ids); //카테고리-> 북리스트 후 정렬
 
 
-    @Query("SELECT bc FROM BookCategory bc " +
+    @Query(value = "SELECT bc FROM BookCategory bc " +
             "JOIN FETCH bc.book b " +
-            "LEFT JOIN FETCH b.publisher p " + // 출판사 추가
-            "LEFT JOIN FETCH b.bookAuthors ba " +
-            "LEFT JOIN FETCH ba.author " +
-            "WHERE bc.category.categoryId = :categoryId")
-        Page<BookCategory> findBooksByCategoryWithAuthors(@Param("categoryId") int categoryId, Pageable pageable);
+            "LEFT JOIN FETCH b.publisher p " +
+            "WHERE bc.category.categoryId = :categoryId",
+            countQuery = "SELECT count(bc) FROM BookCategory bc WHERE bc.category.categoryId = :categoryId")
+        Page<BookCategory> findBooksByCategory(@Param("categoryId") int categoryId, Pageable pageable);
 
 
 //    @Query("SELECT b FROM Book b WHERE b.bookCategories IS EMPTY")

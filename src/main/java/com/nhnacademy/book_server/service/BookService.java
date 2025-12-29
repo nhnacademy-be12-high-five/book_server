@@ -438,7 +438,7 @@ public class BookService {
 
     @Transactional(readOnly = true)
     public Page<BookResponse> getBooksByCategory(int categoryId, Pageable pageable) {
-        Page<BookCategory> books = bookRepository.findBooksByCategoryWithAuthors(categoryId, pageable);
+        Page<BookCategory> books = bookRepository.findBooksByCategory(categoryId, pageable);
         return books.map(bc -> BookResponse.from(bc.getBook()));
     }
 
