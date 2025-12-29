@@ -48,6 +48,8 @@ class RagAnswerServiceTest {
                 4.0,
                 10L,
                 null,
+                null,
+                null,
                 null
         );
     }
