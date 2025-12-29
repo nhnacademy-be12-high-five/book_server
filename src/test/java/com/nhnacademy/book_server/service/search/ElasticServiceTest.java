@@ -89,7 +89,6 @@ class ElasticServiceTest {
         ArgumentCaptor<Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>>> captor =
                 (ArgumentCaptor) ArgumentCaptor.forClass(Function.class);
 
-        // ✅ 두 번째 인자는 "Class<Map>"로 검증해야 함 (Type 아님)
         verify(client).search(captor.capture(), eq(Map.class));
 
         Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>> fn = captor.getValue();
