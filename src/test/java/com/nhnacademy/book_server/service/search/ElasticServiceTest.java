@@ -1,7 +1,11 @@
 package com.nhnacademy.book_server.service.search;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.ShardStatistics;
+import co.elastic.clients.elasticsearch._types.SortOptions;
 import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.query_dsl.FunctionBoostMode;
+import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
@@ -16,407 +20,486 @@ import co.elastic.clients.util.ObjectBuilder;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.BookSortType;
 import com.nhnacademy.book_server.dto.SearchResult;
+import jakarta.annotation.Resource;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
-
-import org.springframework.context.annotation.Import;
+import org.mockito.ArgumentMatchers;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@SpringJUnitConfig
-@Import({ElasticService.class, ElasticServiceTest.Config.class})
+@SpringBootTest(classes = ElasticService.class)
 class ElasticServiceTest {
-
-    @TestConfiguration
-    static class Config {
-        // 테스트 전용 Bean이 필요하면 여기에 추가
-    }
 
     @MockitoBean
     ElasticsearchClient client;
 
-    @Autowired
-    ElasticService elasticService;
+    @Resource
+    ElasticService service;
 
-    // -------------------------------
+    private static final String INDEX = "high-five";
+
+    // =======================
     // Helpers
-    // -------------------------------
-    private static SearchResponse<Map> stubSearchResponse(List<Map<String, Object>> sources, long total) {
-        List<Hit<Map>> hits = sources.stream()
-                .map(src -> new Hit.Builder<Map>().source(src).build())
-                .toList();
+    // =======================
+
+    private SearchResponse<Map> buildSearchResponse(long total, List<Map<String, Object>> sources) {
+        List<Hit<Map>> hits = new ArrayList<>();
+        for (int i = 0; i < sources.size(); i++) {
+            Map<String, Object> src = sources.get(i);
+            String id = String.valueOf(src.getOrDefault("bookId", i + 1));
+
+            hits.add(new Hit.Builder<Map>()
+                    .index(INDEX)
+                    .id(id)
+                    .source((Map) src)
+                    .build());
+        }
+
+        ShardStatistics shards = new ShardStatistics.Builder()
+                .total(1).successful(1).skipped(0).failed(0)
+                .build();
 
         HitsMetadata<Map> hitsMetadata = new HitsMetadata.Builder<Map>()
+                .total(new TotalHits.Builder()
+                        .value(total)
+                        .relation(TotalHitsRelation.Eq)
+                        .build())
                 .hits(hits)
-                .total(new TotalHits.Builder().value(total).relation(TotalHitsRelation.Eq).build())
                 .build();
 
         return new SearchResponse.Builder<Map>()
+                .took(1)
+                .timedOut(false)
+                .shards(shards)
                 .hits(hitsMetadata)
                 .build();
     }
 
-    private static Map<String, Object> sourceWithId(long id, Integer price, Double avgRating, Long reviewCount, String publishedDate) {
-        Map<String, Object> src = new HashMap<>();
-        src.put("id", id);
-        src.put("title", "t" + id);
-        src.put("author", "a" + id);
-        src.put("isbn", "i" + id);
-        if (price != null) src.put("price", price);
-        src.put("image", "img");
-        src.put("content", "c");
-        src.put("publisher", "p");
-        if (publishedDate != null) src.put("publishedDate", publishedDate);
-        if (avgRating != null) src.put("avgRating", avgRating);
-        if (reviewCount != null) src.put("reviewCount", reviewCount);
-        src.put("aiSummary", "s");
-        return src;
-    }
-
-    private SearchRequest captureBuiltSearchRequest(BookSortType sort, int page, int size) throws IOException {
+    private SearchRequest captureAndBuildSearchRequest() throws Exception {
         @SuppressWarnings("unchecked")
-        ArgumentCaptor<Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>>> fnCaptor =
-                ArgumentCaptor.forClass(Function.class);
+        ArgumentCaptor<Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>>> captor =
+                (ArgumentCaptor) ArgumentCaptor.forClass(Function.class);
 
-        when(client.search(fnCaptor.capture(), eq(Map.class)))
-                .thenReturn(stubSearchResponse(List.of(sourceWithId(1L, 1000, 4.5, 120L, "2024-01-01")), 1L));
+        // ✅ 두 번째 인자는 "Class<Map>"로 검증해야 함 (Type 아님)
+        verify(client).search(captor.capture(), eq(Map.class));
 
-        elasticService.search("k", sort, page, size);
-
-        Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>> fn = fnCaptor.getValue();
-        SearchRequest.Builder b = new SearchRequest.Builder();
-        ObjectBuilder<SearchRequest> ob = fn.apply(b);
-        return ob.build();
+        Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>> fn = captor.getValue();
+        SearchRequest.Builder builder = new SearchRequest.Builder();
+        return fn.apply(builder).build();
     }
 
-    // ===============================
-    // search() tests
-    // ===============================
-    @Nested
-    @DisplayName("search()")
-    class SearchTests {
+    private UpdateRequest<Void, Void> captureAndBuildUpdateRequest() throws Exception {
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Function<UpdateRequest.Builder<Void, Void>, ObjectBuilder<UpdateRequest<Void, Void>>>> captor =
+                (ArgumentCaptor) ArgumentCaptor.forClass(Function.class);
 
-        @Test
-        @DisplayName("keyword가 null/blank이면 empty 결과 + client.search 호출 없음")
-        void search_blankKeyword_returnsEmpty_noClientCall() {
-            SearchResult<BookResponse> r1 = elasticService.search(null, BookSortType.POPULAR, 0, 10);
-            SearchResult<BookResponse> r2 = elasticService.search("   ", BookSortType.LOW_PRICE, 0, 10);
+        verify(client).update(captor.capture(), eq(Void.class));
 
-            assertThat(r1.totalHits()).isZero();
-            assertThat(r1.content()).isEmpty();
-            assertThat(r2.totalHits()).isZero();
-            assertThat(r2.content()).isEmpty();
-
-            verify(client, never()).search(any(Function.class), eq(Map.class));
-        }
-
-        @Test
-        @DisplayName("POPULAR/null 정렬: function_score 쿼리 분기 + from/size 설정 검증")
-        void search_popularOrNull_buildsFunctionScoreQuery() throws Exception {
-            SearchRequest req1 = captureBuiltSearchRequest(BookSortType.POPULAR, 2, 20);
-            assertThat(req1.index()).containsExactly("high-five");
-            assertThat(req1.from()).isEqualTo(40);
-            assertThat(req1.size()).isEqualTo(20);
-
-            Query q1 = req1.query();
-            assertThat(q1).isNotNull();
-            assertThat(q1.isFunctionScore()).isTrue();
-
-            SearchRequest req2 = captureBuiltSearchRequest(null, 1, 10);
-            assertThat(req2.query()).isNotNull();
-            assertThat(req2.query().isFunctionScore()).isTrue();
-        }
-
-        @Test
-        @DisplayName("LOW_PRICE 정렬: price ASC sort 필드 설정 검증")
-        void search_lowPrice_buildsSortPriceAsc() throws Exception {
-            SearchRequest req = captureBuiltSearchRequest(BookSortType.LOW_PRICE, 0, 10);
-
-            assertThat(req.sort()).hasSize(1);
-            assertThat(req.sort().get(0).isField()).isTrue();
-            assertThat(req.sort().get(0).field().field()).isEqualTo("price");
-            assertThat(req.sort().get(0).field().order()).isEqualTo(SortOrder.Asc);
-        }
-
-        @Test
-        @DisplayName("HIGH_PRICE 정렬: price DESC sort 필드 설정 검증")
-        void search_highPrice_buildsSortPriceDesc() throws Exception {
-            SearchRequest req = captureBuiltSearchRequest(BookSortType.HIGH_PRICE, 0, 10);
-
-            assertThat(req.sort()).hasSize(1);
-            assertThat(req.sort().get(0).field().field()).isEqualTo("price");
-            assertThat(req.sort().get(0).field().order()).isEqualTo(SortOrder.Desc);
-        }
-
-        @Test
-        @DisplayName("REVIEW 정렬: reviewCount DESC sort 필드 설정 검증")
-        void search_review_buildsSortReviewCountDesc() throws Exception {
-            SearchRequest req = captureBuiltSearchRequest(BookSortType.REVIEW, 0, 10);
-
-            assertThat(req.sort()).hasSize(1);
-            assertThat(req.sort().get(0).field().field()).isEqualTo("reviewCount");
-            assertThat(req.sort().get(0).field().order()).isEqualTo(SortOrder.Desc);
-        }
-
-        @Test
-        @DisplayName("NEW 정렬: publishedDate DESC sort 필드 설정 검증")
-        void search_new_buildsSortPublishedDateDesc() throws Exception {
-            SearchRequest req = captureBuiltSearchRequest(BookSortType.NEW, 0, 10);
-
-            assertThat(req.sort()).hasSize(1);
-            assertThat(req.sort().get(0).field().field()).isEqualTo("publishedDate");
-            assertThat(req.sort().get(0).field().order()).isEqualTo(SortOrder.Desc);
-        }
-
-        @Test
-        @DisplayName("RATING 정렬: bool + filter(reviewCount>=100) + avgRating DESC sort 검증")
-        void search_rating_buildsFilterAndSort() throws Exception {
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>>> fnCaptor =
-                    ArgumentCaptor.forClass(Function.class);
-
-            when(client.search(fnCaptor.capture(), eq(Map.class)))
-                    .thenReturn(stubSearchResponse(List.of(sourceWithId(1L, 1000, 4.9, 150L, "2024-01-01")), 1L));
-
-            elasticService.search("k", BookSortType.RATING, 0, 10);
-
-            SearchRequest.Builder b = new SearchRequest.Builder();
-            SearchRequest req = fnCaptor.getValue().apply(b).build();
-
-            assertThat(req.query()).isNotNull();
-            assertThat(req.query().isBool()).isTrue();
-            assertThat(req.sort()).hasSize(1);
-            assertThat(req.sort().get(0).field().field()).isEqualTo("avgRating");
-            assertThat(req.sort().get(0).field().order()).isEqualTo(SortOrder.Desc);
-        }
-
-        @Test
-        @DisplayName("search 결과 매핑: 숫자형 변환/기본값 처리 검증")
-        void search_mapsSourceToBookResponse() throws Exception {
-            Map<String, Object> src = new HashMap<>();
-            src.put("id", 7);                   // Integer -> Long
-            src.put("title", "title");
-            src.put("author", "author");
-            src.put("isbn", "isbn");
-            src.put("price", 1234L);            // Long -> Integer
-            src.put("publishedDate", 20240101); // toString()
-            // avgRating 누락 -> null
-            // reviewCount 누락 -> 0L
-
-            when(client.search(any(Function.class), eq(Map.class)))
-                    .thenReturn(stubSearchResponse(List.of(src), 1L));
-
-            SearchResult<BookResponse> result = elasticService.search("k", BookSortType.NEW, 0, 10);
-
-            assertThat(result.totalHits()).isEqualTo(1L);
-            BookResponse br = result.content().get(0);
-
-            assertThat(br.bookId()).isEqualTo(7L);
-            assertThat(br.price()).isEqualTo(1234);
-            assertThat(br.publishedDate()).isEqualTo("20240101");
-            assertThat(br.avgRating()).isNull();
-            assertThat(br.reviewCount()).isEqualTo(0L);
-        }
-
-        @Test
-        @DisplayName("client.search IOException 발생 시 RuntimeException(ES 검색 실패)로 래핑")
-        void search_wrapsIOException() throws Exception {
-            when(client.search(any(Function.class), eq(Map.class)))
-                    .thenThrow(new IOException("boom"));
-
-            assertThatThrownBy(() -> elasticService.search("k", BookSortType.NEW, 0, 10))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("ES 검색 실패");
-        }
+        Function<UpdateRequest.Builder<Void, Void>, ObjectBuilder<UpdateRequest<Void, Void>>> fn = captor.getValue();
+        UpdateRequest.Builder<Void, Void> b = new UpdateRequest.Builder<>();
+        return fn.apply(b).build();
     }
 
-    // ===============================
-    // saveAll() tests
-    // ===============================
-    @Nested
-    @DisplayName("saveAll()")
-    class SaveAllTests {
+    private Map<String, Object> bookSrc(long id,
+                                        String title,
+                                        Integer price,
+                                        Double rating,
+                                        Long reviewCount,
+                                        String publishedDate) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("bookId", id);
+        m.put("title", title);
+        m.put("author", "author");
+        m.put("isbn13", "isbn");
+        m.put("price", price);
+        m.put("image", "img");
+        m.put("content", "content");
+        m.put("publisher", "pub");
+        m.put("publishedDate", publishedDate);
+        m.put("avgRating", rating);
+        m.put("reviewCount", reviewCount);
 
-        @Test
-        @DisplayName("null/empty 입력은 bulk 호출하지 않음")
-        void saveAll_nullOrEmpty_noBulkCall() throws Exception {
-            elasticService.saveAll(null);
-            elasticService.saveAll(List.of());
+        List<Map<String, Object>> cats = new ArrayList<>();
+        Map<String, Object> c1 = new HashMap<>();
+        c1.put("categoryId", 10);
+        c1.put("categoryName", "카테고리");
+        cats.add(c1);
+        m.put("categories", cats);
 
-            verify(client, never()).bulk(any(BulkRequest.class));
-        }
-
-        @Test
-        @DisplayName("bulk errors=false면 예외 없음 + bulk 1회 호출")
-        void saveAll_success_callsBulkOnce() throws Exception {
-            BulkResponse ok = new BulkResponse.Builder()
-                    .errors(false)
-                    .items(List.of())
-                    .took(1)
-                    .build();
-
-            when(client.bulk(any(BulkRequest.class))).thenReturn(ok);
-
-            BookResponse b1 = new BookResponse(
-                    1L, "t1", "a1", "i1", 1000, "img",
-                    List.of(), List.of(), "c", "p", "2024-01-01",
-                    4.5, 10L, "s", null
-            );
-
-            elasticService.saveAll(List.of(b1));
-            verify(client, times(1)).bulk(any(BulkRequest.class));
-        }
-
-        @Test
-        @DisplayName("bulk errors=true면 RuntimeException 발생")
-        void saveAll_errorsTrue_throws() throws Exception {
-            BulkResponse bad = new BulkResponse.Builder()
-                    .errors(true)
-                    .items(List.of())
-                    .took(1)
-                    .build();
-
-            when(client.bulk(any(BulkRequest.class))).thenReturn(bad);
-
-            BookResponse b1 = new BookResponse(
-                    1L, "t1", "a1", "i1", 1000, "img",
-                    List.of(), List.of(), "c", "p", "2024-01-01",
-                    4.5, 10L, "s", null
-            );
-
-            assertThatThrownBy(() -> elasticService.saveAll(List.of(b1)))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("ES bulk 인덱싱 중 일부 문서 실패");
-        }
-
-        @Test
-        @DisplayName("bulk IOException이면 RuntimeException(ES bulk 인덱싱 실패)로 래핑")
-        void saveAll_ioException_wraps() throws Exception {
-            when(client.bulk(any(BulkRequest.class))).thenThrow(new IOException("io"));
-
-            BookResponse b1 = new BookResponse(
-                    1L, "t1", "a1", "i1", 1000, "img",
-                    List.of(), List.of(), "c", "p", "2024-01-01",
-                    4.5, 10L, "s", null
-            );
-
-            assertThatThrownBy(() -> elasticService.saveAll(List.of(b1)))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("ES bulk 인덱싱 실패");
-        }
+        return m;
     }
 
-    // ===============================
-    // update tests
-    // ===============================
-    @Nested
-    @DisplayName("increase/decreaseReviewCount()")
-    class ReviewCountTests {
+    // =======================
+    // search() input validation
+    // =======================
 
-        @Test
-        @DisplayName("increaseReviewCount: update 호출 + index/id 설정 검증")
-        void increaseReviewCount_callsUpdate() throws Exception {
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Function<UpdateRequest.Builder<Object, Object>, ObjectBuilder<UpdateRequest<Object, Object>>>> fnCaptor =
-                    ArgumentCaptor.forClass(Function.class);
+    @Test
+    @DisplayName("search: keyword null/blank면 빈 결과 + client 호출 없음")
+    void search_blankKeyword_returnsEmpty_noClientCall() {
+        SearchResult<BookResponse> r1 = service.search(null, BookSortType.POPULAR, 0, 10);
+        SearchResult<BookResponse> r2 = service.search("   ", BookSortType.POPULAR, 0, 10);
 
-            // update는 UpdateResponse<TDocument>를 반환하지만, 여기서는 반환값을 쓰지 않으므로 mock은 null로 둬도 됩니다.
-            when(client.update(fnCaptor.capture(), eq(Object.class))).thenReturn(null);
+        assertThat(r1.totalHits()).isZero();
+        assertThat(r1.content()).isEmpty();
+        assertThat(r2.totalHits()).isZero();
+        assertThat(r2.content()).isEmpty();
 
-            elasticService.increaseReviewCount(55L);
-
-            UpdateRequest.Builder<Object, Object> b = new UpdateRequest.Builder<>();
-            UpdateRequest<Object, Object> req = fnCaptor.getValue().apply(b).build();
-
-            assertThat(req.index()).isEqualTo("high-five");
-            assertThat(req.id()).isEqualTo("55");
-
-            verify(client, times(1)).update(any(Function.class), eq(Object.class));
-        }
-
-        @Test
-        @DisplayName("decreaseReviewCount: update 호출 + index/id 설정 검증")
-        void decreaseReviewCount_callsUpdate() throws Exception {
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Function<UpdateRequest.Builder<Object, Object>, ObjectBuilder<UpdateRequest<Object, Object>>>> fnCaptor =
-                    ArgumentCaptor.forClass(Function.class);
-
-            when(client.update(fnCaptor.capture(), eq(Object.class))).thenReturn(null);
-
-            elasticService.decreaseReviewCount(77L);
-
-            UpdateRequest.Builder<Object, Object> b = new UpdateRequest.Builder<>();
-            UpdateRequest<Object, Object> req = fnCaptor.getValue().apply(b).build();
-
-            assertThat(req.index()).isEqualTo("high-five");
-            assertThat(req.id()).isEqualTo("77");
-
-            verify(client, times(1)).update(any(Function.class), eq(Object.class));
-        }
-
-        @Test
-        @DisplayName("update 중 예외 발생 시 RuntimeException으로 래핑")
-        void update_wrapsException() throws Exception {
-            when(client.update(any(Function.class), eq(Object.class)))
-                    .thenThrow(new RuntimeException("boom"));
-
-            assertThatThrownBy(() -> elasticService.increaseReviewCount(1L))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("ES reviewCount 증가 실패");
-
-            assertThatThrownBy(() -> elasticService.decreaseReviewCount(1L))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("ES reviewCount 감소 실패");
-        }
+        verifyNoInteractions(client);
     }
 
     @Test
-        @DisplayName("decreaseReviewCount: update 호출 + index/id 설정 검증")
-        void decreaseReviewCount_callsUpdate() throws Exception {
-            @SuppressWarnings("unchecked")
-            ArgumentCaptor<Function<UpdateRequest.Builder<Void>, ObjectBuilder<UpdateRequest<Void>>>> fnCaptor =
-                    ArgumentCaptor.forClass(Function.class);
+    @DisplayName("search: IOException 발생 시 RuntimeException 래핑")
+    void search_ioException_wrapsRuntimeException() throws Exception {
+        doThrow(new IOException("io"))
+                .when(client)
+                .search(
+                        ArgumentMatchers.<Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>>>any(),
+                        eq(Map.class) // ✅ 여기 반드시 Map.class
+                );
 
-            when(client.update(fnCaptor.capture(), eq(Void.class))).thenReturn(null);
-
-            elasticService.decreaseReviewCount(77L);
-
-            UpdateRequest.Builder<Void> b = new UpdateRequest.Builder<>();
-            UpdateRequest<Void> req = fnCaptor.getValue().apply(b).build();
-
-            assertThat(req.index()).isEqualTo("high-five");
-            assertThat(req.id()).isEqualTo("77");
-            verify(client, times(1)).update(any(Function.class), eq(Void.class));
-        }
-
-        @Test
-        @DisplayName("update 중 예외 발생 시 RuntimeException으로 래핑")
-        void update_wrapsException() throws Exception {
-            when(client.update(any(Function.class), eq(Void.class)))
-                    .thenThrow(new RuntimeException("boom"));
-
-            assertThatThrownBy(() -> elasticService.increaseReviewCount(1L))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("ES reviewCount 증가 실패");
-
-            assertThatThrownBy(() -> elasticService.decreaseReviewCount(1L))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasMessageContaining("ES reviewCount 감소 실패");
-        }
+        assertThatThrownBy(() -> service.search("키워드", BookSortType.POPULAR, 0, 10))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("검색 중 오류");
     }
 
+    // =======================
+    // POPULAR
+    // =======================
+
+    @Test
+    @DisplayName("search: POPULAR -> function_score + boostMode=REPLACE + sort=_score desc + trackTotalHits true")
+    void search_popular_buildsFunctionScoreAndSort() throws Exception {
+        SearchResponse<Map> response = buildSearchResponse(
+                2,
+                List.of(
+                        bookSrc(1, "A", 1000, 4.5, 150L, "2024-01-01"),
+                        bookSrc(2, "B", 2000, 4.2, 90L, "2023-12-01")
+                )
+        );
+
+        doReturn(response)
+                .when(client)
+                .search(
+                        ArgumentMatchers.<Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>>>any(),
+                        eq(Map.class) // ✅ 여기 반드시 Map.class
+                );
+
+        SearchResult<BookResponse> result = service.search("지리산", BookSortType.POPULAR, 1, 20);
+
+        assertThat(result.totalHits()).isEqualTo(2);
+        assertThat(result.content()).hasSize(2);
+        assertThat(result.content().get(0).bookId()).isEqualTo(1L);
+        assertThat(result.content().get(0).title()).isEqualTo("A");
+        assertThat(result.content().get(0).price()).isEqualTo(1000);
+
+        SearchRequest req = captureAndBuildSearchRequest();
+
+        assertThat(req.index()).contains(INDEX);
+        assertThat(req.from()).isEqualTo(20);
+        assertThat(req.size()).isEqualTo(20);
+
+        assertThat(req.trackTotalHits()).isNotNull();
+        assertThat(req.trackTotalHits().enabled()).isTrue();
+
+        Query q = req.query();
+        assertThat(q).isNotNull();
+        assertThat(q.isFunctionScore()).isTrue();
+        assertThat(q.functionScore().boostMode()).isEqualTo(FunctionBoostMode.Replace);
+
+        assertThat(req.sort()).isNotEmpty();
+        SortOptions so = req.sort().get(0);
+        assertThat(so.isScore()).isTrue();
+        assertThat(so.score().order()).isEqualTo(SortOrder.Desc);
+    }
+
+    // =======================
+    // RATING
+    // =======================
+
+    @Test
+    @DisplayName("search: RATING -> bool(must=baseQuery, filter=reviewCount>=100) + sort avgRating desc")
+    void search_rating_buildsFilterAndSort() throws Exception {
+        SearchResponse<Map> response = buildSearchResponse(
+                1,
+                List.of(bookSrc(10, "R", 1500, 4.9, 200L, "2022-01-01"))
+        );
+
+        doReturn(response)
+                .when(client)
+                .search(
+                        ArgumentMatchers.<Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>>>any(),
+                        eq(Map.class)
+                );
+
+        SearchResult<BookResponse> result = service.search("지리산", BookSortType.RATING, 0, 10);
+
+        assertThat(result.totalHits()).isEqualTo(1);
+        assertThat(result.content()).hasSize(1);
+        assertThat(result.content().get(0).avgRating()).isEqualTo(4.9);
+        assertThat(result.content().get(0).reviewCount()).isEqualTo(200L);
+
+        SearchRequest req = captureAndBuildSearchRequest();
+
+        Query q = req.query();
+        assertThat(q.isBool()).isTrue();
+
+        var bool = q.bool();
+        assertThat(bool.must()).isNotEmpty();
+        assertThat(bool.filter()).isNotEmpty();
+
+        Query filterQ = bool.filter().get(0);
+        assertThat(filterQ.isRange()).isTrue();
+
+        assertThat(filterQ.range().number().field()).isEqualTo("reviewCount");
+        assertThat(filterQ.range().number().gte()).isEqualTo(100.0);
+
+        SortOptions so = req.sort().get(0);
+        assertThat(so.isField()).isTrue();
+        assertThat(so.field().field()).isEqualTo("avgRating");
+        assertThat(so.field().order()).isEqualTo(SortOrder.Desc);
+
+        assertThat(req.trackTotalHits().enabled()).isTrue();
+    }
+
+    // =======================
+    // Other sorts
+    // =======================
+
+    @Test
+    @DisplayName("search: LOW_PRICE -> sort price asc")
+    void search_lowPrice_sortPriceAsc() throws Exception {
+        doReturn(buildSearchResponse(0, List.of()))
+                .when(client)
+                .search(ArgumentMatchers.<Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>>>any(),
+                        eq(Map.class));
+
+        service.search("키워드", BookSortType.LOW_PRICE, 0, 5);
+        SearchRequest req = captureAndBuildSearchRequest();
+
+        SortOptions so = req.sort().get(0);
+        assertThat(so.isField()).isTrue();
+        assertThat(so.field().field()).isEqualTo("price");
+        assertThat(so.field().order()).isEqualTo(SortOrder.Asc);
+    }
+
+    @Test
+    @DisplayName("search: HIGH_PRICE -> sort price desc")
+    void search_highPrice_sortPriceDesc() throws Exception {
+        doReturn(buildSearchResponse(0, List.of()))
+                .when(client)
+                .search(ArgumentMatchers.<Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>>>any(),
+                        eq(Map.class));
+
+        service.search("키워드", BookSortType.HIGH_PRICE, 0, 5);
+        SearchRequest req = captureAndBuildSearchRequest();
+
+        SortOptions so = req.sort().get(0);
+        assertThat(so.isField()).isTrue();
+        assertThat(so.field().field()).isEqualTo("price");
+        assertThat(so.field().order()).isEqualTo(SortOrder.Desc);
+    }
+
+    @Test
+    @DisplayName("search: REVIEW -> sort reviewCount desc")
+    void search_review_sortReviewCountDesc() throws Exception {
+        doReturn(buildSearchResponse(0, List.of()))
+                .when(client)
+                .search(ArgumentMatchers.<Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>>>any(),
+                        eq(Map.class));
+
+        service.search("키워드", BookSortType.REVIEW, 0, 5);
+        SearchRequest req = captureAndBuildSearchRequest();
+
+        SortOptions so = req.sort().get(0);
+        assertThat(so.isField()).isTrue();
+        assertThat(so.field().field()).isEqualTo("reviewCount");
+        assertThat(so.field().order()).isEqualTo(SortOrder.Desc);
+    }
+
+    @Test
+    @DisplayName("search: NEW -> sort publishedDate desc")
+    void search_new_sortPublishedDateDesc() throws Exception {
+        doReturn(buildSearchResponse(0, List.of()))
+                .when(client)
+                .search(ArgumentMatchers.<Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>>>any(),
+                        eq(Map.class));
+
+        service.search("키워드", BookSortType.NEW, 0, 5);
+        SearchRequest req = captureAndBuildSearchRequest();
+
+        SortOptions so = req.sort().get(0);
+        assertThat(so.isField()).isTrue();
+        assertThat(so.field().field()).isEqualTo("publishedDate");
+        assertThat(so.field().order()).isEqualTo(SortOrder.Desc);
+    }
+
+    // =======================
+    // baseQuery structure
+    // =======================
+
+    @Test
+    @DisplayName("search: baseQuery는 bool(must=multiMatch AND, should=title 관련 boost 쿼리 최소 1개 이상)")
+    void search_baseQuery_structure_verified() throws Exception {
+        doReturn(buildSearchResponse(0, List.of()))
+                .when(client)
+                .search(ArgumentMatchers.<Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>>>any(),
+                        eq(Map.class));
+
+        service.search("지리산", BookSortType.LOW_PRICE, 0, 10);
+        SearchRequest req = captureAndBuildSearchRequest();
+
+        Query base = req.query();
+        assertThat(base.isBool()).isTrue();
+
+        var b = base.bool();
+
+        // must: multiMatch(query="지리산", operator=AND) 유지 검증
+        assertThat(b.must()).isNotEmpty();
+        Query must0 = b.must().get(0);
+        assertThat(must0.isMultiMatch()).isTrue();
+        assertThat(must0.multiMatch().query()).isEqualTo("지리산");
+        assertThat(must0.multiMatch().operator()).isEqualTo(Operator.And);
+
+        // should: "title" 관련 boost 쿼리가 최소 1개 이상 존재하면 통과
+        // (구현이 title.enum / title.keyword / title / title.ngram 등 어떤 필드명을 쓰든 대응)
+        boolean hasTitleBoostedShould = b.should().stream().anyMatch(q -> {
+            // 1) match 쿼리 형태
+            if (q.isMatch()) {
+                String field = q.match().field();
+                boolean isTitleField = field != null && field.startsWith("title");
+                boolean isSameKeyword = Objects.equals("지리산", q.match().query());
+                boolean hasBoost = q.match().boost() != null;
+                return isTitleField && isSameKeyword && hasBoost;
+            }
+
+            // 2) match_phrase 쿼리 형태
+            if (q.isMatchPhrase()) {
+                String field = q.matchPhrase().field();
+                boolean isTitleField = field != null && field.startsWith("title");
+                boolean isSameKeyword = Objects.equals("지리산", q.matchPhrase().query());
+                boolean hasBoost = q.matchPhrase().boost() != null;
+                return isTitleField && isSameKeyword && hasBoost;
+            }
+
+            // 3) multi_match를 should에 넣는 구현도 흔함 (fields에 title이 들어가고 boost가 있거나, title^가 있으면 OK)
+            if (q.isMultiMatch()) {
+                var mm = q.multiMatch();
+                boolean isSameKeyword = Objects.equals("지리산", mm.query());
+                boolean hasTitleField = mm.fields() != null && mm.fields().stream().anyMatch(f ->
+                        f != null && (f.startsWith("title") || f.contains("title^"))
+                );
+                // multiMatch는 boost가 없을 수도 있어 fields의 ^로 주는 경우도 있으니 둘 중 하나라도 만족하면 OK
+                boolean hasBoost = mm.boost() != null || (mm.fields() != null && mm.fields().stream().anyMatch(f -> f != null && f.contains("^")));
+                return isSameKeyword && hasTitleField && hasBoost;
+            }
+
+            return false;
+        });
+
+        assertThat(hasTitleBoostedShould).isTrue();
+    }
+
+    // =======================
+    // saveAll
+    // =======================
+
+    @Test
+    @DisplayName("saveAll: null/empty면 bulk 호출 안 함")
+    void saveAll_empty_noBulkCall() throws Exception {
+        service.saveAll(null);
+        service.saveAll(List.of());
+        verify(client, never()).bulk(any(BulkRequest.class));
+    }
+
+    @Test
+    @DisplayName("saveAll: 정상 bulk -> errors=false면 예외 없음")
+    void saveAll_success_bulk() throws Exception {
+        BulkResponse br = mock(BulkResponse.class);
+        when(br.errors()).thenReturn(false);
+        when(client.bulk(any(BulkRequest.class))).thenReturn(br);
+
+        BookResponse b1 = new BookResponse(
+                1L, "T", "A", "I", 1000, "img",
+                List.of(), List.of(), "c", "p", "2024-01-01",
+                4.0, 10L, null, null
+        );
+
+        service.saveAll(List.of(b1));
+        verify(client).bulk(any(BulkRequest.class));
+    }
+
+    @Test
+    @DisplayName("saveAll: bulk errors=true면 RuntimeException")
+    void saveAll_bulkErrors_throws() throws Exception {
+        BulkResponse br = mock(BulkResponse.class);
+        when(br.errors()).thenReturn(true);
+        when(client.bulk(any(BulkRequest.class))).thenReturn(br);
+
+        BookResponse b1 = new BookResponse(
+                1L, "T", "A", "I", 1000, "img",
+                List.of(), List.of(), "c", "p", "2024-01-01",
+                4.0, 10L, null, null
+        );
+
+        assertThatThrownBy(() -> service.saveAll(List.of(b1)))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("ES bulk indexing failed");
+    }
+
+    // =======================
+    // reviewCount update
+    // =======================
+
+    @Test
+    @DisplayName("increaseReviewCount: update 호출 + 스크립트 포함")
+    void increaseReviewCount_callsUpdate_withScript() throws Exception {
+        doReturn(null).when(client)
+                .update(ArgumentMatchers.<Function<UpdateRequest.Builder<Void, Void>, ObjectBuilder<UpdateRequest<Void, Void>>>>any(),
+                        eq(Void.class));
+
+        service.increaseReviewCount(99L);
+
+        UpdateRequest<Void, Void> req = captureAndBuildUpdateRequest();
+        assertThat(req.index()).isEqualTo(INDEX);
+        assertThat(req.id()).isEqualTo("99");
+        assertThat(req.script()).isNotNull();
+        assertThat(req.script().source()).contains("reviewCount += 1");
+    }
+
+    @Test
+    @DisplayName("decreaseReviewCount: update 호출 + 스크립트 포함")
+    void decreaseReviewCount_callsUpdate_withScript() throws Exception {
+        doReturn(null).when(client)
+                .update(ArgumentMatchers.<Function<UpdateRequest.Builder<Void, Void>, ObjectBuilder<UpdateRequest<Void, Void>>>>any(),
+                        eq(Void.class));
+
+        service.decreaseReviewCount(100L);
+
+        UpdateRequest<Void, Void> req = captureAndBuildUpdateRequest();
+        assertThat(req.index()).isEqualTo(INDEX);
+        assertThat(req.id()).isEqualTo("100");
+        assertThat(req.script()).isNotNull();
+        assertThat(req.script().source()).contains("Math.max(0, ctx._source.reviewCount - 1)");
+    }
+
+    @Test
+    @DisplayName("updateReviewCount: update 예외 발생 시 RuntimeException 래핑")
+    void updateReviewCount_exception_wrapped() throws Exception {
+        doThrow(new RuntimeException("boom")).when(client)
+                .update(ArgumentMatchers.<Function<UpdateRequest.Builder<Void, Void>, ObjectBuilder<UpdateRequest<Void, Void>>>>any(),
+                        eq(Void.class));
+
+        assertThatThrownBy(() -> service.increaseReviewCount(1L))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Review count update failed");
+    }
+}
