@@ -430,7 +430,8 @@ class ElasticServiceTest {
         BookResponse b1 = new BookResponse(
                 1L, "T", "A", "I", 1000, "img",
                 List.of(), List.of(), "c", "p", "2024-01-01",
-                4.0, 10L, null, null
+                4.0, 10L, null, null,
+                null, null
         );
 
         service.saveAll(List.of(b1));
@@ -447,7 +448,8 @@ class ElasticServiceTest {
         BookResponse b1 = new BookResponse(
                 1L, "T", "A", "I", 1000, "img",
                 List.of(), List.of(), "c", "p", "2024-01-01",
-                4.0, 10L, null, null
+                4.0, 10L, null, null,
+                null, null
         );
 
         assertThatThrownBy(() -> service.saveAll(List.of(b1)))

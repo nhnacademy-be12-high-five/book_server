@@ -227,17 +227,40 @@ public class BookService {
     }
 
     // 책 업데이트
-    @Transactional // 💡 트랜잭션 적용
+    @Transactional
     public BookResponse updateBook(Long id, BookUpdateRequest request) {
-        BookResponse existingBook = BookResponse.from(bookRepository.findById(id).orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다.")));
+        // 1. 엔티티 조회 (Entity 상태로 가져와야 Dirty Checking 가능)
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다. ID: " + id));
 
-        existingBook.price();
+        // 2. 필드 업데이트 (ISBN은 변경하지 않음)
+        // Book 엔티티에 Setter나 update 메서드가 있어야 합니다.
+        // 예시: Setter 사용 시
+        if (StringUtils.hasText(request.getTitle())) book.setTitle(request.getTitle());
+        if (StringUtils.hasText(request.getDescription())) book.setContent(request.getDescription()); // description -> content 매핑 주의
+        if (request.getPrice() != null) book.setPrice(request.getPrice());
+        if (StringUtils.hasText(request.getImage())) book.setImage(request.getImage());
+        if (request.getPublishedDate() != null) book.setPublishedDate(request.getPublishedDate().toString());
 
-        return  existingBook;
+        if (StringUtils.hasText(request.getPublisher())) {
+            Publisher publisher = publisherRepository.findByName(request.getPublisher())
+                    .orElseGet(() -> publisherRepository.save(Publisher.builder().name(request.getPublisher()).build()));
+            book.setPublisher(publisher);
+        }
+
+        redisTemplate.delete("bookDetail::" + id);
+
+        try {
+            elasticService.saveAll(List.of(BookResponse.from(book)));
+        } catch (Exception e) {
+            log.error("Elasticsearch 업데이트 실패: {}", e.getMessage());
+        }
+
+        return BookResponse.from(book);
     }
 
     // 책 삭제
-    public void deleteBook(Long id, Long memberId) {
+    public void deleteBook(Long id) {
         if (!bookRepository.existsById(id)) {
             throw new RuntimeException("삭제할 아이디가 없습니다.");
         }
