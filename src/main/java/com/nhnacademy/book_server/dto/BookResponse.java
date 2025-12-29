@@ -7,6 +7,7 @@ import com.nhnacademy.book_server.dto.response.TagResponse;
 import com.nhnacademy.book_server.entity.*;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -125,12 +126,15 @@ public record BookResponse(
 
         // 카테고리 리스트 처리 (N:M 대응)
         List<CategoryResponse> categoryList = Collections.emptyList();
+        Integer mainCategoryId = null;
+        Integer mainParentId = null;
 
         if (bookCategories != null && !bookCategories.isEmpty()) {
             categoryList = bookCategories.stream()
                     .map(bc -> new CategoryResponse(
                             bc.getCategory().getCategoryId(),
                             bc.getCategory().getCategoryName()))
+                    .sorted(Comparator.comparingInt(CategoryResponse::categoryId))
                     .collect(Collectors.toList());
         }
 

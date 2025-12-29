@@ -1,10 +1,11 @@
-package com.nhnacademy.book_server.service;
+package com.nhnacademy.book_server.service.Book;
 
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.BookLike;
 import com.nhnacademy.book_server.repository.BookLikeRepository;
 import com.nhnacademy.book_server.repository.BookRepository;
+import com.nhnacademy.book_server.service.BookLikeService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
