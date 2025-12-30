@@ -96,7 +96,7 @@ public class BookService {
                     ));
         }
 
-        ParsingDto createRequest= new ParsingDto();
+        BookInfoDto createRequest= new BookInfoDto();
         Integer targetCategoryId = createRequest.getCategoryId();
         Category category = null;
 
@@ -252,8 +252,6 @@ public class BookService {
 
         bookRepository.deleteById(id);
         log.info("도서 삭제 완료 - ID: {}", id);
-
-        bookRepository.deleteById(id);
     }
 
     private Integer parsePrice(String priceStr) {

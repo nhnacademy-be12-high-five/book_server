@@ -65,7 +65,7 @@ class BookServiceTest {
         // then
         verify(bookReviewAiRepository).findByBook_Id(bookId);
         verify(reviewRepository).findByBookId(eq(bookId), any());
-        verify(bookRepository, times(2)).deleteById(bookId); // 코드에 deleteById가 두 번 호출되어 있음
+        verify(bookRepository, times(1)).deleteById(bookId);
     }
 
     @Test
