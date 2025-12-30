@@ -49,12 +49,8 @@ public class AdminBookController implements bookSwagger{
     // 책 한권 조회
     @GetMapping("/{id}")
     public ResponseEntity<BookResponse> getBookById(@PathVariable("id") Long bookId) {
-        try {
-            BookResponse response = bookService.findBookById(bookId);
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
+        BookResponse response = bookService.findBookById(bookId);
+        return ResponseEntity.ok(response);
     }
 
     // 책 한권 수정
@@ -63,6 +59,7 @@ public class AdminBookController implements bookSwagger{
                                                    @RequestBody BookUpdateRequest updateDto){
         log.info("도서 수정 요청 받음 - ID: {}, Body: {}", bookId, updateDto);
         BookResponse updatedResponse=bookService.updateBook(bookId, updateDto);
+
         log.info("도서 수정 응답 전송 - Response: {}", updatedResponse);
         return ResponseEntity.ok(updatedResponse); // 200 OK
     }

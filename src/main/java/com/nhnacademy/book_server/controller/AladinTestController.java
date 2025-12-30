@@ -26,7 +26,6 @@ public class AladinTestController {
      */
     @GetMapping("/lookup")
     public Object lookup(@RequestParam String isbn13) {
-        log.info(">>> AladinTestController called. isbn13={}", isbn13);
         return aladinService.lookupBook(isbn13);
     }
 

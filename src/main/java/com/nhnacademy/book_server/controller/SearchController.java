@@ -19,7 +19,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/search")
 @RequiredArgsConstructor
-public class SearchController implements SearchSwagger {
+public class  SearchController implements SearchSwagger {
 
     private final BookSearchService bookSearchService;
     private final BookReindexService bookReindexService;
