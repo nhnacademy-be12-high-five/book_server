@@ -1,6 +1,5 @@
 
 
-package com.nhnacademy.book_server.service.Book;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
@@ -60,11 +59,7 @@ class BookServiceTest {
         when(reviewRepository.findByBookId(eq(bookId), any())).thenReturn(Page.empty());
 
         // when
-<<<<<<< Updated upstream
-        bookService.deleteBook(bookId, 100L);
-=======
         bookService.deleteBook(bookId);
->>>>>>> Stashed changes
 
         // then
         verify(bookReviewAiRepository).findByBook_Id(bookId);
