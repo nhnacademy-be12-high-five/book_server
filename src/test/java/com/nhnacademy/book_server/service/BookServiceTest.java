@@ -1,200 +1,139 @@
-//package com.nhnacademy.book_server.service;
-//
-//import com.nhnacademy.book_server.dto.request.BookCreateRequest;
-//import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
-//import com.nhnacademy.book_server.entity.*;
-//import com.nhnacademy.book_server.parser.ParsingDto;
-//import com.nhnacademy.book_server.repository.AuthorRepository;
-//import com.nhnacademy.book_server.repository.BookAuthorRepository;
-//import com.nhnacademy.book_server.repository.BookRepository;
-//import com.nhnacademy.book_server.repository.PublisherRepository;
-//import org.junit.jupiter.api.DisplayName;
-//import org.junit.jupiter.api.Test;
-//import org.junit.jupiter.api.extension.ExtendWith;
-//import org.mockito.InjectMocks;
-//import org.mockito.Mock;
-//import org.mockito.junit.jupiter.MockitoExtension;
-//
-//import java.util.List;
-//import java.util.Optional;
-//
-//import static org.assertj.core.api.Assertions.assertThat;
-//import static org.assertj.core.api.Assertions.assertThatThrownBy;
-//import static org.mockito.ArgumentMatchers.any;
-//import static org.mockito.BDDMockito.given;
-//import static org.mockito.Mockito.*;
-//
-//@ExtendWith(MockitoExtension.class) // Mockito 환경에서 실행 (속도가 빠름)
-//class BookServiceTest {
-//
-//    @InjectMocks
-//    private BookService bookService; // Mock 객체들이 주입될 대상
-//
-//    @Mock
-//    private BookRepository bookRepository;
-//    @Mock
-//    private PublisherRepository publisherRepository;
-//    @Mock
-//    private AuthorRepository authorRepository;
-//    @Mock
-//    private BookAuthorRepository bookAuthorRepository;
-//
-//    @Test
-//    @DisplayName("도서 생성")
-//    void createBook(){
-//        ParsingDto dto=new ParsingDto();
-//        dto.setIsbn("1234567789012");
-//        dto.setTitle("title");
-//        dto.setPrice("15000");
-//        dto.setPublisher("Publisher");
-//        dto.setAuthor("Author");
-//        // isbn 중복 체크
-//        given(bookRepository.existsByIsbn13(any())).willReturn(true);
-//
-//        // 3. 책 저장시 반환될 객체
-//        Book savedBook = Book.builder()
-//                .id(1L)
-//                .title("Test Title")
-//                .price(15000)
-//                .build();
-//
-//        Publisher publisher= Publisher.builder()
-//                .PublisherId(1L)
-//                .name("publisher")
-//                .build();
-//
-//        Author author=Author.builder()
-//                .id(1L)
-//                .name("name")
-//                .build();
-//
-//        BookAuthor bookAuthor=BookAuthor.builder()
-//                .book(savedBook)
-//                .author(author)
-//                .build();
-//
-//        given(bookRepository.save(any(Book.class))).willReturn(savedBook);
-//        given(publisherRepository.save(any(Publisher.class))).willReturn(publisher);
-//        given(authorRepository.save(any(Author.class))).willReturn(author);
-//         given(bookAuthorRepository.save(any(BookAuthor.class))).willReturn(bookAuthor);
-//        //
-//        Book result1=bookService.createBook(new BookCreateRequest());
-//        assertThat(result1.getTitle()).isEqualTo("Test Title");
-//
-//        verify(bookRepository, times(1)).save(any(Book.class));
-//        verify(publisherRepository, times(1)).save(any(Publisher.class)); // 출판사 저장됨
-//        verify(authorRepository,times(1)).save(any(Author.class));
-//    }
-//
-////    @Test
-////    @DisplayName("도서 전체 조회")
-////    void findAllBooks() {
-////        // given
-////        List<Book> books = List.of(
-////                Book.builder().title("Book1").build(),
-////                Book.builder().title("Book2").build()
-////        );
-////        given(bookRepository.findAll()).willReturn(books);
-////
-////        // when
-////        List<Book> result = bookService.findAllBooks();
-////
-////        // then
-////        assertThat(result).hasSize(2);
-////        assertThat(result.get(0).getTitle()).isEqualTo("Book1");
-////    }
-//
-//////    @Test
-////    @DisplayName("도서 단건 조회 - 성공")
-////    void findBookById_Success() {
-////        // given
-////        Long bookId = 1L;
-////        Book book = Book.builder().id(bookId).title("Book1").build();
-////        given(bookRepository.findById(bookId)).willReturn(Optional.of(book));
-////
-////        // when
-////        Book<Book> result = bookService.findBookById(bookId);
-////
-////        // then
-////        assertThat(result).isPresent();
-////        assertThat(result.get().getTitle()).isEqualTo("Book1");
-////    }
-//
-////    @Test
-////    @DisplayName("도서 업데이트 - 성공")
-////    void updateBook_Success() {
-////        // given
-////        Long bookId = 1L;
-////        ParsingDto dto=new ParsingDto();
-////        dto.setIsbn("1234567789012");
-////        dto.setTitle("title");
-////        dto.setPrice("15000");
-////        dto.setPublisher("Publisher");
-////        BookUpdateRequest request = new BookUpdateRequest(); // 필드가 있다고 가정
-////         request.setTitle("Updated Title");
-////
-////        Book existingBook = Book.builder().id(bookId).title("Old Title").build();
-////
-////        given(bookRepository.findById(bookId)).willReturn(Optional.of(existingBook));
-////        given(bookRepository.save(any(Book.class))).willReturn(existingBook);
-////
-////        // when
-////        Book result = bookService.updateBook(bookId, request);
-////
-////        // then
-////        // 주의: 현재 Service 코드에는 DTO 내용을 Entity로 옮기는 로직(set)이 빠져있습니다.
-////        // 테스트는 로직이 실행되는지만 검증합니다.
-////        verify(bookRepository).findById(bookId);
-////        verify(bookRepository).save(existingBook);
-////    }
-//
-//    @Test
-//    @DisplayName("도서 업데이트 - 실패 (존재하지 않는 ID)")
-//    void updateBook_Fail_NotFound() {
-//        // given
-//        Long bookId = 999L;
-//        BookUpdateRequest request = new BookUpdateRequest();
-//        given(bookRepository.findById(bookId)).willReturn(Optional.empty());
-//
-//        ParsingDto dto=new ParsingDto();
-//        dto.setIsbn("1234567789012");
-//        dto.setTitle("title");
-//        dto.setPrice("15000");
-//        dto.setPublisher("Publisher");
-//
-//        // when & then
-//        assertThatThrownBy(() -> bookService.updateBook(bookId, request))
-//                .isInstanceOf(RuntimeException.class)
-//                .hasMessage("아이디가 존재하지 않습니다.");
-//    }
-//
-//    @Test
-//    @DisplayName("도서 삭제 - 성공")
-//    void deleteBook_Success() {
-//        // given
-//        Long bookId = 1L;
-//        given(bookRepository.existsById(bookId)).willReturn(true);
-//
-//        // when
-//        bookService.deleteBook(bookId, 1L);
-//
-//        // then
-//        verify(bookRepository, times(1)).deleteById(bookId);
-//    }
-//
-//    @Test
-//    @DisplayName("도서 삭제 - 실패 (존재하지 않는 ID)")
-//    void deleteBook_Fail_NotFound() {
-//        // given
-//        Long bookId = 999L;
-//        given(bookRepository.existsById(bookId)).willReturn(false);
-//
-//        // when & then
-//        assertThatThrownBy(() -> bookService.deleteBook(bookId, 1L))
-//                .isInstanceOf(RuntimeException.class)
-//                .hasMessage("삭제할 아이디가 없습니다.");
-//
-//        // deleteById는 호출되지 않아야 함
-//        verify(bookRepository, never()).deleteById(any());
-//    }
-//}
+
+
+package com.nhnacademy.book_server.service.Book;
+
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+import com.nhnacademy.book_server.dto.BookResponse;
+import com.nhnacademy.book_server.entity.*;
+import com.nhnacademy.book_server.repository.*;
+import com.nhnacademy.book_server.repository.review.ReviewRepository;
+import com.nhnacademy.book_server.service.BookService;
+import com.nhnacademy.book_server.service.search.ElasticService;
+import com.nhnacademy.book_server.feign.OrderFeignClient;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+
+import java.time.LocalDateTime;
+import java.util.*;
+
+@ExtendWith(MockitoExtension.class)
+class BookServiceTest {
+
+    // 1. 모든 의존성 Mock 선언 (하나라도 빠지면 NPE 발생)
+    @Mock private BookRepository bookRepository;
+    @Mock private PublisherRepository publisherRepository;
+    @Mock private AuthorRepository authorRepository;
+    @Mock private BookAuthorRepository bookAuthorRepository;
+    @Mock private StringRedisTemplate redisTemplate;
+    @Mock private ObjectMapper objectMapper;
+    @Mock private ReviewRepository reviewRepository;
+    @Mock private BookReviewAiRepository bookReviewAiRepository;
+    @Mock private ElasticService elasticService;
+    @Mock private BookLikeRepository bookLikeRepository;
+    @Mock private OrderFeignClient orderFeignClient;
+    @Mock private CategoryRepository categoryRepository;
+    @Mock private BookCategoryRepository bookCategoryRepository;
+    @Mock private JdbcTemplate jdbcTemplate;
+
+    @InjectMocks
+    private BookService bookService;
+
+    @Test
+    @DisplayName("도서 삭제 시 연관 데이터(AI 요약, 리뷰)가 함께 삭제되는지 확인")
+    void deleteBook_Success() {
+        // given
+        Long bookId = 1L;
+        when(bookRepository.existsById(bookId)).thenReturn(true);
+        when(bookReviewAiRepository.findByBook_Id(bookId)).thenReturn(Optional.empty());
+        when(reviewRepository.findByBookId(eq(bookId), any())).thenReturn(Page.empty());
+
+        // when
+        bookService.deleteBook(bookId, 100L);
+
+        // then
+        verify(bookReviewAiRepository).findByBook_Id(bookId);
+        verify(reviewRepository).findByBookId(eq(bookId), any());
+        verify(bookRepository, times(1)).deleteById(bookId);
+    }
+
+    @Test
+    @DisplayName("카테고리 마이그레이션 - 제목 기반 매칭 및 JDBC 배치 저장 검증")
+    void migrateCategories_Success() {
+        // given
+        // DB에 IT(10)와 IT대분류(3) 카테고리가 있다고 가정
+        Category itSub = mock(Category.class);
+        when(itSub.getCategoryId()).thenReturn(10);
+        Category itMain = mock(Category.class);
+        when(itMain.getCategoryId()).thenReturn(3);
+
+        when(categoryRepository.findAll()).thenReturn(List.of(itSub, itMain));
+
+        // 제목에 '자바'가 포함된 도서 (CategoryMapper에 의해 10번으로 매칭됨)
+        Book book = Book.builder().id(1L).title("맛있는 자바 프로그래밍").build();
+
+        // 반복문 탈출을 위해 첫 번째는 도서 반환, 두 번째는 빈 리스트 반환
+        when(bookRepository.findNextBatch(eq(0L), any())).thenReturn(List.of(book));
+        when(bookRepository.findNextBatch(eq(1L), any())).thenReturn(Collections.emptyList());
+
+        // when
+        bookService.migrateCategories();
+
+        // then
+        // 1. SQL이 실행되었는지 확인
+        verify(jdbcTemplate).batchUpdate(contains("INSERT INTO book_category"), any(BatchPreparedStatementSetter.class));
+        // 2. 루프가 정상적으로 돌았는지 확인
+        verify(bookRepository, times(2)).findNextBatch(anyLong(), any());
+    }
+
+    @Test
+    @DisplayName("도서 상세 정보 조회 - DB 조회 시 AI 요약이 포함되는지 확인")
+    void getCachedBookDetail_Success() {
+        // given
+        Long bookId = 1L;
+        Book book = Book.builder()
+                .id(bookId)
+                .title("테스트 도서")
+                .price(15000)
+                .build();
+
+        when(bookRepository.findById(bookId)).thenReturn(Optional.of(book));
+        when(bookReviewAiRepository.findByBook_Id(bookId))
+                .thenReturn(Optional.of(new BookReviewAi(book, "AI 요약입니다.",1L,1.5)));
+        when(reviewRepository.findByBookId(eq(bookId), any())).thenReturn(Page.empty());
+
+        // when
+        BookResponse response = bookService.getCachedBookDetail(bookId);
+
+        // then
+        assertNotNull(response);
+        assertEquals("AI 요약입니다.", response.aiReviewSummary());
+        verify(bookRepository).findById(bookId);
+    }
+
+    @Test
+    @DisplayName("좋아요 취소 - 존재할 경우 정상 삭제 확인")
+    void unlike_Success() {
+        // given
+        Long bookId = 1L;
+        Long memberId = 100L;
+        when(bookLikeRepository.existsByBook_IdAndMemberId(bookId, memberId)).thenReturn(true);
+
+        // when
+        bookService.unlike(bookId, memberId);
+
+        // then
+        verify(bookLikeRepository).deleteByBook_IdAndMemberId(bookId, memberId);
+    }
+}
