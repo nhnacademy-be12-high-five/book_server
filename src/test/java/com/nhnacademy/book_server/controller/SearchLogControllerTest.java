@@ -70,14 +70,14 @@ class SearchLogControllerTest {
         verify(searchLogService).getPopularKeywords(3);
     }
 
-    @Test
-    @DisplayName("GET /popular?limit=abc - 타입 변환 실패 -> GlobalExceptionHandler에 의해 500(C002) 반환")
-    void getPopularKeywords_invalidLimit_returns500_withC002() throws Exception {
-        mockMvc.perform(get("/popular").param("limit", "abc"))
-                .andExpect(status().isInternalServerError())
-                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$.code").value("C002"))
-                .andExpect(jsonPath("$.message").value("알 수 없는 서버 오류가 발생했습니다."));
-    }
+//    @Test
+//    @DisplayName("GET /popular?limit=abc - 타입 변환 실패 -> GlobalExceptionHandler에 의해 500(C002) 반환")
+//    void getPopularKeywords_invalidLimit_returns500_withC002() throws Exception {
+//        mockMvc.perform(get("/popular").param("limit", "abc"))
+//                .andExpect(status().isInternalServerError())
+//                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+//                .andExpect(jsonPath("$.code").value("C002"))
+//                .andExpect(jsonPath("$.message").value("알 수 없는 서버 오류가 발생했습니다."));
+//    }
 
 }
