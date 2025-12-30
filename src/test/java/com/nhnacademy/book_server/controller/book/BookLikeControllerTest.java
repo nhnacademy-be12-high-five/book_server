@@ -79,7 +79,9 @@ class BookLikeControllerTest {
                 4.5,                    // avgRating
                 10L,                    // reviewCount
                 null,                   // aiSummary
-                null                    // aiReviewSummary
+                null,                    // aiReviewSummary
+                null,
+                null
         );
         given(bookLikeService.getMyLikedBooks(eq(memberId), any(Pageable.class)))
                 .willReturn(List.of(mockResponse));

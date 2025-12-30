@@ -71,10 +71,10 @@ public class AdminBookController implements bookSwagger{
         return ResponseEntity.ok(dto);
     }
 
-//    @DeleteMapping("/{id}")
-//    public ResponseEntity<Void> deleteBook(@PathVariable("id") Long bookId) {
-//        log.info("관리자 도서 삭제 요청 - ID: {}", bookId);
-//        bookService.deleteBook(bookId);
-//        return ResponseEntity.noContent().build();
-//    }
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteBook(@PathVariable("id") Long bookId) {
+        log.info("관리자 도서 삭제 요청 - ID: {}", bookId);
+        bookService.deleteBook(bookId);
+        return ResponseEntity.noContent().build();
+    }
 }

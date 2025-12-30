@@ -4,7 +4,9 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.nhnacademy.book_server.dto.BookResponse;
+import com.nhnacademy.book_server.dto.CategoryResponse;
 import com.nhnacademy.book_server.dto.SearchResult;
+import com.nhnacademy.book_server.dto.response.TagResponse;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.Review;
 import com.nhnacademy.book_server.repository.BookRepository;
@@ -113,8 +115,10 @@ public class RagSearchService implements RagSearchable {
 
         return new BookResponse(
                 bookId, title, author, isbn, price, image,
-                Collections.emptyList(), Collections.emptyList(),
-                content, publisher, publishedDate, avgRating, reviewCount, aiSummary, null
+                Collections.<CategoryResponse>emptyList(), // 카테고리 리스트
+                Collections.<TagResponse>emptyList(),      // 태그 리스트
+                content, publisher, publishedDate, avgRating, reviewCount, aiSummary, null,
+                null, null
         );
     }
 

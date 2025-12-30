@@ -259,7 +259,7 @@ public class BookService {
     }
 
     // 책 삭제
-    public void deleteBook(Long id, Long memberId) {
+    public void deleteBook(Long id) {
         if (!bookRepository.existsById(id)) {
             throw new RuntimeException("삭제할 아이디가 없습니다.");
         }
@@ -430,11 +430,9 @@ public class BookService {
     }
 
     @Transactional(readOnly = true)
-    public List<BookResponse> getBooksByCategory(int categoryId) {
-        List<BookCategory> books = bookRepository.findBooksByCategoryWithAuthors(categoryId);
-        return books.stream()
-                .map(bc -> BookResponse.from(bc.getBook()))
-                .toList();
+    public Page<BookResponse> getBooksByCategory(int categoryId, Pageable pageable) {
+        Page<BookCategory> books = bookRepository.findBooksByCategory(categoryId, pageable);
+        return books.map(bc -> BookResponse.from(bc.getBook()));
     }
 
     // BookService나 도서 등록 로직 내부
