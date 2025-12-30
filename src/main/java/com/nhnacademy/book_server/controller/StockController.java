@@ -19,6 +19,7 @@ public class StockController {
 
     // 1. TCC Try: 재고 선점 (POST /api/books/{bookId}/stock/hold)
     // (기존 API 유지 - 단건 호출용)
+
     @PostMapping("/{bookId}/stock/hold")
     public ResponseEntity<Void> holdStock(@PathVariable("bookId") Long bookId,
                                           @RequestParam("quantity") @NotNull @Min(1) Integer quantity,

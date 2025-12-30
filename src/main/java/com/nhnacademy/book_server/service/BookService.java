@@ -66,6 +66,7 @@ public class BookService {
     private final ReviewRepository reviewRepository;
     private final BookReviewAiRepository bookReviewAiRepository;
     private final ElasticService elasticService;
+    private final BookLikeRepository bookLikeRepository;
 
     private final OrderFeignClient orderFeignClient;
     private final CategoryRepository categoryRepository;
@@ -75,7 +76,6 @@ public class BookService {
     private EntityManager em;
 
     private final JdbcTemplate jdbcTemplate;
-
 
     @Lazy
     @Autowired
@@ -95,10 +95,9 @@ public class BookService {
                     ));
         }
 
-        ParsingDto createRequest= new ParsingDto();
+        BookInfoDto createRequest= new BookInfoDto();
         Integer targetCategoryId = createRequest.getCategoryId();
         Category category = null;
-
 
         if (targetCategoryId == null) {
             targetCategoryId = CategoryMapper.findCategoryId(createRequest.getTitle());
@@ -153,7 +152,7 @@ public class BookService {
         }
 
         try {
-            em.flush();
+//            em.flush();
             em.refresh(savedBook);
             elasticService.saveAll(List.of(BookResponse.from(savedBook)));
             log.info("Elasticsearch 인덱싱 완료 (작가/카테고리 포함): {}", savedBook.getTitle());
@@ -276,15 +275,6 @@ public class BookService {
         log.info("도서 삭제 완료 - ID: {}", id);
     }
 
-    private Integer parsePrice(String priceStr) {
-        if (!StringUtils.hasText(priceStr)) return 0;
-        try {
-            return Integer.parseInt(priceStr.replaceAll("[^0-9]", ""));
-        } catch (NumberFormatException e) {
-            return 0;
-        }
-    }
-
     // bulk api 조회
     // 장바구니에서 책을 조회할때 책을 1번만 호출하도록 하는 API
     // Service Layer
@@ -338,7 +328,6 @@ public class BookService {
     }
 
 //    // @Scheduled(cron = "0 0 0 * * *")    // 조회수를 카운트 하는 로직이 매시간 반영
-
     @Transactional(readOnly = true)
     public List<BookResponse> getWeeklyPopularBooks(int limit) {
         String weeklyKey = "weekly_ranking";
@@ -464,6 +453,17 @@ public class BookService {
 
     }
 
+    public void unlike(Long bookId, Long memberId) {
+        if (memberId == null) throw new RuntimeException("회원 정보가 없습니다.");
+
+        // 존재 여부 확인 후 삭제
+        if (bookLikeRepository.existsByBook_IdAndMemberId(bookId, memberId)) {
+            bookLikeRepository.deleteByBook_IdAndMemberId(bookId, memberId);
+        } else {
+            throw new RuntimeException("삭제할 좋아요 기록이 없습니다.");
+        }
+    }
+
     // 책과 카테고리 아이디로 매핑
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public synchronized void migrateCategories() {
@@ -490,13 +490,23 @@ public class BookService {
             }
 
             List<Object[]> batchArgs = new ArrayList<>();
+            List<BookCategory> bookCategories=new ArrayList<>();
 
             for (Book book : targetBooks) {
                 Integer matchedId = CategoryMapper.findCategoryId(book.getTitle());
 
+
                 if (matchedId != null && categoryMap.containsKey(matchedId)) {
                     batchArgs.add(new Object[]{book.getId(), matchedId});
                 }
+
+                int parentId = CategoryMapper.getParentId(matchedId);
+
+                if (parentId != 0 && categoryMap.containsKey(parentId)) {
+                    batchArgs.add(new Object[]{book.getId(), parentId});
+                }
+
+//                Integer childId=categoryRepository.findByChildId(matchedId);
 
                 // [핵심] 다음 조회를 위해 마지막 ID를 기억합니다.
                 lastId = book.getId();

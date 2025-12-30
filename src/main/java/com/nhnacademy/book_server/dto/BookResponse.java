@@ -7,6 +7,7 @@ import com.nhnacademy.book_server.dto.response.TagResponse;
 import com.nhnacademy.book_server.entity.*;
 
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -135,6 +136,7 @@ public record BookResponse(
                     .map(bc -> new CategoryResponse(
                             bc.getCategory().getCategoryId(),
                             bc.getCategory().getCategoryName()))
+                    .sorted(Comparator.comparingInt(CategoryResponse::categoryId))
                     .collect(Collectors.toList());
 
             Category firstCategory = bookCategories.get(0).getCategory();
