@@ -11,7 +11,7 @@ import java.io.Serializable;
 @Getter
 public class BookCategory {
 
-    @Id
+    @EmbeddedId
     private Pk id;
 
     public BookCategory(Pk category1, Book book, Category category) {

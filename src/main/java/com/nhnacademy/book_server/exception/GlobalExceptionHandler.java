@@ -14,7 +14,7 @@ public class GlobalExceptionHandler {
     private static final String INVALID_ARGUMENT_CODE = "C003";
     private static final String INVALID_ARGUMENT_MESSAGE = "잘못된 요청 값입니다.";
 
-    //
+
     @ExceptionHandler
     public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e){
         log.warn("BusinessException: {}", e.getErrorCode().getMessage());
@@ -56,4 +56,10 @@ public class GlobalExceptionHandler {
     }
 
     public record ErrorResponse(String code, String message){}
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<String> handleRuntimeException(RuntimeException e) {
+        // 로그를 남기거나, 공통된 에러 형식을 반환할 수 있습니다.
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+    }
 }

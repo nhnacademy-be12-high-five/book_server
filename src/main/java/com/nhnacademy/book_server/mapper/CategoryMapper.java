@@ -1,5 +1,7 @@
 package com.nhnacademy.book_server.mapper;
 
+import org.springframework.stereotype.Service;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -7,8 +9,13 @@ import java.util.Map;
 public class CategoryMapper {
     private static final Map<Integer, List<String>> CATEGORY_RULES = new HashMap<>();
 
+    private static final Map<Integer, Integer> PARENT_MAP = new HashMap<>();
+
+    private static final List<Integer> SEARCH_ORDER = List.of(
+            10,14,13,8,9,11,12
+    );
+
     static {
-        // [중요] 키워드를 쪼개고 다양하게 추가했습니다.
 
         // 8. 소분류: 소설/시/희곡 (가장 구체적인 것부터 매칭)
         CATEGORY_RULES.put(8, List.of(
@@ -65,7 +72,7 @@ public class CategoryMapper {
         CATEGORY_RULES.put(2, List.of("기업", "혁신", "성공", "관리", "매니지먼트"));
 
         // 3. IT
-        CATEGORY_RULES.put(3, List.of("it", "컴퓨터", "소프트웨어", "하드웨어", "모바일", "앱", "인터넷"));
+        CATEGORY_RULES.put(3, List.of("IT", "컴퓨터", "소프트웨어", "하드웨어", "모바일", "앱", "인터넷"));
 
         // 4. 인문/사회
         CATEGORY_RULES.put(4, List.of("사회", "문화", "생활", "예술", "미술", "음악"));
@@ -78,16 +85,21 @@ public class CategoryMapper {
 
         // 7. 자연/과학
         CATEGORY_RULES.put(7, List.of("자연", "과학", "동물", "식물", "곤충", "공룡"));
+
+        PARENT_MAP.put(8, 1);  // 소설/시 -> 소설/문학
+        PARENT_MAP.put(9, 2);  // 경제/경영 -> 경제/경영
+        PARENT_MAP.put(10, 3); // IT/컴퓨터 -> IT
+        PARENT_MAP.put(11, 4); // 인문/사회 -> 인문/사회
+        PARENT_MAP.put(12, 5); // 유아/만화 -> 유아/아동
+        PARENT_MAP.put(13, 6); // 외국어 -> 수험서
+        PARENT_MAP.put(14, 7); // 과학/공학 -> 자연/과학
     }
 
     public static int getParentId(int categoryId) {
         if (categoryId >= 1 && categoryId <= 7)
             return 0; // 대분류
 
-        if (categoryId >= 8 && categoryId <= 14) {
-            return categoryId - 7;
-        }
-        return 1; // 기본값
+        return PARENT_MAP.getOrDefault(categoryId, 1);
     }
 
     public static Integer findCategoryId(String title) {
@@ -99,26 +111,33 @@ public class CategoryMapper {
         // 2. 매칭 확률을 높이기 위해 소문자로 변환
         String searchTitle = title.toLowerCase();
 
-        // 1. 소분류(8~14)부터 먼저 검색 (더 구체적이기 때문)
-        for (int i = 8; i <= 14; i++) {
-            List<String> keywords = CATEGORY_RULES.get(i);
-            if (keywords == null) continue;
+//        for (int i = 8; i <= 14; i++) {
+//            List<String> keywords = CATEGORY_RULES.get(i);
+//            if (keywords != null) {
+//                for (String keyword : keywords) {
+//                    if (searchTitle.contains(keyword)) {
+//                        return i;
+//                    }
+//                }
+//            }
+//        }
 
-            for (String keyword : keywords) {
-                if (title.toLowerCase().contains(keyword)) {
-                    return i; // 매칭된 카테고리 ID 반환
+        for (Integer id: SEARCH_ORDER){
+            List<String> keywords = CATEGORY_RULES.get(id);
+            if (keywords != null) {
+                for (String keyword : keywords) {
+                    if (searchTitle.contains(keyword)) return id;
                 }
             }
         }
 
-        // 2. 소분류 매칭이 없으면 대분류(1~7) 검색
         for (int i = 1; i <= 7; i++) {
             List<String> keywords = CATEGORY_RULES.get(i);
-            if (keywords == null) continue;
-
-            for (String keyword : keywords) {
-                if (searchTitle.contains(keyword)) {
-                    return i;
+            if (keywords != null) {
+                for (String keyword : keywords) {
+                    if (searchTitle.contains(keyword)) {
+                        return i;
+                    }
                 }
             }
         }

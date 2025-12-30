@@ -37,6 +37,7 @@ public class BookReviewAi {
         this.lastAvgRating = lastAvgRating;
     }
 
+
     public void updateSummary(String newSummary, Long currentCount, Double currentRating) {
         this.summary = newSummary;
         this.lastReviewCount = currentCount;

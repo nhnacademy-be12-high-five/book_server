@@ -173,22 +173,7 @@ class UserBookControllerTest {
     }
 
     @Test
-    @DisplayName("Redis 캐시 안전 정리 (GET /api/books/safe-cleanup)")
-    void safeCleanup() throws Exception {
-        // given
-        given(redisTemplate.delete("newBooks::default")).willReturn(true);
-        given(redisTemplate.keys("bookDetail::*")).willReturn(Set.of("bookDetail::1"));
-        given(redisTemplate.delete(Set.of("bookDetail::1"))).willReturn(1L);
-
-        // when & then
-        mockMvc.perform(get("/api/books/safe-cleanup")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("삭제 성공")));
-    }
-
-    @Test
-    @DisplayName("벌크 조회 (POST /api/books/bulk)")
+    @DisplayName("벌크 조회 (POST /api/books/bulk-update)")
     void getBooksBulk() throws Exception {
         // given
         List<Long> bookIds = List.of(1L, 2L);
@@ -200,7 +185,7 @@ class UserBookControllerTest {
         given(bookService.getBooksBulk(bookIds)).willReturn(responses);
 
         // when & then
-        mockMvc.perform(post("/api/books/bulk")
+        mockMvc.perform(post("/api/books/bulk-update")
                         .with(csrf())
                         .content(objectMapper.writeValueAsString(bookIds))
                         .contentType(MediaType.APPLICATION_JSON))

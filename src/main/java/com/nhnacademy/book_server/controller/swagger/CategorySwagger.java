@@ -32,7 +32,6 @@ public interface CategorySwagger {
     })
     ResponseEntity<List<CategoryResponse>> getParents();
 
-
     /**
      * 하위 카테고리 조회
      */

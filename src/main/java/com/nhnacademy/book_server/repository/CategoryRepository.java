@@ -1,7 +1,6 @@
 package com.nhnacademy.book_server.repository;
 
 import com.nhnacademy.book_server.entity.Category;
-import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -13,6 +12,8 @@ public interface CategoryRepository extends JpaRepository<Category, Integer> {
     //하위 카테고리
     List<Category> findByParentId(int parentId);
     Optional<Category> findByCategoryId(int categoryId);
+
+    Integer findByChildId(Integer matchedId);
 
 //    Optional<Category> findByCategoryName(String categoryName, Limit limit);
 //
