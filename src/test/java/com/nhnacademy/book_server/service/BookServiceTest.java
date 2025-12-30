@@ -60,7 +60,11 @@ class BookServiceTest {
         when(reviewRepository.findByBookId(eq(bookId), any())).thenReturn(Page.empty());
 
         // when
+<<<<<<< Updated upstream
         bookService.deleteBook(bookId, 100L);
+=======
+        bookService.deleteBook(bookId);
+>>>>>>> Stashed changes
 
         // then
         verify(bookReviewAiRepository).findByBook_Id(bookId);
