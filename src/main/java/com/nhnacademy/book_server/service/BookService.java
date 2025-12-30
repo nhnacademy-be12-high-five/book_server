@@ -274,8 +274,6 @@ public class BookService {
 
         bookRepository.deleteById(id);
         log.info("도서 삭제 완료 - ID: {}", id);
-
-        bookRepository.deleteById(id);
     }
 
     private Integer parsePrice(String priceStr) {
@@ -302,23 +300,6 @@ public class BookService {
                         book.getImage()                // 이미지
                 ))
                 .collect(Collectors.toList());
-    }
-
-    // 재고 확인 (단순 조회이므로 readOnly)
-    @Transactional(readOnly = true)
-    public int getBookStock(Long bookId) {
-        // 1. 전체 엔티티를 다 가져오는 건 낭비일 수 있음.
-        // 단순히 재고만 확인할 거라면 Repository에서 재고 컬럼만 가져오는 쿼리를 짜는 게 성능상 베스트.
-        // 하지만 일단 기존 로직을 유지하면서 Service로 옮긴다면:
-
-        return bookRepository.findById(bookId)
-                .map(book -> {
-                    // 만약 getStockCheckedAt이 Boolean이 아니라 날짜라거나 로직이 있다면 여기서 처리
-                    // 예시: 재고 필드가 따로 있다면 book.getStock() 반환
-                    boolean inStock = Boolean.TRUE.equals(book.getStockCheckedAt());
-                    return inStock ? 1 : 0;
-                })
-                .orElse(0); // 책이 없으면 재고 0 처리
     }
 
     public void incrementViewCount(Long bookId) {
