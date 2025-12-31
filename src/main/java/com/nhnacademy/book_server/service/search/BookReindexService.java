@@ -37,6 +37,7 @@ public class BookReindexService {
      */
     @Transactional(readOnly = true)
     public long reindexAll() {
+
         long totalBooks = bookRepository.count();
         if (totalBooks == 0) {
             log.warn("일반 검색 인덱스 재색인: 도서가 0권입니다.");
