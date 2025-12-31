@@ -95,12 +95,12 @@ public class BookService {
                     ));
         }
 
-        BookInfoDto createRequest= new BookInfoDto();
-        Integer targetCategoryId = createRequest.getCategoryId();
+//        BookInfoDto createRequest= new BookInfoDto();
+        Integer targetCategoryId = dto.getCategoryId();
         Category category = null;
 
         if (targetCategoryId == null) {
-            targetCategoryId = CategoryMapper.findCategoryId(createRequest.getTitle());
+            targetCategoryId = CategoryMapper.findCategoryId(dto.getTitle());
         }
         if (targetCategoryId != null) {
             category = categoryRepository.findByCategoryId(targetCategoryId).orElse(null);
@@ -293,12 +293,6 @@ public class BookService {
     }
 
     public void incrementViewCount(Long bookId) {
-
-////        // Todo 비회원은 쿠키로 저장하는 로직으로 수정
-//
-//        if (memberId == null) {
-//            return;
-//        }
 
         String logKey = "view_log:" + bookId;
 

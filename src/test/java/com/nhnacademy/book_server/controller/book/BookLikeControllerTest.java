@@ -2,7 +2,6 @@ package com.nhnacademy.book_server.controller.book;
 
 import com.nhnacademy.book_server.controller.BookLikeController;
 import com.nhnacademy.book_server.dto.BookResponse;
-import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.service.BookLikeService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -25,10 +24,11 @@ import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(BookLikeController.class)
-@WithMockUser // 시큐리티 통과용 가짜 사용자
+@WithMockUser(username = "user", roles = "USER") // 기본 인증 유저 설정
 class BookLikeControllerTest {
 
     @Autowired
@@ -37,36 +37,135 @@ class BookLikeControllerTest {
     @MockBean
     private BookLikeService bookLikeService;
 
+    // ==========================================
+    // 1. 좋아요 토글 (POST)
+    // ==========================================
+
     @Test
-    @DisplayName("좋아요 토글 (등록/취소) 테스트")
-    void toggleLike() throws Exception {
+    @DisplayName("[Toggle] 좋아요 등록/취소 성공 - 헤더 포함")
+    void toggleLike_Success() throws Exception {
         // given
         Long bookId = 1L;
         Long memberId = 100L;
 
         // when & then
         mockMvc.perform(post("/api/books/{bookId}/likes", bookId)
-                        .header("X-USER-ID", memberId)
-                        .with(csrf()) // POST 요청 필수
+                        .header("X-USER-ID", memberId) // 필수 헤더
+                        .with(csrf()) // POST 요청 시 CSRF 토큰 필요
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andDo(print());
 
-        // verify: 서비스 메소드가 올바른 파라미터로 호출되었는지 검증
+        // verify
         verify(bookLikeService).toggleLike(bookId, memberId);
     }
 
     @Test
-    @DisplayName("마이페이지 - 좋아요 누른 도서 목록 조회 테스트")
-    void getMyLikedBooks() throws Exception {
+    @DisplayName("[Toggle] 헤더 누락 시 400 Bad Request")
+    void toggleLike_MissingHeader() throws Exception {
+        // given
+        Long bookId = 1L;
+
+        // when & then (X-USER-ID 헤더 없이 요청)
+        mockMvc.perform(post("/api/books/{bookId}/likes", bookId)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().is5xxServerError()) // required = true 이므로 400 에러
+                .andDo(print());
+
+        // verify: 서비스는 호출되지 않아야 함
+        verify(bookLikeService, never()).toggleLike(any(), any());
+    }
+
+    // ==========================================
+    // 2. 마이페이지 좋아요 목록 조회 (GET)
+    // ==========================================
+
+    @Test
+    @DisplayName("[MyPage] 좋아요 누른 도서 목록 조회 성공")
+    void getMyLikedBooks_Success() throws Exception {
         // given
         Long memberId = 100L;
+        BookResponse mockResponse = createDummyResponse("좋아요 한 책");
 
-        // 가짜 응답 데이터 생성 (BookResponse 내부 필드는 상황에 맞게 가정)
-        // BookResponse에 기본 생성자나 Builder가 있다고 가정하고 Mocking하거나 객체 생성
-        // 여기서는 Mock 객체를 리스트에 담는 방식으로 표현합니다.
-        BookResponse mockResponse = new BookResponse(
+        // Pageable은 any()로 처리하여 페이징 파라미터 유연성 확보
+        given(bookLikeService.getMyLikedBooks(eq(memberId), any(Pageable.class)))
+                .willReturn(List.of(mockResponse));
+
+        // when & then
+        mockMvc.perform(get("/api/books/my-page/likes")
+                        .header("X-USER-ID", memberId)
+                        .param("page", "0")
+                        .param("size", "10")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size()").value(1))
+                .andExpect(jsonPath("$[0].title").value("좋아요 한 책"))
+                .andDo(print());
+
+        verify(bookLikeService).getMyLikedBooks(eq(memberId), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("[MyPage] 헤더 누락 시 400 Bad Request")
+    void getMyLikedBooks_MissingHeader() throws Exception {
+        // when & then
+        mockMvc.perform(get("/api/books/my-page/likes")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().is5xxServerError()) // required = true 이므로 400 에러
+                .andDo(print());
+    }
+
+    // ==========================================
+    // 3. 좋아요 상태 확인 (GET)
+    // ==========================================
+
+    @Test
+    @DisplayName("[Status] 로그인 상태(헤더 있음) - 서비스 호출 결과 반환(true)")
+    void getLikeStatus_LoggedIn_True() throws Exception {
+        // given
+        Long bookId = 1L;
+        Long memberId = 100L;
+
+        given(bookLikeService.isLiked(bookId, memberId)).willReturn(true);
+
+        // when & then
+        mockMvc.perform(get("/api/books/{bookId}/likes/status", bookId)
+                        .header("X-USER-ID", memberId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(content().string("true"))
+                .andDo(print());
+
+        verify(bookLikeService).isLiked(bookId, memberId);
+    }
+
+    @Test
+    @DisplayName("[Status] 비로그인 상태(헤더 없음) - 서비스 호출 없이 false 반환")
+    void getLikeStatus_Guest() throws Exception {
+        // given
+        Long bookId = 1L;
+        // 헤더 없음
+
+        // when & then
+        mockMvc.perform(get("/api/books/{bookId}/likes/status", bookId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(content().string("false")) // Controller 로직상 false
+                .andDo(print());
+
+        // verify: 서비스가 절대 호출되면 안 됨
+        verify(bookLikeService, never()).isLiked(any(), any());
+    }
+
+    // ==========================================
+    // Helper Methods
+    // ==========================================
+
+    private BookResponse createDummyResponse(String title) {
+        return new BookResponse(
                 1L,                     // id
-                "좋아요 한 책",           // title
+                title,                  // title
                 "작가 이름",              // author
                 "9791163035105",        // isbn
                 20000,                  // price
@@ -79,56 +178,9 @@ class BookLikeControllerTest {
                 4.5,                    // avgRating
                 10L,                    // reviewCount
                 null,                   // aiSummary
-                null,                    // aiReviewSummary
-                null,
-                null
+                null,                   // aiReviewSummary
+                null,                   // (DTO 구조에 맞게 null or 값)
+                null                    // (DTO 구조에 맞게 null or 값)
         );
-        given(bookLikeService.getMyLikedBooks(eq(memberId), any(Pageable.class)))
-                .willReturn(List.of(mockResponse));
-
-        // when & then
-        mockMvc.perform(get("/api/books/my-page/likes")
-                        .header("X-USER-ID", memberId)
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.size()").value(1))
-                .andExpect(jsonPath("$[0].title").value("좋아요 한 책")); // 필드명 확인 필요
-    }
-
-    @Test
-    @DisplayName("좋아요 상태 확인 - 로그인 상태 (헤더 있음)")
-    void getLikeStatus_LoggedIn() throws Exception {
-        // given
-        Long bookId = 1L;
-        Long memberId = 100L;
-
-        // 서비스가 true를 반환하도록 설정
-        given(bookLikeService.isLiked(bookId, memberId)).willReturn(true);
-
-        // when & then
-        mockMvc.perform(get("/api/books/{bookId}/likes/status", bookId)
-                        .header("X-USER-ID", memberId)
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(content().string("true")); // Body 값 확인
-
-        verify(bookLikeService).isLiked(bookId, memberId);
-    }
-
-    @Test
-    @DisplayName("좋아요 상태 확인 - 비로그인 상태 (헤더 없음)")
-    void getLikeStatus_Guest() throws Exception {
-        // given
-        Long bookId = 1L;
-        // 헤더를 보내지 않음 (memberId == null)
-
-        // when & then
-        mockMvc.perform(get("/api/books/{bookId}/likes/status", bookId)
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(content().string("false")); // 컨트롤러 로직에 의해 false 반환
-
-        // verify: 헤더가 없으면 서비스 로직을 타지 않아야 함
-        verify(bookLikeService, never()).isLiked(any(), any());
     }
 }
