@@ -47,7 +47,6 @@ jobs:
       # [수정 2] 인스턴스가 2개이므로 다중 인스턴스 배포 옵션 활성화
       is-multi-instance: true
 
-      maven-args: "-B -DskipTests"
       deploy-enabled: true
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
