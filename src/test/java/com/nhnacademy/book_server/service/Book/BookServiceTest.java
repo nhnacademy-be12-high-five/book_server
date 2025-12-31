@@ -1,5 +1,4 @@
 
-
 package com.nhnacademy.book_server.service.Book;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -7,6 +6,7 @@ import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.BookReviewAi;
 import com.nhnacademy.book_server.entity.Category;
+import com.nhnacademy.book_server.mapper.CategoryMapper;
 import com.nhnacademy.book_server.repository.*;
 import com.nhnacademy.book_server.repository.review.ReviewRepository;
 import com.nhnacademy.book_server.service.BookService;
@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -75,7 +76,6 @@ class BookServiceTest {
     @DisplayName("카테고리 마이그레이션 - 제목 기반 매칭 및 JDBC 배치 저장 검증")
     void migrateCategories_Success() {
         // given
-        // DB에 IT(10)와 IT대분류(3) 카테고리가 있다고 가정
         Category itSub = mock(Category.class);
         when(itSub.getCategoryId()).thenReturn(10);
         Category itMain = mock(Category.class);
@@ -83,21 +83,35 @@ class BookServiceTest {
 
         when(categoryRepository.findAll()).thenReturn(List.of(itSub, itMain));
 
-        // 제목에 '자바'가 포함된 도서 (CategoryMapper에 의해 10번으로 매칭됨)
-        Book book = Book.builder().id(1L).title("맛있는 자바 프로그래밍").build();
+        Book book = Book.builder().id(1L).title("테스트 책").build(); // 제목은 상관없음
 
-        // 반복문 탈출을 위해 첫 번째는 도서 반환, 두 번째는 빈 리스트 반환
         when(bookRepository.findNextBatch(eq(0L), any())).thenReturn(List.of(book));
         when(bookRepository.findNextBatch(eq(1L), any())).thenReturn(Collections.emptyList());
 
-        // when
-        bookService.migrateCategories();
+        // [핵심] CategoryMapper의 정적 메서드 Mocking
+        // try-with-resources 구문을 사용하여 테스트가 끝나면 Mock을 해제해야 함
+        try (MockedStatic<CategoryMapper> mockedMapper = mockStatic(CategoryMapper.class)) {
 
-        // then
-        // 1. SQL이 실행되었는지 확인
-        verify(jdbcTemplate).batchUpdate(contains("INSERT INTO book_category"), any(BatchPreparedStatementSetter.class));
-        // 2. 루프가 정상적으로 돌았는지 확인
-        verify(bookRepository, times(2)).findNextBatch(anyLong(), any());
+            // findCategoryId("테스트 책") 호출 시 10 반환
+            mockedMapper.when(() -> CategoryMapper.findCategoryId(anyString()))
+                    .thenReturn(10);
+
+            // getParentId(10) 호출 시 3 반환
+            mockedMapper.when(() -> CategoryMapper.getParentId(10))
+                    .thenReturn(3);
+
+            // when
+            bookService.migrateCategories();
+
+            // then
+            // SQL 실행 확인 (데이터가 매핑되어 batchArgs에 들어갔으므로 실행되어야 함)
+            verify(jdbcTemplate, times(1)).batchUpdate(
+                    contains("INSERT INTO book_category"),
+                    any(BatchPreparedStatementSetter.class)
+            );
+
+            verify(bookRepository, times(2)).findNextBatch(anyLong(), any());
+        }
     }
 
     @Test
