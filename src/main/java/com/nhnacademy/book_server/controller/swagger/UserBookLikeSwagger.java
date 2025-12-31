@@ -30,7 +30,7 @@ public interface UserBookLikeSwagger {
             @ApiResponse(responseCode = "200", description = "좋아요 상태 변경 성공 (OK)"),
             @ApiResponse(responseCode = "404", description = "해당 ID의 도서를 찾을 수 없음 (Not Found)")
     })
-    @PostMapping("/api/books/{bookId}/likes") // POST 매핑 예시
+    @PostMapping("/api/books/{book-id}/likes") // POST 매핑 예시
     ResponseEntity<Void> toggleLike(
             @Parameter(description = "좋아요를 누를 도서의 ID", required = true, example = "1")
             @PathVariable("bookId") Long bookId,
@@ -52,7 +52,7 @@ public interface UserBookLikeSwagger {
             @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없음")
     })
 
-    @GetMapping("/api/books/my-page/likes") // GET 매핑 예시
+    @GetMapping("/api/my-page/likes") // GET 매핑 예시
     ResponseEntity<List<BookResponse>> getMyLikedBooks(
             @Parameter(description = "사용자 식별 ID (헤더)", required = true, hidden = true)
             @RequestHeader("X-USER-ID") Long memberId,

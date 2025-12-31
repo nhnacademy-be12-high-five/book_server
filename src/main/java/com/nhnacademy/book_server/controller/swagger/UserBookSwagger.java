@@ -33,8 +33,7 @@ public interface UserBookSwagger {
     @Operation(summary = "사용자 도서 전체 조회", description = "시스템에 등록된 모든 도서 목록을 조회합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "도서 목록 조회 성공 (OK)",
-                    content = @Content(mediaType = "app" +
-                            "lication/json",
+                    content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = List.class))),
 //            @ApiResponse(responseCode = "404", description = "등록된 도서가 없음 (Not Found)")
     })
@@ -61,11 +60,5 @@ public interface UserBookSwagger {
     ResponseEntity<BookResponse> getBookById(
             @Parameter(description = "조회할 도서의 고유 ID", required = true, example = "1",hidden = true)
             @PathVariable("bookId") Long bookId);
-
-    // 검색 기능 등을 추가할 수 있습니다. (예: 제목, 저자, ISBN 등으로 검색)
-    // @Operation(summary = "도서 검색", description = "키워드와 검색 조건에 따라 도서를 검색합니다.")
-    // @GetMapping("/api/books/search")
-    // ResponseEntity<List<book>> searchBooks(@RequestParam String keyword, @RequestParam String type);
-
 
 }

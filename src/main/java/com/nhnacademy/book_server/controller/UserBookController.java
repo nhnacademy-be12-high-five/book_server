@@ -31,7 +31,7 @@ public class UserBookController implements UserBookSwagger {
     @GetMapping("/books")
     public ResponseEntity<Page<BookResponse>> getAllBooks(@RequestHeader(value = "X-USER-ID", required = false) Long memberId,
                                                           @PageableDefault(size = 10) Pageable pageable) {
-        // [수정 1] getContent() 대신 Page 객체 그대로 반환
+
         // 프론트엔드에서 totalElements, totalPages를 알 수 있게 됩니다.
         Page<BookResponse> bookPage = bookService.findAllBooks(pageable);
         return ResponseEntity.ok(bookPage);

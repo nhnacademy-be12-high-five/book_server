@@ -33,8 +33,10 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.util.*;
 
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -330,29 +332,58 @@ class BookServiceTest {
     }
 
     @Test
-    @DisplayName("주간 인기 도서 - 일간 랭킹 합산(Union) 및 상위 목록 조회 확인")
-    void getWeeklyPopularBooks_Success() {
+    @DisplayName("주간 랭킹 스케줄러 동작 테스트 - ZSet Union 및 캐시 삭제 확인")
+    void updateWeeklyRankingZSet_Success() {
         // given
-        // 1. Redis에서 상위 랭킹 ID들을 반환한다고 가정 (String Set)
-        Set<String> topIds = new LinkedHashSet<>(List.of("5", "3"));
-        when(zSetOperations.reverseRange("weekly_ranking", 0, 9)).thenReturn(topIds);
-
-        Book b5 = Book.builder().id(5L).title("인기1위").publisher(new Publisher(1L, "A")).build();
-        Book b3 = Book.builder().id(3L).title("인기2위").publisher(new Publisher(2L, "B")).build();
-
-        // 2. DB는 ID 리스트로 조회 (순서 보장 X)
-        when(bookRepository.findAllById(anyList())).thenReturn(List.of(b3, b5));
+        // opsForZSet, opsForValue 등이 Mocking 되어 있다고 가정
 
         // when
-        List<BookResponse> result = bookService.getWeeklyPopularBooks(10);
+        bookService.updateWeeklyRankingZSet();
 
         // then
-        assertEquals(2, result.size());
-        assertEquals("인기1위", result.get(0).title()); // Redis가 준 순서(5 -> 3)대로 정렬되었는지 확인
-        assertEquals("인기2위", result.get(1).title());
+        // 1. ZSet 합치기(unionAndStore)가 호출되었는지 검증
+        verify(zSetOperations, times(1)).unionAndStore(
+                anyString(),    // firstKey
+                anyList(),      // otherKeys
+                eq("weekly_ranking") // destKey
+        );
 
-        // Redis Union 연산이 수행되었는지 확인 (키는 날짜별로 생성됨)
-        verify(zSetOperations).unionAndStore(anyString(), any(List.class), eq("weekly_ranking"));
+        // 2. 만료 시간 설정(expire)이 호출되었는지 검증
+        verify(redisTemplate, times(1)).expire(eq("weekly_ranking"), any(Duration.class));
+
+        // 3. 기존 조회 캐시 삭제(delete)가 호출되었는지 검증
+        verify(redisTemplate, times(1)).delete("weekly_popular_books::default");
+    }
+
+    // 2. [수정] 조회 API 테스트: 집계 로직은 검증에서 제외하고 조회만 확인
+    @Test
+    @DisplayName("주간 인기 도서 조회 성공 테스트")
+    void getWeeklyPopularBooks_Success() {
+        // given
+        int limit = 10;
+        String weeklyKey = "weekly_ranking";
+
+        // Redis에서 반환할 도서 ID Set 설정
+        Set<String> topBookIds = new LinkedHashSet<>(List.of("1", "2"));
+        given(zSetOperations.reverseRange(weeklyKey, 0, limit - 1)).willReturn(topBookIds);
+
+        // DB에서 반환할 Book 객체 설정
+        Book book1 = Book.builder().id(1L).title("Book 1").price(1000).build();
+        Book book2 = Book.builder().id(2L).title("Book 2").price(2000).build();
+        given(bookRepository.findAllById(anyList())).willReturn(List.of(book1, book2));
+
+        // when
+        List<BookResponse> result = bookService.getWeeklyPopularBooks(limit);
+
+        // then
+//        assertThat(result).
+        assertThat(result.get(0).title()).isEqualTo("Book 1");
+
+        // [핵심] 이제는 reverseRange(조회)만 호출되었는지 확인해야 합니다.
+        verify(zSetOperations, times(1)).reverseRange(weeklyKey, 0, limit - 1);
+
+        // [중요] 더 이상 unionAndStore(집계)는 호출되지 않아야 합니다. (never() 사용)
+        verify(zSetOperations, never()).unionAndStore(anyString(), anyList(), anyString());
     }
 
     @Test
@@ -495,6 +526,8 @@ class BookServiceTest {
         assertTrue(ex.getMessage().contains("데이터를 생성해주세요"));
         verify(bookCategoryRepository, never()).save(any());
     }
+
+
 
 
 }

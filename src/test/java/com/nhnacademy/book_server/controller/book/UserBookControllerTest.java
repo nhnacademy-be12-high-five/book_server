@@ -8,6 +8,7 @@ import com.nhnacademy.book_server.dto.response.GetBookResponse;
 import com.nhnacademy.book_server.service.BookService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -40,13 +41,13 @@ class UserBookControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @Mock
     private BookService bookService;
 
-    @MockBean
+    @Mock
     private StringRedisTemplate redisTemplate;
 
-    @MockBean
+    @Mock
     private ValueOperations<String, String> valueOperations;
 
     @Autowired

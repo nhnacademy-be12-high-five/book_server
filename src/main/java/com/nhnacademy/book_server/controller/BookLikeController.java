@@ -20,7 +20,7 @@ public class BookLikeController implements UserBookLikeSwagger {
 
     //  도서 좋아요 토글 (등록/취소)
     @Override
-    @PostMapping("/books/{bookId}/likes")
+    @PostMapping("/books/{book-id}/likes")
     public ResponseEntity<Void> toggleLike(@PathVariable("bookId") Long bookId,
                                            @RequestHeader(value = "X-USER-ID",required = true) Long memberId) {
         // 서비스에게 토글 로직 위임
@@ -30,8 +30,7 @@ public class BookLikeController implements UserBookLikeSwagger {
 
     // 마이페이지 - 좋아요 누른 도서 목록 조회
     @Override
-    @GetMapping("/books/my-page/likes")
-    // todo members/me/likes 경로 이렇게 수정 ?
+    @GetMapping("/my-page/likes")
     public ResponseEntity<List<BookResponse>> getMyLikedBooks(@RequestHeader(value = "X-USER-ID",required = true) Long memberId,
                                                                Pageable pageable) {
         List<BookResponse> likedBooks = bookLikeService.getMyLikedBooks(memberId, pageable);
@@ -39,7 +38,7 @@ public class BookLikeController implements UserBookLikeSwagger {
     }
 
     // 상세페이지에서 좋아요를 기억하기 위한 메서드
-    @GetMapping("/books/{bookId}/likes/status")
+    @GetMapping("/books/{book-id}/likes/status")
     public ResponseEntity<Boolean> getLikeStatus(@PathVariable("bookId") Long bookId,
                                                  @RequestHeader(value = "X-USER-ID", required = false) Long memberId) {
 
@@ -50,5 +49,4 @@ public class BookLikeController implements UserBookLikeSwagger {
         boolean isLiked = bookLikeService.isLiked(bookId, memberId);
         return ResponseEntity.ok(isLiked);
     }
-
 }

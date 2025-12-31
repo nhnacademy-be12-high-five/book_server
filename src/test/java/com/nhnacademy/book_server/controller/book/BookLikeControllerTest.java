@@ -67,7 +67,7 @@ class BookLikeControllerTest {
         Long bookId = 1L;
 
         // when & then (X-USER-ID 헤더 없이 요청)
-        mockMvc.perform(post("/api/books/{bookId}/likes", bookId)
+        mockMvc.perform(post("/api/books/{book-id}/likes", bookId)
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().is5xxServerError()) // required = true 이므로 400 에러
@@ -93,7 +93,7 @@ class BookLikeControllerTest {
                 .willReturn(List.of(mockResponse));
 
         // when & then
-        mockMvc.perform(get("/api/books/my-page/likes")
+        mockMvc.perform(get("/api/my-page/likes")
                         .header("X-USER-ID", memberId)
                         .param("page", "0")
                         .param("size", "10")
@@ -110,7 +110,7 @@ class BookLikeControllerTest {
     @DisplayName("[MyPage] 헤더 누락 시 400 Bad Request")
     void getMyLikedBooks_MissingHeader() throws Exception {
         // when & then
-        mockMvc.perform(get("/api/books/my-page/likes")
+        mockMvc.perform(get("/api/my-page/likes")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().is5xxServerError()) // required = true 이므로 400 에러
                 .andDo(print());
@@ -130,7 +130,7 @@ class BookLikeControllerTest {
         given(bookLikeService.isLiked(bookId, memberId)).willReturn(true);
 
         // when & then
-        mockMvc.perform(get("/api/books/{bookId}/likes/status", bookId)
+        mockMvc.perform(get("/api/books/{book-Id}/likes/status", bookId)
                         .header("X-USER-ID", memberId)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
@@ -148,7 +148,7 @@ class BookLikeControllerTest {
         // 헤더 없음
 
         // when & then
-        mockMvc.perform(get("/api/books/{bookId}/likes/status", bookId)
+        mockMvc.perform(get("/api/books/{bookd}/likes/status", bookId)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(content().string("false")) // Controller 로직상 false

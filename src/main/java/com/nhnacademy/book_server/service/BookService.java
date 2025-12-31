@@ -1,39 +1,27 @@
 package com.nhnacademy.book_server.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.nhnacademy.book_server.dto.BookInfoDto;
 import com.nhnacademy.book_server.dto.BookResponse;
-import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
 import com.nhnacademy.book_server.entity.*;
 import com.nhnacademy.book_server.feign.OrderFeignClient;
 import com.nhnacademy.book_server.mapper.CategoryMapper;
-import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.repository.*;
 import com.nhnacademy.book_server.repository.review.ReviewRepository;
 import com.nhnacademy.book_server.service.search.ElasticService;
-import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import jakarta.servlet.http.Cookie;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.collections4.iterators.CartesianProductIterator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.cglib.core.Local;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.core.annotation.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.web.PageableDefault;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -41,11 +29,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.PathVariable;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.time.*;
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -81,6 +70,7 @@ public class BookService {
     @Autowired
     private BookService self;
 
+    // 도서 생성
     public Book createBook(BookInfoDto dto) {
         if (bookRepository.existsByIsbn13(dto.getIsbn())) {
             log.warn("이미 존재하는 ISBN입니다: {}", dto.getIsbn());
@@ -95,7 +85,6 @@ public class BookService {
                     ));
         }
 
-//        BookInfoDto createRequest= new BookInfoDto();
         Integer targetCategoryId = dto.getCategoryId();
         Category category = null;
 
@@ -107,9 +96,8 @@ public class BookService {
         }
 
         String publishedDateStr = (dto.getPublishedDate() != null)
-                ? dto.getPublishedDate().toString() // "2023-12-25" 형식으로 변환됨
+                ? dto.getPublishedDate().toString()
                 : LocalDate.now().toString();
-
 
         Book newBook = Book.builder()
                 .isbn13(dto.getIsbn())
@@ -127,7 +115,7 @@ public class BookService {
             BookCategory.Pk pk = new BookCategory.Pk(savedBook.getId(), category.getCategoryId());
             BookCategory bookCategory = new BookCategory(pk, savedBook, category);
             bookCategoryRepository.save(bookCategory);
-            log.info("저장 완료 : {}",bookCategory);
+            log.info("저장 완료 : {}", bookCategory);
         }
 
         if (dto.getAuthors() != null && !dto.getAuthors().isEmpty()) {
@@ -135,13 +123,11 @@ public class BookService {
                 String trimmedName = name.trim();
                 if (trimmedName.isEmpty()) continue;
 
-                // 작가 조회 없으면 생성
                 Author author = authorRepository.findByName(trimmedName)
                         .orElseGet(() -> authorRepository.save(
                                 Author.builder().name(trimmedName).build()
                         ));
 
-                // BookAuthor 연결 관계 저장
                 BookAuthor bookAuthor = BookAuthor.builder()
                         .book(savedBook)
                         .author(author)
@@ -152,74 +138,60 @@ public class BookService {
         }
 
         try {
-//            em.flush();
             em.refresh(savedBook);
             elasticService.saveAll(List.of(BookResponse.from(savedBook)));
-            log.info("Elasticsearch 인덱싱 완료 (작가/카테고리 포함): {}", savedBook.getTitle());
+            log.info("Elasticsearch 인덱싱 완료: {}", savedBook.getTitle());
         } catch (Exception e) {
-            log.error("Elasticsearch 인덱싱 실패 (DB는 저장됨): {}", e.getMessage());
+            log.error("Elasticsearch 인덱싱 실패: {}", e.getMessage());
         }
 
         return savedBook;
     }
 
     // 모든 책 조회
-    // list -> Pageable로 변환
     @Transactional(readOnly = true)
     public Page<BookResponse> findAllBooks(Pageable pageable) {
         return bookRepository.findAll(pageable)
                 .map(BookResponse::from);
     }
 
-    // 책 한권 조회
-// ----------------------------------------------------------------
-    // 1. 책 상세 조회 (리팩토링)
+    // ----------------------------------------------------------------
+    // 책 상세 조회
     // ----------------------------------------------------------------
     @Transactional(readOnly = true)
     public BookResponse findBookById(Long id) {
-        // [1] 조회수 증가는 캐싱과 상관없이 무조건 실행 (기존 RedisTemplate 사용)
+        // [1] 조회수 증가는 캐싱과 무관하게 실행
         incrementViewCount(id);
 
-        // [2] 데이터 조회는 캐시 적용된 메서드 호출
-        // 'this.getCache...'가 아니라 'self.getCache...'로 호출해야 프록시(캐시)가 작동함!
+        // [2] 데이터 조회는 캐시 적용된 메서드 호출 (self proxy 사용)
         return self.getCachedBookDetail(id);
     }
 
-    // [★핵심] 실제 DB 조회 로직 + 캐싱 적용
-    // value = 캐시이름, key = 저장할 키값
     @Cacheable(value = "bookDetail", key = "#id")
     @Transactional(readOnly = true)
     public BookResponse getCachedBookDetail(Long id) {
-        log.info("캐시 없음! DB에서 조회합니다. bookId={}", id); // 로그 확인용
+        log.info("캐시 없음! DB에서 조회합니다. bookId={}", id);
 
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("책을 찾을 수 없습니다."));
 
-        // 아까 구현하신 AI 요약 + 리뷰 로직
         String aiSummary = bookReviewAiRepository.findByBook_Id(id)
                 .map(BookReviewAi::getSummary)
                 .orElse(null);
 
         List<Review> reviews = reviewRepository.findByBookId(id, Pageable.unpaged()).getContent();
 
-        // 어노테이션이 리턴값을 자동으로 JSON 변환해서 Redis에 넣어줍니다.
         return BookResponse.fromWithReviewSummary(book, aiSummary, reviews);
     }
 
     // ----------------------------------------------------------------
-    // 2. 신간 추천 (리팩토링)
+    // 신간 추천
     // ----------------------------------------------------------------
-    // key를 단순 문자열 'default'로 고정하여 하나의 리스트만 캐싱
     @Cacheable(value = "newBooks", key = "'default'")
     @Transactional(readOnly = true)
     public List<BookResponse> getNewBooks() {
         log.info("캐시 없음! 신간 목록 DB 조회");
-
-        LocalDate start = LocalDate.of(2020, 1, 1);
-        LocalDate end = LocalDate.of(2025, 12, 31);
-
         List<Book> books = bookRepository.findTop5ByOrderByIdDesc();
-
         return books.stream()
                 .map(BookResponse::from)
                 .collect(Collectors.toList());
@@ -228,15 +200,11 @@ public class BookService {
     // 책 업데이트
     @Transactional
     public BookResponse updateBook(Long id, BookUpdateRequest request) {
-        // 1. 엔티티 조회 (Entity 상태로 가져와야 Dirty Checking 가능)
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다. ID: " + id));
 
-        // 2. 필드 업데이트 (ISBN은 변경하지 않음)
-        // Book 엔티티에 Setter나 update 메서드가 있어야 합니다.
-        // 예시: Setter 사용 시
         if (StringUtils.hasText(request.getTitle())) book.setTitle(request.getTitle());
-        if (StringUtils.hasText(request.getDescription())) book.setContent(request.getDescription()); // description -> content 매핑 주의
+        if (StringUtils.hasText(request.getDescription())) book.setContent(request.getDescription());
         if (request.getPrice() != null) book.setPrice(request.getPrice());
         if (StringUtils.hasText(request.getImage())) book.setImage(request.getImage());
         if (request.getPublishedDate() != null) book.setPublishedDate(request.getPublishedDate().toString());
@@ -264,53 +232,51 @@ public class BookService {
             throw new RuntimeException("삭제할 아이디가 없습니다.");
         }
         bookReviewAiRepository.findByBook_Id(id)
-                        .ifPresent(bookReviewAiRepository::delete);
+                .ifPresent(bookReviewAiRepository::delete);
+
         List<Review> reviews = reviewRepository.findByBookId(id, Pageable.unpaged()).getContent();
         if (!reviews.isEmpty()) {
             reviewRepository.deleteAll(reviews);
-            log.info("도서 삭제 전 연관 리뷰 {}건 삭제 완료", reviews.size());
         }
 
         bookRepository.deleteById(id);
         log.info("도서 삭제 완료 - ID: {}", id);
     }
 
-    // bulk api 조회
-    // 장바구니에서 책을 조회할때 책을 1번만 호출하도록 하는 API
-    // Service Layer
+    // Bulk 조회 (장바구니 등)
     public List<GetBookResponse> getBooksBulk(List<Long> bookIds) {
         List<Book> books = bookRepository.findAllById(bookIds);
-
-        // List를 Map<BookId, Dto> 형태로 변환
         return books.stream()
                 .map(book -> new GetBookResponse(
                         book.getId(),
                         book.getTitle(),
                         book.getPrice(),
-                        book.getImage()                // 이미지
+                        book.getImage()
                 ))
                 .collect(Collectors.toList());
     }
 
+    // ----------------------------------------------------------------
+    // 조회수 카운트 & 일간 랭킹
+    // ----------------------------------------------------------------
     public void incrementViewCount(Long bookId) {
-
+        // 주의: 이 로직은 bookId 만을 키로 사용하여 사용자 구분 없이 '책 기준' 1회/일 제한처럼 동작합니다.
+        // 사용자별(IP/MemberId) 제한이 필요하다면 키에 식별자를 추가해야 합니다.
         String logKey = "view_log:" + bookId;
 
-        // B. 일간 랭킹 키: "daily_ranking:20241208" (날짜별로 점수 저장)
         String todayDate = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
         String dailyRankingKey = "daily_ranking:" + todayDate;
 
-        // 사용자가 현재 조회한 순간부터 00:00 까지
         long secondsUntilMidnight = getSecondsDay();
 
+        // 오늘 하루 동안 해당 키에 대한 set이 없었다면(=첫 조회라면) true 반환
         Boolean isFirstView = redisTemplate.opsForValue()
                 .setIfAbsent(logKey, "1", Duration.ofSeconds(secondsUntilMidnight));
 
-        // E. 오늘 처음 조회한 경우에만 점수 증가
         if (Boolean.TRUE.equals(isFirstView)) {
+            // 일간 랭킹 점수 증가
             redisTemplate.opsForZSet().incrementScore(dailyRankingKey, String.valueOf(bookId), 1.0);
-
-            // 8일뒤 랭킹 키 자동 삭제
+            // 랭킹 키는 8일간 유지 (주간 랭킹 계산용)
             redisTemplate.expire(dailyRankingKey, Duration.ofDays(8));
         }
     }
@@ -321,35 +287,49 @@ public class BookService {
         return ChronoUnit.SECONDS.between(now, midnight);
     }
 
-//    // @Scheduled(cron = "0 0 0 * * *")    // 조회수를 카운트 하는 로직이 매시간 반영
-    @Transactional(readOnly = true)
-    public List<BookResponse> getWeeklyPopularBooks(int limit) {
+    // ----------------------------------------------------------------
+    // [수정됨] 주간 인기 도서 (스케줄러와 조회 분리)
+    // ----------------------------------------------------------------
+
+    // 1. [스케줄러] 매일 자정, 주간 랭킹 '집계' 및 캐시 초기화
+    @Scheduled(cron = "0 0 0 * * *")
+    public void updateWeeklyRankingZSet() {
         String weeklyKey = "weekly_ranking";
 
-        String today = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
-
+        // 최근 7일간의 키 생성
         List<String> recentKeys = new ArrayList<>();
         for (int i = 0; i < 7; i++) {
             String date = LocalDate.now().minusDays(i).format(DateTimeFormatter.BASIC_ISO_DATE);
             recentKeys.add("daily_ranking:" + date);
-            log.info("추가됨 : {}",date);
         }
 
         if (!recentKeys.isEmpty()) {
-            // 첫 번째 키를 기준으로 나머지 키들과 합산
             String firstKey = recentKeys.get(0);
             List<String> otherKeys = recentKeys.subList(1, recentKeys.size());
 
+            // Redis ZSet 합치기 (Union)
             if (otherKeys.isEmpty()) {
-                // 키가 하나뿐이면 그냥 복사하거나 그대로 사용 (여기선 생략 가능하지만 안전하게 복사)
                 redisTemplate.opsForZSet().unionAndStore(firstKey, Collections.emptyList(), weeklyKey);
             } else {
                 redisTemplate.opsForZSet().unionAndStore(firstKey, otherKeys, weeklyKey);
             }
-            // 계산된 키는 10분 정도만 유지 (잦은 연산 방지)
-            redisTemplate.expire(weeklyKey, Duration.ofMinutes(10));
-        }
 
+            // 집계된 ZSet 유효기간 설정
+            redisTemplate.expire(weeklyKey, Duration.ofHours(26));
+
+            // [중요] 기존 캐시 삭제 -> 다음 조회 시 갱신된 데이터 로드
+            redisTemplate.delete("weekly_popular_books::default");
+            log.info("주간 랭킹 집계 완료 & 캐시 초기화 실행");
+        }
+    }
+
+    // 2. [조회 API] 집계된 ZSet을 기반으로 '조회' (@Cacheable 적용)
+    @Cacheable(value = "weekly_popular_books", key = "'default'")
+    @Transactional(readOnly = true)
+    public List<BookResponse> getWeeklyPopularBooks(int limit) {
+        String weeklyKey = "weekly_ranking";
+
+        // Redis ZSet에서 상위 ID 조회 (점수 높은 순)
         Set<String> topBookIds = redisTemplate.opsForZSet().reverseRange(weeklyKey, 0, limit - 1);
 
         if (topBookIds == null || topBookIds.isEmpty()) {
@@ -360,56 +340,31 @@ public class BookService {
                 .map(Long::valueOf)
                 .collect(Collectors.toList());
 
-        // 2. [수정됨] Redis가 알려준 ID로 DB 조회 (findAllById 사용)
-        List<Book> books = bookRepository.findAllById(bookIds);
-
-
-        // 3. Map 변환
-        Map<Long, Book> bookMap = books.stream()
-                .collect(Collectors.toMap(Book::getId, book -> book));
-
-        // 4. Redis 랭킹 순서대로 정렬해서 반환
-        return bookIds.stream()
-                .map(bookMap::get)
-                .filter(Objects::nonNull)
-                .map(BookResponse::from)
-                .collect(Collectors.toList());
+        // 순서 보장을 위해 공통 메서드 사용
+        return getSortedBookResponses(bookIds);
     }
 
 
+    // ----------------------------------------------------------------
+    // 베스트 셀러 (주문 수 기반)
+    // ----------------------------------------------------------------
+    @Cacheable(value = "best_seller", key = "'default'")
     @Transactional(readOnly = true)
     public List<BookResponse> getBestSeller(int limit) {
-        String cacheKey = "best_seller";
+        String key = "best_seller";
 
-        //Redis의 ZSet은 기본적으로 점수가 낮은 순서(오름차순)로 정렬되어 저장되는데
-        // zset의 순서를 바꿈
+        Set<String> bestBookIds = redisTemplate.opsForZSet().reverseRange(key, 0, limit - 1);
+        log.info("Redis에서 가져온 베스트 셀러 ID들: {}", bestBookIds);
 
-        Set<String> BestBookIds = redisTemplate.opsForZSet().reverseRange("best_seller", 0, limit - 1);
-
-        log.info("Redis에서 가져온 베스트 셀러 ID들: {}", BestBookIds);
-
-        if (BestBookIds == null || BestBookIds.isEmpty()) {
+        if (bestBookIds == null || bestBookIds.isEmpty()) {
             return List.of();
         }
 
-        List<Long> bookIds = BestBookIds.stream()
+        List<Long> bookIds = bestBookIds.stream()
                 .map(Long::valueOf)
                 .collect(Collectors.toList());
 
-        // 2. DB에서 책 정보 조회 (순서 보장 안됨)
-        List<Book> books = bookRepository.findAllById(bookIds);
-
-        // 3. Redis 랭킹 순서대로 정렬하기 위해 Map 변환
-        // Redis 랭킹 순서를 그대로 유지
-        Map<Long, Book> bookMap = books.stream()
-                .collect(Collectors.toMap(Book::getId, book -> book));
-
-        // 4. 순서대로 매핑하여 반환
-        return bookIds.stream()
-                .map(bookMap::get)
-                .filter(Objects::nonNull) // DB에 삭제된 책이 있을 경우 대비
-                .map(BookResponse::from)
-                .collect(Collectors.toList());
+        return getSortedBookResponses(bookIds);
     }
 
     @Transactional
@@ -423,34 +378,49 @@ public class BookService {
         }
     }
 
+    // ----------------------------------------------------------------
+    // [공통 유틸] ID 리스트 순서대로 BookResponse 반환
+    // ----------------------------------------------------------------
+    private List<BookResponse> getSortedBookResponses(List<Long> bookIds) {
+        // 1. DB 조회 (순서 보장 안됨)
+        List<Book> books = bookRepository.findAllById(bookIds);
+
+        // 2. ID를 키로 하는 맵 생성
+        Map<Long, Book> bookMap = books.stream()
+                .collect(Collectors.toMap(Book::getId, book -> book));
+
+        // 3. bookIds의 순서(랭킹 순서)대로 리스트 재구성
+        return bookIds.stream()
+                .map(bookMap::get)
+                .filter(Objects::nonNull) // DB 삭제된 책 방어
+                .map(BookResponse::from)
+                .collect(Collectors.toList());
+    }
+
+    // ----------------------------------------------------------------
+    // 기타 기능 (카테고리, 좋아요, 마이그레이션)
+    // ----------------------------------------------------------------
     @Transactional(readOnly = true)
     public Page<BookResponse> getBooksByCategory(int categoryId, Pageable pageable) {
         Page<BookCategory> books = bookRepository.findBooksByCategory(categoryId, pageable);
         return books.map(bc -> BookResponse.from(bc.getBook()));
     }
 
-    // BookService나 도서 등록 로직 내부
     @Transactional
-    public void saveBookWithCategory(Long bookId,Integer targetCategoryId) {
-
+    public void saveBookWithCategory(Long bookId, Integer targetCategoryId) {
         Book book = bookRepository.findById(bookId)
                 .orElseThrow(() -> new RuntimeException("도서를 찾을 수 없습니다. ID: " + bookId));
 
-        // 1. DB에서 카테고리 조회 (API로 미리 넣어둔 데이터)
         Category category = categoryRepository.findByCategoryId(targetCategoryId)
                 .orElseThrow(() -> new RuntimeException("데이터를 생성해주세요!"));
 
         BookCategory.Pk pk = new BookCategory.Pk(bookId, targetCategoryId);
-
         BookCategory bookCategory = new BookCategory(pk, book, category);
         bookCategoryRepository.save(bookCategory);
-
     }
 
     public void unlike(Long bookId, Long memberId) {
         if (memberId == null) throw new RuntimeException("회원 정보가 없습니다.");
-
-        // 존재 여부 확인 후 삭제
         if (bookLikeRepository.existsByBook_IdAndMemberId(bookId, memberId)) {
             bookLikeRepository.deleteByBook_IdAndMemberId(bookId, memberId);
         } else {
@@ -458,23 +428,18 @@ public class BookService {
         }
     }
 
-    // 책과 카테고리 아이디로 매핑
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public synchronized void migrateCategories() {
         log.info("============== [마이그레이션 시작] ==============");
-
-        // 1. 카테고리 맵 로딩
         Map<Integer, Integer> categoryMap = categoryRepository.findAll().stream()
                 .collect(Collectors.toMap(Category::getCategoryId, Category::getCategoryId));
         log.info("▶ 카테고리 로딩 완료 (총 {}개)", categoryMap.size());
 
         int totalProcessed = 0;
         int batchSize = 10;
-        Long lastId = 0L; // 커서 역할 (마지막으로 조회한 책 ID)
+        Long lastId = 0L;
 
         while (true) {
-            // [핵심] pageNumber 대신 lastId를 사용하여 다음 데이터를 가져옵니다.
-            // Repository에 findNextBatch 메서드가 필요합니다. (아래 참고)
             PageRequest pageRequest = PageRequest.of(0, batchSize);
             List<Book> targetBooks = bookRepository.findNextBatch(lastId, pageRequest);
 
@@ -484,29 +449,21 @@ public class BookService {
             }
 
             List<Object[]> batchArgs = new ArrayList<>();
-            List<BookCategory> bookCategories=new ArrayList<>();
 
             for (Book book : targetBooks) {
                 Integer matchedId = CategoryMapper.findCategoryId(book.getTitle());
-
 
                 if (matchedId != null && categoryMap.containsKey(matchedId)) {
                     batchArgs.add(new Object[]{book.getId(), matchedId});
                 }
 
                 int parentId = CategoryMapper.getParentId(matchedId);
-
                 if (parentId != 0 && categoryMap.containsKey(parentId)) {
                     batchArgs.add(new Object[]{book.getId(), parentId});
                 }
-
-//                Integer childId=categoryRepository.findByChildId(matchedId);
-
-                // [핵심] 다음 조회를 위해 마지막 ID를 기억합니다.
                 lastId = book.getId();
             }
 
-            // DB 저장 (트랜잭션 없이 JDBC 바로 실행 -> 자동 커밋됨)
             if (!batchArgs.isEmpty()) {
                 try {
                     String sql = "INSERT INTO book_category (book_id, category_id) VALUES (?, ?)";
@@ -527,12 +484,8 @@ public class BookService {
                 } catch (Exception e) {
                     log.error("❌ 저장 중 에러 발생 (계속 진행함): {}", e.getMessage());
                 }
-            } else {
-                // 매핑된 게 없어도 lastId가 갱신되었으므로 무한 루프에 빠지지 않습니다.
-                log.info("⚠️ 이번 배치({}권)에서는 매칭된 카테고리가 없습니다. (진행 중...)", targetBooks.size());
             }
         }
-
         log.info("============== [마이그레이션 정상 종료] ==============");
     }
 }

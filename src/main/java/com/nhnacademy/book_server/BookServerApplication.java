@@ -17,6 +17,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
         RagSearchConfig.class,
         GeminiConfig.class
 })
+
 @EnableFeignClients
 @SpringBootApplication
 @EnableScheduling

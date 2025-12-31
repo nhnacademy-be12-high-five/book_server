@@ -6,6 +6,7 @@ import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.parser.ParsingDto;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.constraints.Pattern;
@@ -72,17 +73,15 @@ public interface bookSwagger{
     @GetMapping("/search-api")
     ResponseEntity<BookInfoDto> searchBookWithAi(@RequestParam @Pattern(regexp = "^(\\d{10}|\\d{13})$", message = "ISBN은 10자리 또는 13자리 숫자여야 합니다.") String isbn);
 
-
 //    // 도서 삭제
-//    @Operation(summary = "관리자 도서 삭제",description = "도서를 삭제합니다.")
-//
-//    @DeleteMapping("/{id}")
-//    @ApiResponses(value = {
-//            @ApiResponse(responseCode = "200",description = "도서 삭제 성공 (OK)"),
-////            @ApiResponse(responseCode = "403",description = "관리자 권한이 없음 (Forbidden)"),
-////            @ApiResponse(responseCode = "404",description = "삭제하려는 도서를 찾을 수 없음 (Not Found)")
-//    })
-//
-//    ResponseEntity<Void> deleteBook(@PathVariable Long bookId,
-//                                    @Parameter(hidden = true) @RequestHeader("X-User-Id") Long memberId);
+    @Operation(summary = "관리자 도서 삭제",description = "도서를 삭제합니다.")
+
+    @DeleteMapping("/{id}")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200",description = "도서 삭제 성공 (OK)"),
+//            @ApiResponse(responseCode = "403",description = "관리자 권한이 없음 (Forbidden)"),
+//            @ApiResponse(responseCode = "404",description = "삭제하려는 도서를 찾을 수 없음 (Not Found)")
+    })
+
+    ResponseEntity<Void> deleteBook(@PathVariable Long bookId);
 }

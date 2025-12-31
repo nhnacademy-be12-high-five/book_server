@@ -26,6 +26,7 @@ public interface BookRepository extends JpaRepository<Book, Long> {
 
     // 페이지를 조회할때마다 메서드를 계속 호출하지 않고
     // 한번만 조회하도록 메서드 수정
+    // 프록시 객체로
 
     @EntityGraph(attributePaths = {"bookAuthors", "bookAuthors.author"})
     Page<Book> findAll(Pageable pageable);
