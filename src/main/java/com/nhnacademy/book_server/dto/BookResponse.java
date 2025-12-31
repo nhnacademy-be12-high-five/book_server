@@ -1,6 +1,5 @@
 package com.nhnacademy.book_server.dto;
 
-import co.elastic.clients.elasticsearch.ml.DataframeAnalytics;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.nhnacademy.book_server.dto.response.TagResponse;
