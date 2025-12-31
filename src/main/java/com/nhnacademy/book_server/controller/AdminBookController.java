@@ -35,15 +35,14 @@ public class AdminBookController implements bookSwagger{
     @PostMapping
     public ResponseEntity<BookInfoDto> createBook(@RequestBody BookInfoDto dto) {
         log.info("관리자 도서 등록 요청 - ISBN: {}, 제목: {}", dto.getIsbn(), dto.getTitle());
-        Book response = bookService.createBook(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(dto);
     }
 
     // 도서 전체 조회
     @GetMapping
-    public ResponseEntity<List<BookResponse>> getAllBooks(@PageableDefault(size = 10) Pageable pageable) {
+    public ResponseEntity<Page<BookResponse>> getAllBooks(@PageableDefault(size = 10) Pageable pageable) {
         Page<BookResponse> bookPage = bookService.findAllBooks(pageable);
-        return ResponseEntity.ok(bookPage.getContent());
+        return ResponseEntity.accepted().body(bookPage);
     }
 
     // 책 한권 조회

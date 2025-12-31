@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.constraints.Pattern;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
@@ -37,7 +38,7 @@ public interface bookSwagger{
             @ApiResponse(responseCode = "404",description = "도서 추가할 수 없음")
     })
     @GetMapping
-    ResponseEntity<List<BookResponse>> getAllBooks(@PageableDefault(size = 10) Pageable pageable);
+    ResponseEntity<Page<BookResponse>> getAllBooks(@PageableDefault(size = 10) Pageable pageable);
 
      //--------------------------
 
