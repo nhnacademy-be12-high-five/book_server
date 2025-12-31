@@ -6,6 +6,8 @@ import com.nhnacademy.book_server.entity.Category;
 import com.nhnacademy.book_server.repository.CategoryRepository;
 import com.nhnacademy.book_server.service.BookService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,11 +45,11 @@ public class CategoryService {
 
     // 카테고리별 도서 조회
     @Transactional(readOnly = true)
-    public List<BookResponse> getBooksByCategory(int categoryId) {
+    public Page<BookResponse> getBooksByCategory(int categoryId, Pageable pageable) {
         // category 존재 검증만 수행
         categoryRepository.findByCategoryId(categoryId)
                 .orElseThrow(() -> new IllegalArgumentException("category not found: " + categoryId));
 
-        return bookService.getBooksByCategory(categoryId);
+        return bookService.getBooksByCategory(categoryId, pageable);
     }
 }

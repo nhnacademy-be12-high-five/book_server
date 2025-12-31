@@ -60,6 +60,7 @@ public class  SearchController implements SearchSwagger {
      * 전체 도서를 ES 에 다시 색인 (high-five + emb-high-five)
      * POST /api/search/reindex
      */
+
     @PostMapping("/reindex")
     public ResponseEntity<String> reindex() {
         try {

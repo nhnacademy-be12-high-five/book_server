@@ -83,13 +83,12 @@ public class BookService {
                     ));
         }
 
-        BookInfoDto createRequest= new BookInfoDto();
-        Integer targetCategoryId = createRequest.getCategoryId();
+//        BookInfoDto createRequest= new BookInfoDto();
+        Integer targetCategoryId = dto.getCategoryId();
         Category category = null;
 
-
         if (targetCategoryId == null) {
-            targetCategoryId = CategoryMapper.findCategoryId(createRequest.getTitle());
+            targetCategoryId = CategoryMapper.findCategoryId(dto.getTitle());
         }
         if (targetCategoryId != null) {
             category = categoryRepository.findByCategoryId(targetCategoryId).orElse(null);
@@ -141,7 +140,7 @@ public class BookService {
         }
 
         try {
-            em.flush();
+//            em.flush();
             em.refresh(savedBook);
             elasticService.saveAll(List.of(BookResponse.from(savedBook)));
             log.info("Elasticsearch 인덱싱 완료 (작가/카테고리 포함): {}", savedBook.getTitle());
@@ -215,17 +214,40 @@ public class BookService {
     }
 
     // 책 업데이트
-    @Transactional // 💡 트랜잭션 적용
+    @Transactional
     public BookResponse updateBook(Long id, BookUpdateRequest request) {
-        BookResponse existingBook = BookResponse.from(bookRepository.findById(id).orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다.")));
+        // 1. 엔티티 조회 (Entity 상태로 가져와야 Dirty Checking 가능)
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("아이디가 존재하지 않습니다. ID: " + id));
 
-        existingBook.price();
+        // 2. 필드 업데이트 (ISBN은 변경하지 않음)
+        // Book 엔티티에 Setter나 update 메서드가 있어야 합니다.
+        // 예시: Setter 사용 시
+        if (StringUtils.hasText(request.getTitle())) book.setTitle(request.getTitle());
+        if (StringUtils.hasText(request.getDescription())) book.setContent(request.getDescription()); // description -> content 매핑 주의
+        if (request.getPrice() != null) book.setPrice(request.getPrice());
+        if (StringUtils.hasText(request.getImage())) book.setImage(request.getImage());
+        if (request.getPublishedDate() != null) book.setPublishedDate(request.getPublishedDate().toString());
 
-        return  existingBook;
+        if (StringUtils.hasText(request.getPublisher())) {
+            Publisher publisher = publisherRepository.findByName(request.getPublisher())
+                    .orElseGet(() -> publisherRepository.save(Publisher.builder().name(request.getPublisher()).build()));
+            book.setPublisher(publisher);
+        }
+
+        redisTemplate.delete("bookDetail::" + id);
+
+        try {
+            elasticService.saveAll(List.of(BookResponse.from(book)));
+        } catch (Exception e) {
+            log.error("Elasticsearch 업데이트 실패: {}", e.getMessage());
+        }
+
+        return BookResponse.from(book);
     }
 
     // 책 삭제
-    public void deleteBook(Long id, Long memberId) {
+    public void deleteBook(Long id) {
         if (!bookRepository.existsById(id)) {
             throw new RuntimeException("삭제할 아이디가 없습니다.");
         }
@@ -239,15 +261,6 @@ public class BookService {
 
         bookRepository.deleteById(id);
         log.info("도서 삭제 완료 - ID: {}", id);
-    }
-
-    private Integer parsePrice(String priceStr) {
-        if (!StringUtils.hasText(priceStr)) return 0;
-        try {
-            return Integer.parseInt(priceStr.replaceAll("[^0-9]", ""));
-        } catch (NumberFormatException e) {
-            return 0;
-        }
     }
 
     // bulk api 조회
@@ -267,30 +280,7 @@ public class BookService {
                 .collect(Collectors.toList());
     }
 
-    // 재고 확인 (단순 조회이므로 readOnly)
-    @Transactional(readOnly = true)
-    public int getBookStock(Long bookId) {
-        // 1. 전체 엔티티를 다 가져오는 건 낭비일 수 있음.
-        // 단순히 재고만 확인할 거라면 Repository에서 재고 컬럼만 가져오는 쿼리를 짜는 게 성능상 베스트.
-        // 하지만 일단 기존 로직을 유지하면서 Service로 옮긴다면:
-
-        return bookRepository.findById(bookId)
-                .map(book -> {
-                    // 만약 getStockCheckedAt이 Boolean이 아니라 날짜라거나 로직이 있다면 여기서 처리
-                    // 예시: 재고 필드가 따로 있다면 book.getStock() 반환
-                    boolean inStock = Boolean.TRUE.equals(book.getStockCheckedAt());
-                    return inStock ? 1 : 0;
-                })
-                .orElse(0); // 책이 없으면 재고 0 처리
-    }
-
     public void incrementViewCount(Long bookId) {
-
-////        // Todo 비회원은 쿠키로 저장하는 로직으로 수정
-//
-//        if (memberId == null) {
-//            return;
-//        }
 
         String logKey = "view_log:" + bookId;
 
@@ -422,11 +412,9 @@ public class BookService {
     }
 
     @Transactional(readOnly = true)
-    public List<BookResponse> getBooksByCategory(int categoryId) {
-        List<BookCategory> books = bookRepository.findBooksByCategoryWithAuthors(categoryId);
-        return books.stream()
-                .map(bc -> BookResponse.from(bc.getBook()))
-                .toList();
+    public Page<BookResponse> getBooksByCategory(int categoryId, Pageable pageable) {
+        Page<BookCategory> books = bookRepository.findBooksByCategory(categoryId, pageable);
+        return books.map(bc -> BookResponse.from(bc.getBook()));
     }
 
     // BookService나 도서 등록 로직 내부
