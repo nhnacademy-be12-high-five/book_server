@@ -29,7 +29,9 @@ public record BookResponse(
         Double avgRating,
         Long reviewCount,
         String aiSummary,
-        String aiReviewSummary
+        String aiReviewSummary,
+        Integer categoryId,
+        Integer parentId
 ) {
 
     // =================================================================================
@@ -135,13 +137,20 @@ public record BookResponse(
                             bc.getCategory().getCategoryName()))
                     .sorted(Comparator.comparingInt(CategoryResponse::categoryId))
                     .collect(Collectors.toList());
+
+            Category firstCategory = bookCategories.get(0).getCategory();
+            mainCategoryId = firstCategory.getCategoryId();
+
+            if (firstCategory.getParentId() != 0) {
+                mainParentId =firstCategory.getParentId();
+            }
         }
 
         List<TagResponse> tagList = Collections.emptyList();
         if (book.getBookTags() != null && !book.getBookTags().isEmpty()){
             tagList=book.getBookTags().stream().map(bookTag -> {
-                Tag tag1=new Tag();
-                return new TagResponse(tag1.getTagId(),tag1.getName()
+                Tag t = bookTag.getTag();
+                return new TagResponse(t.getTagId(),t.getName()
                 );
             })
                     .collect(Collectors.toList());
@@ -162,7 +171,9 @@ public record BookResponse(
                 avgRating,
                 reviewCount,
                 aiSummary,
-                aiReviewSummary
+                aiReviewSummary,
+                mainCategoryId,
+                mainParentId
         );
     }
 }

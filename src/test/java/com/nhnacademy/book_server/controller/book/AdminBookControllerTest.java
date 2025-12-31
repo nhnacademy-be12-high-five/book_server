@@ -1,4 +1,3 @@
-
 package com.nhnacademy.book_server.controller.book;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -68,6 +67,8 @@ class AdminBookControllerTest {
                 10L,
                 "AI Summary",
                 "AI Review Summary"
+                ,null
+                ,null
         );
     }
 
@@ -109,12 +110,13 @@ class AdminBookControllerTest {
     }
 
     @Test
-    @DisplayName("도서 전체 조회 (페이징)")
+    @DisplayName("도서 전체 조회 (페이징) - 성공")
     void getAllBooks() throws Exception {
         // given
         BookResponse response1 = createMockBookResponse(1L, "책1");
         BookResponse response2 = createMockBookResponse(2L, "책2");
 
+        // Page 객체 생성 (content 필드 안에 데이터가 들어감)
         Page<BookResponse> mockPage = new PageImpl<>(List.of(response1, response2));
 
         given(bookService.findAllBooks(any(Pageable.class))).willReturn(mockPage);
@@ -123,9 +125,10 @@ class AdminBookControllerTest {
         mockMvc.perform(get("/api/admin/books")
                         .param("page", "0")
                         .param("size", "10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].title").value("책1"))
-                .andExpect(jsonPath("$[1].title").value("책2"))
+                .andExpect(status().isAccepted()) // 컨트롤러에서 ResponseEntity.accepted()를 사용함 (202 Accepted)
+                .andExpect(jsonPath("$.content[0].title").value("책1")) // Page 객체는 content 배열 안에 데이터가 위치함
+                .andExpect(jsonPath("$.content[1].title").value("책2"))
+                .andExpect(jsonPath("$.totalElements").value(2)) // 페이징 관련 메타데이터 검증 (선택 사항)
                 .andDo(print());
     }
 
