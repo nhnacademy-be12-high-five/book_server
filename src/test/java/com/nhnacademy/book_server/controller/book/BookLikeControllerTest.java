@@ -2,7 +2,6 @@ package com.nhnacademy.book_server.controller.book;
 
 import com.nhnacademy.book_server.controller.BookLikeController;
 import com.nhnacademy.book_server.dto.BookResponse;
-import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.service.BookLikeService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

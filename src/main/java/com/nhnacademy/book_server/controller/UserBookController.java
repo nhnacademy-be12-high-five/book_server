@@ -45,8 +45,7 @@ public class UserBookController implements UserBookSwagger {
         return ResponseEntity.ok(response);
     }
 
-    // todo api 버전
-    @PostMapping("/books/bulk-update")
+    @PostMapping("/books/bulk")
     public ResponseEntity<List<GetBookResponse>> getBooksBulk(@RequestBody List<Long> bookIds) {
         List<GetBookResponse> response = bookService.getBooksBulk(bookIds);
         return ResponseEntity.ok(response);

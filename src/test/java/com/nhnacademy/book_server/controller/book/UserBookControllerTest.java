@@ -171,7 +171,7 @@ class UserBookControllerTest {
     }
 
     @Test
-    @DisplayName("벌크 조회 (POST /api/books/bulk-update)")
+    @DisplayName("벌크 조회  /api/books/bulk)")
     void getBooksBulk() throws Exception {
         // given
         List<Long> bookIds = List.of(1L, 2L);
@@ -183,7 +183,7 @@ class UserBookControllerTest {
         given(bookService.getBooksBulk(bookIds)).willReturn(responses);
 
         // when & then
-        mockMvc.perform(post("/api/books/bulk-update")
+        mockMvc.perform(post("/api/books/bulk")
                         .with(csrf())
                         .content(objectMapper.writeValueAsString(bookIds))
                         .contentType(MediaType.APPLICATION_JSON))

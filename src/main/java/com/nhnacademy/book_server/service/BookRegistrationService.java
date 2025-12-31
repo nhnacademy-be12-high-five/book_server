@@ -3,8 +3,6 @@ package com.nhnacademy.book_server.service;
 import com.nhnacademy.book_server.dto.BookInfoDto;
 import com.nhnacademy.book_server.dto.KakaoBookSearchResponse;
 import com.nhnacademy.book_server.dto.response.GoogleBookResponse;
-import com.nhnacademy.book_server.entity.Book;
-import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.service.search.GeminiTextClientService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
