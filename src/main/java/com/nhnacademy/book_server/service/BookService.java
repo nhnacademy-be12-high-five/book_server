@@ -441,7 +441,9 @@ public class BookService {
         // 존재 여부 확인 후 삭제
         if (bookLikeRepository.existsByBook_IdAndMemberId(bookId, memberId)) {
             bookLikeRepository.deleteByBook_IdAndMemberId(bookId, memberId);
-        } else {
+        }
+
+        else {
             throw new RuntimeException("삭제할 좋아요 기록이 없습니다.");
         }
     }
