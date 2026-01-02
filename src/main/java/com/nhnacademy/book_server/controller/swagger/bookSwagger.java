@@ -2,9 +2,7 @@ package com.nhnacademy.book_server.controller.swagger;
 
 import com.nhnacademy.book_server.dto.BookInfoDto;
 import com.nhnacademy.book_server.dto.BookResponse;
-import com.nhnacademy.book_server.dto.request.BookCreateRequest;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
-import com.nhnacademy.book_server.parser.ParsingDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;

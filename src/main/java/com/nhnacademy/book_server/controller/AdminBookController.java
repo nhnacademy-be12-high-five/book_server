@@ -5,7 +5,6 @@ import com.nhnacademy.book_server.dto.BookInfoDto;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.entity.Book;
-import com.nhnacademy.book_server.parser.ParsingDto;
 import com.nhnacademy.book_server.service.BookRegistrationService;
 import com.nhnacademy.book_server.service.BookService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,6 +34,7 @@ public class AdminBookController implements bookSwagger{
     @PostMapping
     public ResponseEntity<BookInfoDto> createBook(@RequestBody BookInfoDto dto) {
         log.info("관리자 도서 등록 요청 - ISBN: {}, 제목: {}", dto.getIsbn(), dto.getTitle());
+        bookService.createBook(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(dto);
     }
 
