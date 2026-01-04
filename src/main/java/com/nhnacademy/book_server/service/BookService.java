@@ -71,7 +71,7 @@ public class BookService {
 
     public Book createBook(BookInfoDto dto) {
         if (bookRepository.existsByIsbn13(dto.getIsbn())) {
-            log.warn("이미 존재하는 ISBN입니다: {}", dto.getIsbn());
+            throw new RuntimeException("이미 등록된 도서입니다. ISBN: " + dto.getIsbn());
         }
 
         Publisher publisher = null;
