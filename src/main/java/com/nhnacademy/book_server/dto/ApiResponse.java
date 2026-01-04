@@ -28,7 +28,6 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> successNoContent() {
         return new ApiResponse<>(200, HttpStatus.OK, "성공했습니다.", null);
     }
-
     // 실패했을 때 (나중에 예외처리에서 사용)
     public static <T> ApiResponse<T> error(int code, String message) {
         return new ApiResponse<>(code, HttpStatus.BAD_REQUEST, message, null);
