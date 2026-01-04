@@ -1,6 +1,7 @@
 FROM eclipse-temurin:21-jre-alpine
 
-RUN apk add --no-cache tzdata && \
+# [수정됨] tzdata 설치할 때 curl도 같이 설치 (한 줄로 처리)
+RUN apk add --no-cache tzdata curl && \
     cp /usr/share/zoneinfo/Asia/Seoul /etc/localtime && \
     echo "Asia/Seoul" > /etc/timezone
 
