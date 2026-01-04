@@ -12,11 +12,11 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.*;
 
 import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -237,5 +237,136 @@ class MinioImageServiceTest {
         minioImageService.deleteBookImage(url);
 
         verify(s3Client).deleteObject(any(DeleteObjectRequest.class));
+    }
+
+    // --- 5. Bucket Clear & Delete All Objects Tests ---
+
+    @Test
+    @DisplayName("버킷 비우기: 객체가 하나도 없을 때 (즉시 종료)")
+    void clearBookImageBucket_Empty() {
+        // given
+        // 내용물이 없는 응답 설정
+        ListObjectsV2Response emptyResponse = ListObjectsV2Response.builder()
+                .contents(List.of())
+                .isTruncated(false)
+                .nextContinuationToken(null)
+                .build();
+
+        when(s3Client.listObjectsV2(any(ListObjectsV2Request.class))).thenReturn(emptyResponse);
+
+        // when
+        minioImageService.clearBookImageBucket();
+
+        // then
+        // 목록 조회는 했으나, 삭제 요청은 하지 않아야 함
+        verify(s3Client, times(1)).listObjectsV2(any(ListObjectsV2Request.class));
+        verify(s3Client, never()).deleteObjects(any(DeleteObjectsRequest.class));
+    }
+
+    @Test
+    @DisplayName("버킷 비우기: 객체가 존재할 때 삭제 요청 전송")
+    void clearReviewImageBucket_Success() {
+        // given
+        S3Object obj1 = S3Object.builder().key("img1.jpg").build();
+        S3Object obj2 = S3Object.builder().key("img2.jpg").build();
+
+        ListObjectsV2Response response = ListObjectsV2Response.builder()
+                .contents(obj1, obj2)
+                .isTruncated(false)
+                .build();
+
+        when(s3Client.listObjectsV2(any(ListObjectsV2Request.class)))
+                .thenReturn(response);
+
+        // when
+        minioImageService.clearReviewImageBucket();
+
+        // then
+        // 1. 목록 조회 호출 확인 (리뷰 버킷)
+        ArgumentCaptor<ListObjectsV2Request> listCaptor = ArgumentCaptor.forClass(ListObjectsV2Request.class);
+        verify(s3Client).listObjectsV2(listCaptor.capture());
+        assertThat(listCaptor.getValue().bucket()).isEqualTo(REVIEW_BUCKET);
+
+        // 2. 삭제 요청 호출 확인
+        ArgumentCaptor<DeleteObjectsRequest> deleteCaptor = ArgumentCaptor.forClass(DeleteObjectsRequest.class);
+        verify(s3Client).deleteObjects(deleteCaptor.capture());
+
+        // 삭제하려는 객체 목록이 맞는지 확인
+        assertThat(deleteCaptor.getValue().bucket()).isEqualTo(REVIEW_BUCKET);
+        assertThat(deleteCaptor.getValue().delete().objects()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("버킷 비우기: 페이지네이션 (객체가 많아서 두 번에 나눠 삭제)")
+    void deleteAllObjectsInBucket_Pagination() {
+        // given
+        // 첫 번째 페이지: 객체 있음, 다음 토큰 존재
+        S3Object obj1 = S3Object.builder().key("page1_obj.jpg").build();
+        ListObjectsV2Response firstResponse = ListObjectsV2Response.builder()
+                .contents(obj1)
+                .isTruncated(true)
+                .nextContinuationToken("token_for_page_2")
+                .build();
+
+        // 두 번째 페이지: 객체 있음, 더 이상 토큰 없음
+        S3Object obj2 = S3Object.builder().key("page2_obj.jpg").build();
+        ListObjectsV2Response secondResponse = ListObjectsV2Response.builder()
+                .contents(obj2)
+                .isTruncated(false)
+                .nextContinuationToken(null)
+                .build();
+
+        // 순서대로 리턴하도록 설정
+        when(s3Client.listObjectsV2(any(ListObjectsV2Request.class)))
+                .thenReturn(firstResponse)
+                .thenReturn(secondResponse);
+
+        // when
+        minioImageService.deleteAllObjectsInBucket(BOOK_BUCKET);
+
+        // then
+        // listObjectsV2가 총 2번 호출되어야 함
+        verify(s3Client, times(2)).listObjectsV2(any(ListObjectsV2Request.class));
+
+        // deleteObjects도 총 2번 호출되어야 함 (페이지마다 삭제)
+        verify(s3Client, times(2)).deleteObjects(any(DeleteObjectsRequest.class));
+    }
+    @Test
+    @DisplayName("URL 업로드 성공: 정상 흐름 (Content-Type으로 확장자 인식)")
+    void uploadImageFromUrl_Success() throws IOException {
+        // given
+        String validUrl = "https://example.com/image"; // 확장자가 없는 URL
+        String isbn = "97911";
+        byte[] mockImageBytes = new byte[]{1, 2, 3};
+
+        // Spy 객체 생성
+        MinioImageService spyService = spy(minioImageService);
+
+        // Mock Connection 설정
+        HttpURLConnection mockConnection = mock(HttpURLConnection.class);
+        when(mockConnection.getResponseCode()).thenReturn(200);
+        when(mockConnection.getInputStream()).thenReturn(new java.io.ByteArrayInputStream(mockImageBytes));
+
+        // [중요] Content-Type 헤더가 "image/png"라고 가정
+        when(mockConnection.getContentType()).thenReturn("image/png");
+
+        // getConnection 호출 시 Mock 반환 (URL 객체는 무엇이든 상관없음)
+        doReturn(mockConnection).when(spyService).getConnection(any(URL.class));
+
+        when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class))).thenReturn(null);
+
+        // when
+        String result = spyService.uploadImageFromUrl(validUrl, isbn);
+
+        // then
+        // 1. Content-Type("image/png")을 통해 확장자가 .png로 잘 붙었는지 확인
+        assertThat(result).endsWith(".png");
+
+        // 2. S3 업로드 요청 검증
+        ArgumentCaptor<PutObjectRequest> putCaptor = ArgumentCaptor.forClass(PutObjectRequest.class);
+        verify(s3Client).putObject(putCaptor.capture(), any(RequestBody.class));
+
+        assertThat(putCaptor.getValue().key()).isEqualTo(isbn + ".png");
+        assertThat(putCaptor.getValue().contentType()).isEqualTo("image/png");
     }
 }

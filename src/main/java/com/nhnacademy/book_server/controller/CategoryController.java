@@ -4,7 +4,6 @@ import com.nhnacademy.book_server.controller.swagger.CategorySwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.CategoryResponse;
 import com.nhnacademy.book_server.entity.Category;
-import com.nhnacademy.book_server.service.BookService;
 import com.nhnacademy.book_server.service.category.CategoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

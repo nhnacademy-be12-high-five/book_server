@@ -7,13 +7,12 @@ import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.repository.ElasticRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.List;
 

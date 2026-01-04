@@ -4,7 +4,6 @@ import com.nhnacademy.book_server.controller.swagger.bookSwagger;
 import com.nhnacademy.book_server.dto.BookInfoDto;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
-import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.service.BookRegistrationService;
 import com.nhnacademy.book_server.service.BookService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,8 +15,6 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @Slf4j
 @RestController

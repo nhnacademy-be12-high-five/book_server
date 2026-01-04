@@ -54,10 +54,15 @@ public class MinioImageService {
 
         try {
             validateImageUrl(imageUrl);
+
+            // [수정 1] URL 객체 생성은 여기서 수행 (path 파싱을 위해 필요)
             URL url = new URL(imageUrl);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+            // [수정 2] 연결 생성 부분만 별도 메서드 호출 (Mocking 포인트)
+            HttpURLConnection connection = getConnection(url);
+
+            // 타임아웃 등 설정 (필요시 getConnection 내부나 여기서 설정)
             connection.setRequestMethod("GET");
-            connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36");
             connection.setConnectTimeout(10_000);
             connection.setReadTimeout(15_000);
 
@@ -67,19 +72,13 @@ public class MinioImageService {
                 return defaultImageUrl;
             }
 
+            // [수정 3] Content-Type을 우선 확인하고, 없으면 URL 경로에서 확장자 추출
+            String contentType = connection.getContentType();
+            String ext = extractExtension(contentType, url.getPath());
+
             byte[] imageBytes;
             try (InputStream inputStream = connection.getInputStream()) {
                 imageBytes = inputStream.readAllBytes();
-            }
-
-            // 확장자 판단
-            String ext = "jpg";
-            String path = url.getPath();
-            if (path.contains(".")) {
-                String candidate = path.substring(path.lastIndexOf(".") + 1);
-                if (candidate.matches("^[a-zA-Z0-9]{1,5}$")) {
-                    ext = candidate.toLowerCase();
-                }
             }
 
             // 저장할 파일명 생성
@@ -88,23 +87,42 @@ public class MinioImageService {
             PutObjectRequest putRequest = PutObjectRequest.builder()
                     .bucket(bookBucketName)
                     .key(storedFileName)
-                    .contentType("image/" + ext) // 이미지 타입 지정
+                    .contentType("image/" + ext)
                     .build();
 
             s3Client.putObject(putRequest, RequestBody.fromBytes(imageBytes));
 
-            // MinIO에 올라간 파일을 프록시 URL로 리턴
             return PROXY_BASE_URL_BOOK + "/" + storedFileName;
 
-        }catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException e) {
             log.warn("보안 위협이 감지된 URL 요청 차단: {} ({})", imageUrl, e.getMessage());
             return defaultImageUrl;
-        }catch (Exception e) {
+        } catch (Exception e) {
             log.warn("MinIO 업로드 실패: {} (원인: {}) → 기본 이미지", imageUrl, e.getMessage());
             return defaultImageUrl;
         }
     }
+    // [Test Point] 테스트에서 오버라이딩하여 Mock Connection 반환
+    protected HttpURLConnection getConnection(URL url) throws IOException {
+        return (HttpURLConnection) url.openConnection();
+    }
 
+    // [Helper] 확장자 추출 로직 분리 (Content-Type 우선)
+    private String extractExtension(String contentType, String path) {
+        if (StringUtils.hasText(contentType) && contentType.startsWith("image/")) {
+            // image/jpeg -> jpeg
+            return contentType.substring(6);
+        }
+
+        // Content-Type이 없으면 기존 로직대로 URL 경로에서 파싱
+        if (path.contains(".")) {
+            String candidate = path.substring(path.lastIndexOf(".") + 1);
+            if (candidate.matches("^[a-zA-Z0-9]{1,5}$")) {
+                return candidate.toLowerCase();
+            }
+        }
+        return "jpg"; // 기본값
+    }
     public String uploadImage(MultipartFile file) {
         try{
             String originalFilename = file.getOriginalFilename();
