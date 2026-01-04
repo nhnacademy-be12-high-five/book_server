@@ -71,7 +71,7 @@ public class BookService {
 
     public Book createBook(BookInfoDto dto) {
         if (bookRepository.existsByIsbn13(dto.getIsbn())) {
-            log.warn("이미 존재하는 ISBN입니다: {}", dto.getIsbn());
+            throw new RuntimeException("이미 등록된 도서입니다. ISBN: " + dto.getIsbn());
         }
 
         Publisher publisher = null;
@@ -441,7 +441,9 @@ public class BookService {
         // 존재 여부 확인 후 삭제
         if (bookLikeRepository.existsByBook_IdAndMemberId(bookId, memberId)) {
             bookLikeRepository.deleteByBook_IdAndMemberId(bookId, memberId);
-        } else {
+        }
+
+        else {
             throw new RuntimeException("삭제할 좋아요 기록이 없습니다.");
         }
     }
