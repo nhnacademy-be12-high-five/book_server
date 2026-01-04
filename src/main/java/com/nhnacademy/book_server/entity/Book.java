@@ -26,7 +26,7 @@ public class Book {
     private Long id;
 
     @NotNull
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String isbn13;
     // int로 하면 범위를 초과하므로 String으로 변경
     // ISBN_THIRTEEN_NO : ISBN 번호

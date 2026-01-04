@@ -129,7 +129,7 @@ class BookServiceTest {
     void createBook_Success_ExistingEntities_AutoCategory() {
         // given
         BookInfoDto dto = new BookInfoDto();
-        dto.setIsbn("9790000000001");
+        dto.setIsbn("9790000100001");
         dto.setTitle("자바의 정석");
         dto.setPublisher("기존 출판사");
         dto.setAuthors(List.of("   ")); // 공백 이름 무시 확인
@@ -139,7 +139,7 @@ class BookServiceTest {
         Book savedBook = Book.builder().id(101L).title("자바의 정석").build();
         Category mappedCategory = new Category(10, "Java", 1, 0);
 
-        given(bookRepository.existsByIsbn13(anyString())).willReturn(true); // 이미 존재 로그 확인용
+        given(bookRepository.existsByIsbn13(anyString())).willReturn(false);
         given(publisherRepository.findByName("기존 출판사")).willReturn(Optional.of(existingPublisher));
         given(bookRepository.save(any(Book.class))).willReturn(savedBook);
         given(categoryRepository.findByCategoryId(anyInt())).willReturn(Optional.of(mappedCategory));
