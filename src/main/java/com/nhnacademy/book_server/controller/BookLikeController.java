@@ -19,9 +19,11 @@ public class BookLikeController implements UserBookLikeSwagger {
     private final BookLikeService bookLikeService;
 
     //  도서 좋아요 토글 (등록/취소)
+
+    // /books/${bookId}/likes/status
     @Override
     @PostMapping("/books/{bookId}/likes")
-    public ResponseEntity<Void> toggleLike(@PathVariable("bookId") Long bookId,
+    public ResponseEntity<Boolean> toggleLike(@PathVariable("bookId") Long bookId,
                                            @RequestHeader(value = "X-USER-ID",required = true) Long memberId) {
         // 서비스에게 토글 로직 위임
         bookLikeService.toggleLike(bookId, memberId);
@@ -30,8 +32,7 @@ public class BookLikeController implements UserBookLikeSwagger {
 
     // 마이페이지 - 좋아요 누른 도서 목록 조회
     @Override
-    @GetMapping("/books/my-page/likes")
-    // todo members/me/likes 경로 이렇게 수정 ?
+    @GetMapping("/my-page/likes")
     public ResponseEntity<List<BookResponse>> getMyLikedBooks(@RequestHeader(value = "X-USER-ID",required = true) Long memberId,
                                                                Pageable pageable) {
         List<BookResponse> likedBooks = bookLikeService.getMyLikedBooks(memberId, pageable);
