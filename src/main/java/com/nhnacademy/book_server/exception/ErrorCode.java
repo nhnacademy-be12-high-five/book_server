@@ -33,6 +33,8 @@ public enum ErrorCode {
     OUT_OF_STOCK(HttpStatus.BAD_REQUEST, "B003", "요청하신 수량만큼 재고가 부족합니다."),
     STOCK_CONFIRMATION_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "B004", "재고 확정 처리 중 치명적인 오류가 발생했습니다. 데이터 불일치 가능성이 있습니다."),
 
+    BOOK_ALREADY_EXISTS(HttpStatus.CONFLICT, "B005", "이미 등록된 도서입니다."),
+
     // External (외부 서비스 관련)
     EXTERNAL_SERVER_ERROR(HttpStatus.SERVICE_UNAVAILABLE, "EXT001", "외부 서비스 통신 중 오류가 발생했습니다."),
     BOOK_NOT_FOUND_IN_SERVER(HttpStatus.NOT_FOUND, "EXT002", "도서 서비스에서 해당 책을 찾을 수 없습니다.");
