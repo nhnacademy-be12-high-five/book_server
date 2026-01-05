@@ -7,12 +7,6 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-//@EnableConfigurationProperties({
-//		RagConfig.class,
-//		RagSearchConfig.class,
-//		GeminiConfig.class
-//})
-
 @EnableFeignClients
 @SpringBootApplication
 @EnableScheduling
@@ -24,11 +18,6 @@ public class BookServerApplication {
 
 		SpringApplication.run(BookServerApplication.class, args);
 	}
-
-//	@Bean
-//	public RestTemplate restTemplate() {
-//		return new RestTemplate();
-//	}
 }
 
 

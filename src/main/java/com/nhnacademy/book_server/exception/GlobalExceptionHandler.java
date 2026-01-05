@@ -11,8 +11,6 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
-    private static final String INVALID_ARGUMENT_CODE = "C003";
-    private static final String INVALID_ARGUMENT_MESSAGE = "잘못된 요청 값입니다.";
 
 
     @ExceptionHandler

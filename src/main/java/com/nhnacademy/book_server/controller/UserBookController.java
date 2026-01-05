@@ -6,7 +6,6 @@ import com.nhnacademy.book_server.dto.response.GetBookResponse;
 import com.nhnacademy.book_server.service.BookService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -23,7 +22,7 @@ import java.util.List;
 public class UserBookController implements UserBookSwagger {
 
     private final BookService bookService;
-    @Autowired
+
     private StringRedisTemplate redisTemplate;
 
     // 도서 전체 조회 (GET /api/books)
@@ -73,8 +72,8 @@ public class UserBookController implements UserBookSwagger {
 
     @GetMapping("/books/best-seller")
     public ResponseEntity<List<BookResponse>> getBestSeller(@RequestParam(defaultValue = "5") int size){
-        List<BookResponse> BestSellers=bookService.getBestSeller(size);
-        return ResponseEntity.ok(BestSellers);
+        List<BookResponse> bestSellers=bookService.getBestSeller(size);
+        return ResponseEntity.ok(bestSellers);
     }
 
     @PostMapping("/books/{bookId}/category/{categoryId}")
