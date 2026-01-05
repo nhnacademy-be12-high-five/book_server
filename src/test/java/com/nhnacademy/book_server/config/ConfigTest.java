@@ -1,9 +1,14 @@
 package com.nhnacademy.book_server.config;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.indices.ElasticsearchIndicesClient;
+import co.elastic.clients.elasticsearch.indices.ExistsRequest;
+import co.elastic.clients.transport.endpoints.BooleanResponse;
+import co.elastic.clients.util.ObjectBuilder;
 import org.elasticsearch.client.RestClient;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
@@ -23,8 +28,10 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.handler.HandlerMappingIntrospector;
 
+import java.util.function.Function;
+
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.*;
 
 class ConfigTest {
 
@@ -159,6 +166,94 @@ class ConfigTest {
                     assertThat(context).hasSingleBean(SecurityFilterChain.class);
                     SecurityFilterChain chain = context.getBean(SecurityFilterChain.class);
                     assertThat(chain).isNotNull();
+                });
+    }
+
+    @Test
+    @DisplayName("ElasticSearchConfig: 인덱스 초기화 컴포넌트 빈 등록 테스트")
+    void elasticSearchConfigTest() {
+        contextRunner.withUserConfiguration(ElasticSearchConfig.class)
+                .withBean(ElasticsearchClient.class, () -> mock(ElasticsearchClient.class))
+                .run(context -> {
+                    // 빈이 정상적으로 등록되었는지 확인
+                    assertThat(context).hasSingleBean(ElasticSearchConfig.class);
+                });
+    }
+
+    @Test
+    @DisplayName("ElasticSearchConfig 로직: 인덱스가 이미 존재할 경우 생성 건너뛰기")
+    void elasticSearchConfig_IndexExists() throws Exception {
+        // 1. Mock 객체 생성
+        ElasticsearchClient mockClient = mock(ElasticsearchClient.class);
+        ElasticsearchIndicesClient mockIndicesClient = mock(ElasticsearchIndicesClient.class);
+        BooleanResponse mockBooleanResponse = mock(BooleanResponse.class);
+
+        // 2. Mock 동작 정의
+        when(mockClient.indices()).thenReturn(mockIndicesClient);
+
+        // 방법 B: 정석적인 제네릭 명시 (아래 코드 사용)
+        when(mockIndicesClient.exists(ArgumentMatchers.<Function<ExistsRequest.Builder, ObjectBuilder<ExistsRequest>>>any()))
+                .thenReturn(mockBooleanResponse);
+
+        // exists.value() -> true (인덱스 존재함)
+        when(mockBooleanResponse.value()).thenReturn(true);
+
+        // 3. 테스트 대상 실행
+        ElasticSearchConfig config = new ElasticSearchConfig(mockClient);
+        config.createBookIndex();
+
+        // 4. 검증
+        // verify에서도 동일하게 제네릭 타입을 맞춰줍니다.
+        verify(mockIndicesClient).exists(ArgumentMatchers.<Function<ExistsRequest.Builder, ObjectBuilder<ExistsRequest>>>any());
+
+        // create()는 호출되지 않아야 함 (제네릭 타입 주의)
+        verify(mockIndicesClient, never()).create(ArgumentMatchers.<Function<co.elastic.clients.elasticsearch.indices.CreateIndexRequest.Builder, ObjectBuilder<co.elastic.clients.elasticsearch.indices.CreateIndexRequest>>>any());
+    }
+
+    @Test
+    @DisplayName("ElasticSearchConfig 로직: 인덱스가 없을 때 생성 시도")
+    void elasticSearchConfig_IndexNotExists() throws Exception {
+        // 1. Mock 객체 생성
+        ElasticsearchClient mockClient = mock(ElasticsearchClient.class);
+        ElasticsearchIndicesClient mockIndicesClient = mock(ElasticsearchIndicesClient.class);
+        BooleanResponse mockBooleanResponse = mock(BooleanResponse.class);
+
+        // 2. Mock 동작 정의
+        when(mockClient.indices()).thenReturn(mockIndicesClient);
+
+        when(mockIndicesClient.exists(ArgumentMatchers.<Function<ExistsRequest.Builder, ObjectBuilder<ExistsRequest>>>any()))
+                .thenReturn(mockBooleanResponse);
+
+        // exists.value() -> false (인덱스 없음)
+        when(mockBooleanResponse.value()).thenReturn(false);
+
+        // 3. 실행
+        ElasticSearchConfig config = new ElasticSearchConfig(mockClient);
+
+        // *주의: 실제 경로에 파일이 없으면 FileNotFoundException 발생 후 catch로 빠짐
+        config.createBookIndex();
+
+        // 4. 검증
+        verify(mockIndicesClient).exists(ArgumentMatchers.<Function<ExistsRequest.Builder, ObjectBuilder<ExistsRequest>>>any());
+    }
+
+    @Test
+    @DisplayName("OpenApiConfig: OpenAPI 빈 등록 및 설정 확인")
+    void openApiConfigTest() {
+        contextRunner.withUserConfiguration(OpenApiconfig.class)
+                .withPropertyValues("springdoc.version=v2.0")
+                .run(context -> {
+                    // 1. OpenAPI 빈이 정상적으로 등록되었는지 확인
+                    assertThat(context).hasSingleBean(io.swagger.v3.oas.models.OpenAPI.class);
+
+                    io.swagger.v3.oas.models.OpenAPI openAPI = context.getBean(io.swagger.v3.oas.models.OpenAPI.class);
+
+                    // 2. 코드에 설정된 제목, 설명이 맞는지 검증
+                    assertThat(openAPI.getInfo().getTitle()).isEqualTo("제목");
+                    assertThat(openAPI.getInfo().getDescription()).isEqualTo("설명");
+
+                    // 3. 주입한 버전(v2.0)이 잘 반영되었는지 확인
+                    assertThat(openAPI.getInfo().getVersion()).isEqualTo("v2.0");
                 });
     }
 }
