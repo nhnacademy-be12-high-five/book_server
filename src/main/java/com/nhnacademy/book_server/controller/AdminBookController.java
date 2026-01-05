@@ -1,6 +1,6 @@
 package com.nhnacademy.book_server.controller;
 
-import com.nhnacademy.book_server.controller.swagger.bookSwagger;
+import com.nhnacademy.book_server.controller.swagger.BookSwagger;
 import com.nhnacademy.book_server.dto.BookInfoDto;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/admin/books")
 @RequiredArgsConstructor
 // 관리자 권한 책 컨트롤러
-public class AdminBookController implements bookSwagger{
+public class AdminBookController implements BookSwagger {
 
     private final BookService bookService;
     private final BookRegistrationService bookRegistrationService;

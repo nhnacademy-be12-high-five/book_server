@@ -42,7 +42,7 @@ public class Book {
 
     @NotNull
     @Builder.Default
-    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true) // todo
+    @OneToMany(mappedBy = "book", cascade = CascadeType.ALL, orphanRemoval = true)
     @BatchSize(size = 100)
     private List<BookAuthor> bookAuthors = new ArrayList<>(); // List 초기화는 @Builder에서 처리됨
     // AUTHR_NM : 저자이름
@@ -93,12 +93,6 @@ public class Book {
 
     // 재고 여부
     private Boolean stockCheckedAt;
-
-    // ISBN_NO : 표준 도서 번호 10자리
-//    private String isbnNO;
-
-    //  private String tag;
-//    private String bookLike;
 
     private Boolean isPortalSiteBookExist;
 
