@@ -17,10 +17,4 @@ public interface ElasticRepository extends ElasticsearchRepository<BookDocument,
      * @param size    페이지당 조회 건수
      * @return 검색 결과 목록 + 전체 검색 건수(totalHits)
      */
-//    SearchResult<BookResponse> search(String keyword, BookSortType sort, int page, int size);
-//
-//    /**
-//     * 여러 도서를 ES 인덱스에 저장 (reindex 용)
-//     */
-//    void saveAll(List<BookResponse> books);
 }
