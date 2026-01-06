@@ -93,7 +93,7 @@ class BookLikeControllerTest {
                 .willReturn(List.of(mockResponse));
 
         // when & then
-        mockMvc.perform(get("/api/my-page/likes/status")
+        mockMvc.perform(get("/api/my-page/likes")
                         .header("X-USER-ID", memberId)
                         .param("page", "0")
                         .param("size", "10")
