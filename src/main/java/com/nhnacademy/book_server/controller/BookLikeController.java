@@ -30,7 +30,7 @@ public class BookLikeController implements UserBookLikeSwagger {
 
     // 마이페이지 - 좋아요 누른 도서 목록 조회
     @Override
-    @GetMapping("/my-page/likes/status")
+    @GetMapping("/my-page/likes")
     public ResponseEntity<List<BookResponse>> getMyLikedBooks(@RequestHeader(value = "X-USER-ID",required = true) Long memberId,
                                                                Pageable pageable) {
         List<BookResponse> likedBooks = bookLikeService.getMyLikedBooks(memberId, pageable);

@@ -13,6 +13,9 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     @Bean
+    // "java:S4502"는 CSRF 보호 비활성화에 대한 SonarQube 규칙 ID입니다.
+    // REST API 환경이므로 CSRF가 불필요함을 명시하고 경고를 억제합니다.
+    @SuppressWarnings("java:S4502")
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         log.info(">>> BOOK-SERVER SecurityConfig LOADED");
         http
@@ -27,7 +30,8 @@ public class SecurityConfig {
                                 "/api/tag/**",
                                 "/api/tags/**",
                                 "/api/admin/**",
-                                "/api/admin/books/search-api"
+                                "/api/admin/books/search-api",
+                                "/api/my-page/**"
                         ).permitAll()
                         .requestMatchers("/api/test/**").permitAll()
                         .anyRequest().authenticated()

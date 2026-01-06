@@ -95,11 +95,4 @@ public class ReviewController {
 
         return ResponseEntity.ok(isLiked);
     }
-
-    // 요구사항에 삭제는 못하게 하지만 특별한 경우(환불) 관리자가 삭제 할 수 있게 하기 위해 구현
-//    @DeleteMapping("/reviews/{reviewId}")
-//    public ResponseEntity<Void> removeReview(@PathVariable Long reviewId) {
-//        reviewService.removeReview(reviewId);
-//        return ResponseEntity.noContent().build();
-//    }
 }
