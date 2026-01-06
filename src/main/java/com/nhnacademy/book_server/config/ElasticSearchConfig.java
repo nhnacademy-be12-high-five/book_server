@@ -32,7 +32,7 @@ public class ElasticSearchConfig {
                     .value();
 
             if (exists) {
-            System.out.println("ES: high-five 이미 존재");
+            log.info("ES: high-five 이미 존재");
             return;
         }
 
@@ -46,7 +46,7 @@ public class ElasticSearchConfig {
             // 인덱스 생성
             client.indices().create(c -> c.index(index).withJson(jsonStream));
 
-            System.out.println("ES: high-five 생성 완료");
+            log.info("ES: high-five 생성 완료");
         }
 
             if (exists) {

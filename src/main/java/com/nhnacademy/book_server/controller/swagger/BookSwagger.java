@@ -4,7 +4,6 @@ import com.nhnacademy.book_server.dto.BookInfoDto;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.validation.constraints.Pattern;
@@ -15,7 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 // 관리자 도서  API
-public interface bookSwagger{
+public interface BookSwagger {
 
     // 도서 생성
     @Operation(summary = "관리자 새로운 도서 생성", description = "도서 정보를 입력 받아 신규 도서를 데이터베이스에 저장합니다.")

@@ -6,6 +6,8 @@ import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
 import com.nhnacademy.book_server.entity.*;
+import com.nhnacademy.book_server.exception.BusinessException;
+import com.nhnacademy.book_server.exception.ErrorCode;
 import com.nhnacademy.book_server.feign.OrderFeignClient;
 import com.nhnacademy.book_server.mapper.CategoryMapper;
 import com.nhnacademy.book_server.repository.*;
@@ -71,7 +73,7 @@ public class BookService {
 
     public Book createBook(BookInfoDto dto) {
         if (bookRepository.existsByIsbn13(dto.getIsbn())) {
-            throw new RuntimeException("이미 등록된 도서입니다. ISBN: " + dto.getIsbn());
+            throw new BusinessException(ErrorCode.BOOK_ALREADY_EXISTS);
         }
 
         Publisher publisher = null;

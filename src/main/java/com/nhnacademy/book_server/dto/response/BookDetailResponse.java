@@ -27,5 +27,4 @@ public class BookDetailResponse {
     // 할인가의 1%
     private Integer priceSale;
 
-//    private List<TagResponse> tags;
 }

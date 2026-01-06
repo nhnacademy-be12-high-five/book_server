@@ -18,7 +18,7 @@ public class Publisher {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
-  private Long PublisherId;
+  private Long publisherId;
 
   @Column(name = "publisher_name", nullable = false, unique = true)
   private String name; // ✅ 출판사 이름

@@ -5,12 +5,16 @@ import java.util.List;
 import java.util.Map;
 
 public class CategoryMapper {
+    private CategoryMapper() {
+        throw new IllegalStateException("Utility class");
+    }
+
     private static final Map<Integer, List<String>> CATEGORY_RULES = new HashMap<>();
 
     private static final Map<Integer, Integer> PARENT_MAP = new HashMap<>();
 
     private static final List<Integer> SEARCH_ORDER = List.of(
-            10,14,13,8,9,11,12
+            10, 14, 13, 8, 9, 11, 12
     );
 
     static {

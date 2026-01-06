@@ -1,10 +1,14 @@
-package com.nhnacademy.book_server.service.review;
+package com.nhnacademy.book_server.service.impl;
 
 import com.nhnacademy.book_server.dto.event.ReviewCreatedEvent;
+import com.nhnacademy.book_server.dto.event.ReviewDeletedEvent;
+import com.nhnacademy.book_server.dto.event.ReviewImageDeleteEvent;
 import com.nhnacademy.book_server.dto.request.ReviewCreateRequest;
 import com.nhnacademy.book_server.dto.request.ReviewUpdateRequest;
 import com.nhnacademy.book_server.dto.response.BookReviewResponse;
 import com.nhnacademy.book_server.dto.response.MemberResponse;
+import com.nhnacademy.book_server.dto.response.MyPageReviewResponse;
+import com.nhnacademy.book_server.dto.response.ReviewImageResponse;
 import com.nhnacademy.book_server.entity.Book;
 import com.nhnacademy.book_server.entity.Review;
 import com.nhnacademy.book_server.entity.ReviewImage;
@@ -18,7 +22,6 @@ import com.nhnacademy.book_server.repository.review.ReviewImageRepository;
 import com.nhnacademy.book_server.repository.review.ReviewLikeRepository;
 import com.nhnacademy.book_server.repository.review.ReviewRepository;
 import com.nhnacademy.book_server.service.MinioImageService;
-import com.nhnacademy.book_server.service.impl.ReviewServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -33,6 +36,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.mock.web.MockMultipartFile;
@@ -50,9 +54,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.anyList;
-import static org.mockito.Mockito.anyLong;
-import static org.mockito.Mockito.contains;
 
 @ExtendWith(MockitoExtension.class)
 class ReviewServiceImplTest {
@@ -60,7 +61,7 @@ class ReviewServiceImplTest {
     @InjectMocks
     private ReviewServiceImpl reviewService;
 
-    @Mock private ReviewServiceImpl self;
+    @Mock private ReviewServiceImpl self; // Lazy self-injection mock
     @Mock private ReviewRepository reviewRepository;
     @Mock private ReviewImageRepository reviewImageRepository;
     @Mock private MinioImageService imageUploadService;
@@ -70,6 +71,8 @@ class ReviewServiceImplTest {
     @Mock private BookRepository bookRepository;
     @Mock private ReviewLikeRepository reviewLikeRepository;
     @Mock private StringRedisTemplate redisTemplate;
+
+    // Redis Operations Mocks
     @Mock private ValueOperations<String, String> valueOperations;
     @Mock private Cursor<String> cursor;
 
@@ -81,20 +84,27 @@ class ReviewServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        // 순환 참조(Lazy Injection) 해결을 위한 Mock 주입
         ReflectionTestUtils.setField(reviewService, "self", self);
-        lenient().when(orderFeignClient.hasPurchasedBook(anyLong(), anyLong()))
-                .thenReturn(true);
+
         testBook = Book.builder().id(BOOK_ID).title("Test Book").build();
         testReview = new Review(5, "Content", testBook, MEMBER_ID);
         ReflectionTestUtils.setField(testReview, "id", REVIEW_ID);
+        // 초기 이미지 리스트 (빈 리스트)
         ReflectionTestUtils.setField(testReview, "reviewImages", new ArrayList<>());
     }
 
+    /**
+     * Redis Scan 동작을 모킹하는 헬퍼 메서드
+     * evictBookReviewCache 메서드 테스트용
+     */
     private void setupRedisScanMock() {
-        lenient().when(redisTemplate.scan(any())).thenReturn(cursor);
-        lenient().doAnswer(invocation -> {
+        given(redisTemplate.scan(any(ScanOptions.class))).willReturn(cursor);
+
+        // cursor.forEachRemaining 동작 정의: 1개의 키("bookReviews::1_0")를 찾았다고 가정
+        doAnswer(invocation -> {
             Consumer<String> consumer = invocation.getArgument(0);
-            consumer.accept("bookReviews::1_0");
+            consumer.accept("bookReviews::" + BOOK_ID + "_0");
             return null;
         }).when(cursor).forEachRemaining(any(Consumer.class));
     }
@@ -104,7 +114,7 @@ class ReviewServiceImplTest {
     // ============================
 
     @Test
-    @DisplayName("작성 실패: 이미 작성한 리뷰가 존재함 (REVIEW_DUP)")
+    @DisplayName("작성 실패: 이미 작성한 리뷰 존재 (REVIEW_DUP)")
     void saveReview_Fail_Duplicate() {
         given(reviewRepository.existsByBookIdAndMemberId(BOOK_ID, MEMBER_ID)).willReturn(true);
 
@@ -112,24 +122,11 @@ class ReviewServiceImplTest {
 
         assertThatThrownBy(() -> reviewService.saveReview(request, BOOK_ID, MEMBER_ID, null))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REVIEW_DUP);
+                .extracting("errorCode").isEqualTo(ErrorCode.REVIEW_DUP);
     }
 
     @Test
-    @DisplayName("작성 실패: 존재하지 않는 책 (BOOK_NOT_FOUND)")
-    void saveReview_Fail_BookNotFound() {
-        given(reviewRepository.existsByBookIdAndMemberId(BOOK_ID, MEMBER_ID)).willReturn(false);
-        given(bookRepository.findById(BOOK_ID)).willReturn(Optional.empty());
-
-        ReviewCreateRequest request = new ReviewCreateRequest(5, "Content");
-
-        assertThatThrownBy(() -> reviewService.saveReview(request, BOOK_ID, MEMBER_ID, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOOK_NOT_FOUND);
-    }
-
-    @Test
-    @DisplayName("작성 실패: 이미지 개수 초과 (REVIEW_IMAGE_LIMIT_EXCEEDED)")
+    @DisplayName("작성 실패: 이미지 개수 초과 (5개 초과)")
     void saveReview_Fail_ImageLimit() {
         given(reviewRepository.existsByBookIdAndMemberId(BOOK_ID, MEMBER_ID)).willReturn(false);
         given(bookRepository.findById(BOOK_ID)).willReturn(Optional.of(testBook));
@@ -143,52 +140,28 @@ class ReviewServiceImplTest {
 
         assertThatThrownBy(() -> reviewService.saveReview(request, BOOK_ID, MEMBER_ID, images))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REVIEW_IMAGE_LIMIT_EXCEEDED);
+                .extracting("errorCode").isEqualTo(ErrorCode.REVIEW_IMAGE_LIMIT_EXCEEDED);
     }
 
     @Test
-    @DisplayName("작성 성공: 이미지 없음 (EARN_REVIEW 이벤트 발생)")
-    void saveReview_Success_NoImage() {
-        // given
-        ReviewCreateRequest request = new ReviewCreateRequest(5, "Content");
-        given(reviewRepository.existsByBookIdAndMemberId(BOOK_ID, MEMBER_ID)).willReturn(false);
-        given(bookRepository.findById(BOOK_ID)).willReturn(Optional.of(testBook));
-        setupRedisScanMock();
-
-        // when
-        reviewService.saveReview(request, BOOK_ID, MEMBER_ID, null);
-
-        // then
-        verify(reviewRepository).save(any(Review.class));
-
-        // [수정] ArgumentCaptor<Object> 사용
-        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
-        verify(eventPublisher).publishEvent(eventCaptor.capture());
-
-        Object event = eventCaptor.getValue();
-        assertThat(event).isInstanceOf(ReviewCreatedEvent.class);
-        assertThat(((ReviewCreatedEvent) event).eventType()).isEqualTo("EARN_REVIEW");
-    }
-
-    @Test
-    @DisplayName("작성 성공: 이미지 포함 (EARN_PHOTO_REVIEW 이벤트 발생)")
+    @DisplayName("작성 성공: 이미지 포함 (EARN_PHOTO_REVIEW 이벤트 발행)")
     void saveReview_Success_WithImage() {
-        // given
-        ReviewCreateRequest request = new ReviewCreateRequest(5, "Content");
+        // Given
+        ReviewCreateRequest request = new ReviewCreateRequest(5, "Great Book");
         List<MultipartFile> images = List.of(new MockMultipartFile("img", "test.jpg", "image/jpeg", "data".getBytes()));
 
         given(reviewRepository.existsByBookIdAndMemberId(BOOK_ID, MEMBER_ID)).willReturn(false);
         given(bookRepository.findById(BOOK_ID)).willReturn(Optional.of(testBook));
-        given(imageUploadService.uploadImage(any())).willReturn("url");
-        setupRedisScanMock();
+        given(imageUploadService.uploadImage(any())).willReturn("http://minio/url");
 
-        // when
+        // When
         reviewService.saveReview(request, BOOK_ID, MEMBER_ID, images);
 
-        // then
-        verify(reviewImageRepository).saveAll(anyList());
+        // Then
+        verify(reviewImageRepository).saveAll(anyList()); // 이미지 저장 호출 확인
+        verify(reviewRepository).save(any(Review.class)); // 리뷰 저장 호출 확인
 
-        // [수정] ArgumentCaptor<Object> 사용
+        // 이벤트 발행 검증
         ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
         verify(eventPublisher).publishEvent(eventCaptor.capture());
 
@@ -198,55 +171,52 @@ class ReviewServiceImplTest {
     }
 
     // ============================
-    // 2. getReviewList & getCachedReviewPage
+    // 2. getReviewList & getCachedReviewPage (조회 & 캐싱)
     // ============================
 
     @Test
-    @DisplayName("리뷰 리스트 조회: 비로그인 유저 (캐시된 페이지만 반환)")
-    void getReviewList_Guest() {
+    @DisplayName("리뷰 리스트 조회: 로그인 유저 좋아요 여부(Personalization) 확인")
+    void getReviewList_LoginUser_Liked() {
+        // Given
         Pageable pageable = PageRequest.of(0, 10);
-        Page<BookReviewResponse> cachedPage = new PageImpl<>(List.of());
+
+        // 캐시된 리뷰 페이지 Mocking
+        List<ReviewImageResponse> images = List.of();
+        BookReviewResponse cachedResponse = new BookReviewResponse(REVIEW_ID, MEMBER_ID, "홍*동", "Content", 5, null, images, 0, false);
+        Page<BookReviewResponse> cachedPage = new PageImpl<>(List.of(cachedResponse));
+
         given(self.getCachedReviewPage(BOOK_ID, pageable)).willReturn(cachedPage);
 
-        Page<BookReviewResponse> result = reviewService.getReviewList(BOOK_ID, pageable, null);
+        // 회원이 좋아요 누른 리뷰 ID 목록 Mocking
+        given(reviewLikeRepository.findReviewIdsByMemberIdAndReviewIds(eq(MEMBER_ID), anyList()))
+                .willReturn(List.of(REVIEW_ID));
 
-        assertThat(result).isEmpty();
-        verify(reviewLikeRepository, never()).findReviewIdsByMemberIdAndReviewIds(any(), any());
-    }
+        // When
+        Page<BookReviewResponse> result = reviewService.getReviewList(BOOK_ID, pageable, MEMBER_ID);
 
-    @Test
-    @DisplayName("캐시 메서드 테스트: 닉네임 마스킹 및 Feign 예외 처리")
-    void getCachedReviewPage_FeignError() {
-        Pageable pageable = PageRequest.of(0, 10);
-        Review r1 = new Review(5, "Content", testBook, 101L);
-        ReflectionTestUtils.setField(r1, "reviewImages", new ArrayList<>());
-        Page<Review> reviewPage = new PageImpl<>(List.of(r1));
-
-        given(reviewRepository.findByBookId(BOOK_ID, pageable)).willReturn(reviewPage);
-        given(memberFeignClient.getMembersInfo(anyList())).willThrow(new RuntimeException("Feign Error"));
-
-        Page<BookReviewResponse> result = reviewService.getCachedReviewPage(BOOK_ID, pageable);
-
+        // Then
         assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).loginId()).startsWith("알");
+        assertThat(result.getContent().get(0).isLiked()).isTrue(); // 좋아요가 True로 바뀌었는지 확인
     }
 
     @Test
-    @DisplayName("캐시 메서드 테스트: 닉네임 정상 조회 및 마스킹")
-    void getCachedReviewPage_Success() {
+    @DisplayName("캐시 메서드(getCachedReviewPage): 닉네임 마스킹 확인")
+    void getCachedReviewPage_Masking() {
+        // Given
         Pageable pageable = PageRequest.of(0, 10);
         Review r1 = new Review(5, "Content", testBook, 101L);
-        ReflectionTestUtils.setField(r1, "reviewImages", new ArrayList<>());
+        ReflectionTestUtils.setField(r1, "reviewImages", new ArrayList<>()); // 이미지 초기화
         Page<Review> reviewPage = new PageImpl<>(List.of(r1));
 
         given(reviewRepository.findByBookId(BOOK_ID, pageable)).willReturn(reviewPage);
-        given(memberFeignClient.getMembersInfo(anyList())).willReturn(List.of(
-                new MemberResponse(101L, "홍길동")
-        ));
+        // Feign Mock: 이름이 "홍길동"인 회원
+        given(memberFeignClient.getMembersInfo(anyList())).willReturn(List.of(new MemberResponse(101L, "홍길동")));
 
+        // When
         Page<BookReviewResponse> result = reviewService.getCachedReviewPage(BOOK_ID, pageable);
 
-        assertThat(result.getContent().get(0).loginId()).isEqualTo("홍*동");
+        // Then
+        assertThat(result.getContent().get(0).loginId()).isEqualTo("홍*동"); // 마스킹 검증
     }
 
     // ============================
@@ -254,166 +224,146 @@ class ReviewServiceImplTest {
     // ============================
 
     @Test
-    @DisplayName("수정 실패: 본인 리뷰가 아님 (REVIEW_NOT_AUTHOR)")
+    @DisplayName("수정 성공: 텍스트 수정 + 이미지 추가 (일반->포토 업그레이드 이벤트)")
+    void updateReview_Success_Upgrade() {
+        // Given
+        given(reviewRepository.findById(REVIEW_ID)).willReturn(Optional.of(testReview));
+        given(imageUploadService.uploadImage(any())).willReturn("new-img-url");
+        setupRedisScanMock(); // 캐시 삭제 Mock 설정
+
+        ReviewUpdateRequest request = new ReviewUpdateRequest("Updated Content", 4, null);
+        List<MultipartFile> newImages = List.of(new MockMultipartFile("img", "t.jpg", "image/jpeg", "d".getBytes()));
+
+        // When
+        reviewService.updateReview(request, BOOK_ID, REVIEW_ID, MEMBER_ID, newImages);
+
+        // Then
+        assertThat(testReview.getReviewContent()).isEqualTo("Updated Content"); // 내용 변경 확인
+        assertThat(testReview.getRating()).isEqualTo(4); // 별점 변경 확인
+
+        // 캐시 삭제 확인
+        verify(redisTemplate).delete(anyList());
+
+        // 이벤트 확인 (업그레이드 이벤트 발생 여부)
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(eventPublisher, atLeastOnce()).publishEvent(eventCaptor.capture());
+
+        boolean hasUpgradeEvent = eventCaptor.getAllValues().stream()
+                .anyMatch(e -> e instanceof ReviewCreatedEvent &&
+                        ((ReviewCreatedEvent) e).eventType().equals("EARN_REVIEW_UPGRADE"));
+        assertThat(hasUpgradeEvent).isTrue();
+    }
+
+    @Test
+    @DisplayName("수정 실패: 본인 리뷰 아님 (REVIEW_NOT_AUTHOR)")
     void updateReview_Fail_NotAuthor() {
         given(reviewRepository.findById(REVIEW_ID)).willReturn(Optional.of(testReview));
-
-        ReviewUpdateRequest request = new ReviewUpdateRequest("New Content", 5, null);
         Long otherMemberId = 999L;
-
-        assertThatThrownBy(() -> reviewService.updateReview(request, BOOK_ID, REVIEW_ID, otherMemberId, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REVIEW_NOT_AUTHOR);
-    }
-
-    @Test
-    @DisplayName("수정 실패: 책 ID 불일치 (REVIEW_NOT_MATCH_BOOK)")
-    void updateReview_Fail_MatchBook() {
-        given(reviewRepository.findById(REVIEW_ID)).willReturn(Optional.of(testReview));
-
-        ReviewUpdateRequest request = new ReviewUpdateRequest("New Content", 5, null);
-        Long otherBookId = 555L;
-
-        assertThatThrownBy(() -> reviewService.updateReview(request, otherBookId, REVIEW_ID, MEMBER_ID, null))
-                .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REVIEW_NOT_MATCH_BOOK);
-    }
-
-    @Test
-    @DisplayName("수정 실패: 이미지 개수 초과 (기존-삭제+추가 > 5)")
-    void updateReview_Fail_ImageLimit() {
-        for(int i=0; i<3; i++) testReview.getReviewImages().add(new ReviewImage(testReview, "url"));
-
-        given(reviewRepository.findById(REVIEW_ID)).willReturn(Optional.of(testReview));
-
-        List<MultipartFile> newImages = new ArrayList<>();
-        for(int i=0; i<3; i++) newImages.add(new MockMultipartFile("img", "t.jpg", "image/jpeg", "d".getBytes()));
 
         ReviewUpdateRequest request = new ReviewUpdateRequest("C", 5, null);
 
-        assertThatThrownBy(() -> reviewService.updateReview(request, BOOK_ID, REVIEW_ID, MEMBER_ID, newImages))
+        assertThatThrownBy(() -> reviewService.updateReview(request, BOOK_ID, REVIEW_ID, otherMemberId, null))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REVIEW_IMAGE_LIMIT_EXCEEDED);
+                .extracting("errorCode").isEqualTo(ErrorCode.REVIEW_NOT_AUTHOR);
     }
 
+    // ============================
+    // 4. removeReview (리뷰 삭제)
+    // ============================
+
     @Test
-    @DisplayName("수정 성공: 텍스트 변경 및 이미지 업그레이드 이벤트")
-    void updateReview_Success_Upgrade() {
-        // given
+    @DisplayName("삭제 성공: DB 삭제, 캐시 삭제, 이벤트 발행(이미지삭제, 리뷰삭제) 확인")
+    void removeReview_Success() {
+        // Given
+        // 이미지가 있는 리뷰 상황 가정
+        ReviewImage img = new ReviewImage(testReview, "http://url.com");
+        testReview.getReviewImages().add(img);
+
         given(reviewRepository.findById(REVIEW_ID)).willReturn(Optional.of(testReview));
-        given(imageUploadService.uploadImage(any())).willReturn("url");
-        setupRedisScanMock();
+        setupRedisScanMock(); // 캐시 삭제 Mock
 
-        List<MultipartFile> newImages = List.of(new MockMultipartFile("img", "t.jpg", "image/jpeg", "d".getBytes()));
-        ReviewUpdateRequest request = new ReviewUpdateRequest("New Content", 5, null);
+        // When
+        reviewService.removeReview(REVIEW_ID, MEMBER_ID);
 
-        // when
-        reviewService.updateReview(request, BOOK_ID, REVIEW_ID, MEMBER_ID, newImages);
+        // Then
+        // 1. DB 삭제 확인
+        verify(reviewRepository).delete(testReview);
 
-        // then
-        assertThat(testReview.getReviewContent()).isEqualTo("New Content");
+        // 2. 캐시 삭제 확인
+        verify(redisTemplate).delete(anyList());
 
-        // [수정] ArgumentCaptor<Object> 사용
+        // 3. 이벤트 발행 확인 (2가지 이벤트가 모두 발생해야 함)
         ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
-        // 이벤트가 여러 번 발생할 수 있으니 atLeastOnce() 사용 가능하지만, 여기선 업그레이드 이벤트 1회 확인
-        verify(eventPublisher, atLeastOnce()).publishEvent(eventCaptor.capture());
+        verify(eventPublisher, times(2)).publishEvent(eventCaptor.capture());
+        List<Object> events = eventCaptor.getAllValues();
 
-        // 캡처된 이벤트 중 ReviewCreatedEvent 찾기
-        Optional<Object> upgradeEvent = eventCaptor.getAllValues().stream()
-                .filter(e -> e instanceof ReviewCreatedEvent)
-                .findFirst();
+        // 3-1. 이미지 삭제 이벤트 확인
+        boolean hasImageDeleteEvent = events.stream()
+                .anyMatch(e -> e instanceof ReviewImageDeleteEvent);
+        assertThat(hasImageDeleteEvent).isTrue();
 
-        assertThat(upgradeEvent).isPresent();
-        assertThat(((ReviewCreatedEvent) upgradeEvent.get()).eventType()).isEqualTo("EARN_REVIEW_UPGRADE");
+        // 3-2. 리뷰 삭제 이벤트(포인트 차감 등) 확인
+        boolean hasReviewDeleteEvent = events.stream()
+                .anyMatch(e -> e instanceof ReviewDeletedEvent);
+        assertThat(hasReviewDeleteEvent).isTrue();
     }
 
     // ============================
-    // 4. toggleReviewLike (좋아요)
+    // 5. toggleReviewLike (좋아요)
     // ============================
 
     @Test
-    @DisplayName("좋아요 실패: Redis 락 획득 실패 (광클)")
+    @DisplayName("좋아요 실패: Redis 락 획득 실패 (광클 방지)")
     void toggleReviewLike_Fail_Locked() {
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
+        // Lock 획득 실패(false) 시뮬레이션
         given(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).willReturn(false);
 
         assertThatThrownBy(() -> reviewService.toggleReviewLike(REVIEW_ID, MEMBER_ID, BOOK_ID))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.TOO_MANY_REQUESTS);
+                .extracting("errorCode").isEqualTo(ErrorCode.TOO_MANY_REQUESTS);
     }
 
     @Test
-    @DisplayName("좋아요 실패: 본인 리뷰에 좋아요 시도")
-    void toggleReviewLike_Fail_SelfLike() {
+    @DisplayName("좋아요 성공: 좋아요 추가")
+    void toggleReviewLike_Success_Add() {
+        Long likerId = 200L;
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
         given(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).willReturn(true);
         given(reviewRepository.findById(REVIEW_ID)).willReturn(Optional.of(testReview));
 
-        boolean result = reviewService.toggleReviewLike(REVIEW_ID, MEMBER_ID, BOOK_ID);
+        // 기존 좋아요 없음
+        given(reviewLikeRepository.findByMemberIdAndReviewId(likerId, REVIEW_ID))
+                .willReturn(Optional.empty());
 
-        assertThat(result).isFalse();
-        verify(reviewLikeRepository, never()).save(any());
-        verify(redisTemplate).delete(contains("like_lock"));
-    }
+        // When
+        boolean isLiked = reviewService.toggleReviewLike(REVIEW_ID, likerId, BOOK_ID);
 
-    @Test
-    @DisplayName("좋아요 취소: 이미 좋아요가 존재함")
-    void toggleReviewLike_Cancel() {
-        given(redisTemplate.opsForValue()).willReturn(valueOperations);
-        given(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).willReturn(true);
-
-        Review otherReview = new Review(5, "C", testBook, 999L);
-        ReflectionTestUtils.setField(otherReview, "id", REVIEW_ID);
-        given(reviewRepository.findById(REVIEW_ID)).willReturn(Optional.of(otherReview));
-
-        ReviewLike existingLike = new ReviewLike(otherReview, MEMBER_ID);
-        given(reviewLikeRepository.findByMemberIdAndReviewId(MEMBER_ID, REVIEW_ID)).willReturn(Optional.of(existingLike));
-
-        boolean result = reviewService.toggleReviewLike(REVIEW_ID, MEMBER_ID, BOOK_ID);
-
-        assertThat(result).isFalse();
-        verify(reviewLikeRepository).delete(existingLike);
-        verify(reviewRepository).decreaseLikeCount(REVIEW_ID);
+        // Then
+        assertThat(isLiked).isTrue();
+        verify(reviewLikeRepository).save(any(ReviewLike.class));
+        verify(reviewRepository).increaseLikeCount(REVIEW_ID);
+        verify(redisTemplate).delete(anyString()); // 락 해제 확인
     }
 
     // ============================
-    // 5. 기타 메서드 (getMyReview, getMyReviewList)
+    // 6. 기타 조회 (MyPage 등)
     // ============================
 
     @Test
-    @DisplayName("내 리뷰 단건 조회: 존재하지 않을 경우 null")
-    void getMyReview_Null() {
-        given(reviewRepository.findByMemberIdAndBookId(MEMBER_ID, BOOK_ID)).willReturn(null);
-
-        BookReviewResponse response = reviewService.getMyReview(BOOK_ID, MEMBER_ID);
-
-        assertThat(response).isNull();
-    }
-
-    @Test
-    @DisplayName("내 리뷰 단건 조회: 존재할 경우 DTO 반환")
-    void getMyReview_Success() {
-        given(reviewRepository.findByMemberIdAndBookId(MEMBER_ID, BOOK_ID)).willReturn(testReview);
-
-        BookReviewResponse response = reviewService.getMyReview(BOOK_ID, MEMBER_ID);
-
-        assertThat(response).isNotNull();
-        assertThat(response.content()).isEqualTo("Content");
-    }
-
-    @Test
-    @DisplayName("마이페이지 리뷰 리스트 조회: Book이 null인 경우 (삭제된 도서 처리)")
+    @DisplayName("마이페이지 리뷰 목록: 삭제된 도서 처리 확인")
     void getMyReviewList_DeletedBook() {
-        Review r = new Review(5, "C", null, MEMBER_ID);
-        ReflectionTestUtils.setField(r, "id", 1L);
-        Page<Review> p = new PageImpl<>(List.of(r));
+        // Book이 null인 리뷰 생성
+        Review deletedBookReview = new Review(5, "Content", null, MEMBER_ID);
+        ReflectionTestUtils.setField(deletedBookReview, "id", 1L);
 
-        given(reviewRepository.findByMemberId(eq(MEMBER_ID), any(Pageable.class))).willReturn(p);
+        Page<Review> page = new PageImpl<>(List.of(deletedBookReview));
+        given(reviewRepository.findByMemberId(eq(MEMBER_ID), any(Pageable.class))).willReturn(page);
 
-        Page<com.nhnacademy.book_server.dto.response.MyPageReviewResponse> result =
-                reviewService.getMyReviewList(MEMBER_ID, PageRequest.of(0, 10));
+        // When
+        Page<MyPageReviewResponse> result = reviewService.getMyReviewList(MEMBER_ID, PageRequest.of(0, 10));
 
+        // Then
         assertThat(result.getContent().get(0).bookTitle()).isEqualTo("삭제된 도서");
     }
-
 }

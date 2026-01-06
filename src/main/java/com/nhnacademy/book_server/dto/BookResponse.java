@@ -136,7 +136,7 @@ public record BookResponse(
                             bc.getCategory().getCategoryId(),
                             bc.getCategory().getCategoryName()))
                     .sorted(Comparator.comparingInt(CategoryResponse::categoryId))
-                    .collect(Collectors.toList());
+                    .toList();
 
             Category firstCategory = bookCategories.get(0).getCategory();
             mainCategoryId = firstCategory.getCategoryId();
@@ -153,7 +153,7 @@ public record BookResponse(
                 return new TagResponse(t.getTagId(),t.getName()
                 );
             })
-                    .collect(Collectors.toList());
+                    .toList();
         }
 
         return new BookResponse(

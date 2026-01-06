@@ -3,14 +3,13 @@ package com.nhnacademy.book_server.service;
 import com.nhnacademy.book_server.dto.BookInfoDto;
 import com.nhnacademy.book_server.dto.KakaoBookSearchResponse;
 import com.nhnacademy.book_server.dto.response.GoogleBookResponse;
+import com.nhnacademy.book_server.exception.BusinessException;
+import com.nhnacademy.book_server.exception.ErrorCode;
 import com.nhnacademy.book_server.service.search.GeminiTextClientService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
@@ -53,12 +52,12 @@ public class BookRegistrationService {
                 dto = searchGoogle(isbn);
             } catch (Exception e) {
                 log.error("구글 검색 실패. ISBN: {}", isbn, e);
-                throw new RuntimeException("해당 ISBN으로 도서를 찾을 수 없습니다: " + isbn);
+                throw new BusinessException(ErrorCode.BOOK_NOT_FOUND);
             }
         }
 
         if (dto == null) {
-            throw new RuntimeException("도서 정보를 찾을 수 없습니다. (ISBN: " + isbn + ")");
+            throw new BusinessException(ErrorCode.BOOK_NOT_FOUND);
         }
 
 
