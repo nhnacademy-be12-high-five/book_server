@@ -3,6 +3,7 @@ package com.nhnacademy.book_server.service.Book;
 import com.nhnacademy.book_server.dto.BookInfoDto;
 import com.nhnacademy.book_server.dto.KakaoBookSearchResponse;
 import com.nhnacademy.book_server.dto.response.GoogleBookResponse;
+import com.nhnacademy.book_server.exception.BusinessException;
 import com.nhnacademy.book_server.service.BookRegistrationService;
 import com.nhnacademy.book_server.service.MinioImageService;
 import com.nhnacademy.book_server.service.search.GeminiTextClientService;
@@ -146,7 +147,6 @@ class BookRegistrationServiceTest {
 
         // when & then
         assertThatThrownBy(() -> bookService.getBookInfoWithAi(isbn))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("해당 ISBN으로 도서를 찾을 수 없습니다");
+                .isInstanceOf(BusinessException.class);
     }
 }
