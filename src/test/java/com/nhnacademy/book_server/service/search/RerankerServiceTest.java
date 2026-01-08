@@ -201,8 +201,9 @@ class RerankerServiceTest {
         HttpHeaders headers = entity.getHeaders();
 
         assertThat(headers.getContentType()).isEqualTo(MediaType.APPLICATION_JSON);
-        assertThat(body).containsKeys("query", "texts");
-        assertThat(body.get("query")).isEqualTo("myQuery");
+        assertThat(body)
+                .containsKeys("query", "texts")
+                .containsEntry("query", "myQuery");
 
         @SuppressWarnings("unchecked")
         List<String> texts = (List<String>) body.get("texts");
@@ -214,8 +215,10 @@ class RerankerServiceTest {
 
         // 300자로 잘렸는지 확인: 300자만 포함되고 301번째는 없어야 함
         String expected300 = "x".repeat(300);
-        assertThat(text0).contains(expected300);
-        assertThat(text0).doesNotContain("x".repeat(301));
+        assertThat(text0)
+                .contains("TITLE0", "AUTHOR0", "PUBLISHER0")
+                .contains(expected300)
+                .doesNotContain("x".repeat(301));
 
         String text1 = texts.get(1);
         assertThat(text1).contains("TITLE1", "AUTHOR1", "PUBLISHER1", "short");

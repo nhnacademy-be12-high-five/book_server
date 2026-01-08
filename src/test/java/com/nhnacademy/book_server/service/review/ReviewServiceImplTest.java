@@ -1,4 +1,4 @@
-package com.nhnacademy.book_server.service.impl;
+package com.nhnacademy.book_server.service.review;
 
 import com.nhnacademy.book_server.dto.event.ReviewCreatedEvent;
 import com.nhnacademy.book_server.dto.event.ReviewDeletedEvent;
@@ -22,6 +22,7 @@ import com.nhnacademy.book_server.repository.review.ReviewImageRepository;
 import com.nhnacademy.book_server.repository.review.ReviewLikeRepository;
 import com.nhnacademy.book_server.repository.review.ReviewRepository;
 import com.nhnacademy.book_server.service.MinioImageService;
+import com.nhnacademy.book_server.service.review.impl.ReviewServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -76,9 +77,9 @@ class ReviewServiceImplTest {
     @Mock private ValueOperations<String, String> valueOperations;
     @Mock private Cursor<String> cursor;
 
-    private final Long BOOK_ID = 1L;
-    private final Long MEMBER_ID = 100L;
-    private final Long REVIEW_ID = 10L;
+    private final Long bookId = 1L;
+    private final Long memberId = 100L;
+    private final Long reviewId = 10L;
     private Book testBook;
     private Review testReview;
 
@@ -87,9 +88,9 @@ class ReviewServiceImplTest {
         // 순환 참조(Lazy Injection) 해결을 위한 Mock 주입
         ReflectionTestUtils.setField(reviewService, "self", self);
 
-        testBook = Book.builder().id(BOOK_ID).title("Test Book").build();
-        testReview = new Review(5, "Content", testBook, MEMBER_ID);
-        ReflectionTestUtils.setField(testReview, "id", REVIEW_ID);
+        testBook = Book.builder().id(bookId).title("Test Book").build();
+        testReview = new Review(5, "Content", testBook, memberId);
+        ReflectionTestUtils.setField(testReview, "id", reviewId);
         // 초기 이미지 리스트 (빈 리스트)
         ReflectionTestUtils.setField(testReview, "reviewImages", new ArrayList<>());
     }
@@ -104,7 +105,7 @@ class ReviewServiceImplTest {
         // cursor.forEachRemaining 동작 정의: 1개의 키("bookReviews::1_0")를 찾았다고 가정
         doAnswer(invocation -> {
             Consumer<String> consumer = invocation.getArgument(0);
-            consumer.accept("bookReviews::" + BOOK_ID + "_0");
+            consumer.accept("bookReviews::" + bookId + "_0");
             return null;
         }).when(cursor).forEachRemaining(any(Consumer.class));
     }
@@ -116,11 +117,17 @@ class ReviewServiceImplTest {
     @Test
     @DisplayName("작성 실패: 이미 작성한 리뷰 존재 (REVIEW_DUP)")
     void saveReview_Fail_Duplicate() {
-        given(reviewRepository.existsByBookIdAndMemberId(BOOK_ID, MEMBER_ID)).willReturn(true);
+        // Given
+        // 1. 구매 권한 체크를 통과하도록 설정 (이 부분이 누락되어 REVIEW_WRITE_AUTHOR 발생)
+        given(orderFeignClient.hasPurchasedBook(anyLong(), anyLong())).willReturn(true);
+
+        // 2. 이미 작성한 리뷰가 있다고 설정
+        given(reviewRepository.existsByBookIdAndMemberId(bookId, memberId)).willReturn(true);
 
         ReviewCreateRequest request = new ReviewCreateRequest(5, "Content");
 
-        assertThatThrownBy(() -> reviewService.saveReview(request, BOOK_ID, MEMBER_ID, null))
+        // When & Then
+        assertThatThrownBy(() -> reviewService.saveReview(request, bookId, memberId, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.REVIEW_DUP);
     }
@@ -128,8 +135,14 @@ class ReviewServiceImplTest {
     @Test
     @DisplayName("작성 실패: 이미지 개수 초과 (5개 초과)")
     void saveReview_Fail_ImageLimit() {
-        given(reviewRepository.existsByBookIdAndMemberId(BOOK_ID, MEMBER_ID)).willReturn(false);
-        given(bookRepository.findById(BOOK_ID)).willReturn(Optional.of(testBook));
+        // Given
+        given(orderFeignClient.hasPurchasedBook(anyLong(), anyLong())).willReturn(true);
+
+        // 2. 중복 작성 아님 설정
+        given(reviewRepository.existsByBookIdAndMemberId(bookId, memberId)).willReturn(false);
+
+        // 3. 책 존재 설정
+        given(bookRepository.findById(bookId)).willReturn(Optional.of(testBook));
 
         // 6개의 이미지 생성
         List<MultipartFile> images = new ArrayList<>();
@@ -138,7 +151,8 @@ class ReviewServiceImplTest {
         }
         ReviewCreateRequest request = new ReviewCreateRequest(5, "Content");
 
-        assertThatThrownBy(() -> reviewService.saveReview(request, BOOK_ID, MEMBER_ID, images))
+        // When & Then
+        assertThatThrownBy(() -> reviewService.saveReview(request, bookId, memberId, images))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.REVIEW_IMAGE_LIMIT_EXCEEDED);
     }
@@ -150,12 +164,14 @@ class ReviewServiceImplTest {
         ReviewCreateRequest request = new ReviewCreateRequest(5, "Great Book");
         List<MultipartFile> images = List.of(new MockMultipartFile("img", "test.jpg", "image/jpeg", "data".getBytes()));
 
-        given(reviewRepository.existsByBookIdAndMemberId(BOOK_ID, MEMBER_ID)).willReturn(false);
-        given(bookRepository.findById(BOOK_ID)).willReturn(Optional.of(testBook));
+        given(orderFeignClient.hasPurchasedBook(anyLong(), anyLong())).willReturn(true);
+
+        given(reviewRepository.existsByBookIdAndMemberId(bookId, memberId)).willReturn(false);
+        given(bookRepository.findById(bookId)).willReturn(Optional.of(testBook));
         given(imageUploadService.uploadImage(any())).willReturn("http://minio/url");
 
         // When
-        reviewService.saveReview(request, BOOK_ID, MEMBER_ID, images);
+        reviewService.saveReview(request, bookId, memberId, images);
 
         // Then
         verify(reviewImageRepository).saveAll(anyList()); // 이미지 저장 호출 확인
@@ -182,17 +198,17 @@ class ReviewServiceImplTest {
 
         // 캐시된 리뷰 페이지 Mocking
         List<ReviewImageResponse> images = List.of();
-        BookReviewResponse cachedResponse = new BookReviewResponse(REVIEW_ID, MEMBER_ID, "홍*동", "Content", 5, null, images, 0, false);
+        BookReviewResponse cachedResponse = new BookReviewResponse(reviewId, memberId, "홍*동", "Content", 5, null, images, 0, false);
         Page<BookReviewResponse> cachedPage = new PageImpl<>(List.of(cachedResponse));
 
-        given(self.getCachedReviewPage(BOOK_ID, pageable)).willReturn(cachedPage);
+        given(self.getCachedReviewPage(bookId, pageable)).willReturn(cachedPage);
 
         // 회원이 좋아요 누른 리뷰 ID 목록 Mocking
-        given(reviewLikeRepository.findReviewIdsByMemberIdAndReviewIds(eq(MEMBER_ID), anyList()))
-                .willReturn(List.of(REVIEW_ID));
+        given(reviewLikeRepository.findReviewIdsByMemberIdAndReviewIds(eq(memberId), anyList()))
+                .willReturn(List.of(reviewId));
 
         // When
-        Page<BookReviewResponse> result = reviewService.getReviewList(BOOK_ID, pageable, MEMBER_ID);
+        Page<BookReviewResponse> result = reviewService.getReviewList(bookId, pageable, memberId);
 
         // Then
         assertThat(result.getContent()).hasSize(1);
@@ -208,12 +224,12 @@ class ReviewServiceImplTest {
         ReflectionTestUtils.setField(r1, "reviewImages", new ArrayList<>()); // 이미지 초기화
         Page<Review> reviewPage = new PageImpl<>(List.of(r1));
 
-        given(reviewRepository.findByBookId(BOOK_ID, pageable)).willReturn(reviewPage);
+        given(reviewRepository.findByBookId(bookId, pageable)).willReturn(reviewPage);
         // Feign Mock: 이름이 "홍길동"인 회원
         given(memberFeignClient.getMembersInfo(anyList())).willReturn(List.of(new MemberResponse(101L, "홍길동")));
 
         // When
-        Page<BookReviewResponse> result = reviewService.getCachedReviewPage(BOOK_ID, pageable);
+        Page<BookReviewResponse> result = reviewService.getCachedReviewPage(bookId, pageable);
 
         // Then
         assertThat(result.getContent().get(0).loginId()).isEqualTo("홍*동"); // 마스킹 검증
@@ -227,7 +243,7 @@ class ReviewServiceImplTest {
     @DisplayName("수정 성공: 텍스트 수정 + 이미지 추가 (일반->포토 업그레이드 이벤트)")
     void updateReview_Success_Upgrade() {
         // Given
-        given(reviewRepository.findById(REVIEW_ID)).willReturn(Optional.of(testReview));
+        given(reviewRepository.findById(reviewId)).willReturn(Optional.of(testReview));
         given(imageUploadService.uploadImage(any())).willReturn("new-img-url");
         setupRedisScanMock(); // 캐시 삭제 Mock 설정
 
@@ -235,7 +251,7 @@ class ReviewServiceImplTest {
         List<MultipartFile> newImages = List.of(new MockMultipartFile("img", "t.jpg", "image/jpeg", "d".getBytes()));
 
         // When
-        reviewService.updateReview(request, BOOK_ID, REVIEW_ID, MEMBER_ID, newImages);
+        reviewService.updateReview(request, bookId, reviewId, memberId, newImages);
 
         // Then
         assertThat(testReview.getReviewContent()).isEqualTo("Updated Content"); // 내용 변경 확인
@@ -257,12 +273,12 @@ class ReviewServiceImplTest {
     @Test
     @DisplayName("수정 실패: 본인 리뷰 아님 (REVIEW_NOT_AUTHOR)")
     void updateReview_Fail_NotAuthor() {
-        given(reviewRepository.findById(REVIEW_ID)).willReturn(Optional.of(testReview));
+        given(reviewRepository.findById(reviewId)).willReturn(Optional.of(testReview));
         Long otherMemberId = 999L;
 
         ReviewUpdateRequest request = new ReviewUpdateRequest("C", 5, null);
 
-        assertThatThrownBy(() -> reviewService.updateReview(request, BOOK_ID, REVIEW_ID, otherMemberId, null))
+        assertThatThrownBy(() -> reviewService.updateReview(request, bookId, reviewId, otherMemberId, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.REVIEW_NOT_AUTHOR);
     }
@@ -279,11 +295,11 @@ class ReviewServiceImplTest {
         ReviewImage img = new ReviewImage(testReview, "http://url.com");
         testReview.getReviewImages().add(img);
 
-        given(reviewRepository.findById(REVIEW_ID)).willReturn(Optional.of(testReview));
+        given(reviewRepository.findById(reviewId)).willReturn(Optional.of(testReview));
         setupRedisScanMock(); // 캐시 삭제 Mock
 
         // When
-        reviewService.removeReview(REVIEW_ID, MEMBER_ID);
+        reviewService.removeReview(reviewId, memberId);
 
         // Then
         // 1. DB 삭제 확인
@@ -299,12 +315,12 @@ class ReviewServiceImplTest {
 
         // 3-1. 이미지 삭제 이벤트 확인
         boolean hasImageDeleteEvent = events.stream()
-                .anyMatch(e -> e instanceof ReviewImageDeleteEvent);
+                .anyMatch(ReviewImageDeleteEvent.class::isInstance);
         assertThat(hasImageDeleteEvent).isTrue();
 
         // 3-2. 리뷰 삭제 이벤트(포인트 차감 등) 확인
         boolean hasReviewDeleteEvent = events.stream()
-                .anyMatch(e -> e instanceof ReviewDeletedEvent);
+                .anyMatch(ReviewDeletedEvent.class::isInstance);
         assertThat(hasReviewDeleteEvent).isTrue();
     }
 
@@ -319,7 +335,7 @@ class ReviewServiceImplTest {
         // Lock 획득 실패(false) 시뮬레이션
         given(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).willReturn(false);
 
-        assertThatThrownBy(() -> reviewService.toggleReviewLike(REVIEW_ID, MEMBER_ID, BOOK_ID))
+        assertThatThrownBy(() -> reviewService.toggleReviewLike(reviewId, memberId, bookId))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.TOO_MANY_REQUESTS);
     }
@@ -330,19 +346,19 @@ class ReviewServiceImplTest {
         Long likerId = 200L;
         given(redisTemplate.opsForValue()).willReturn(valueOperations);
         given(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).willReturn(true);
-        given(reviewRepository.findById(REVIEW_ID)).willReturn(Optional.of(testReview));
+        given(reviewRepository.findById(reviewId)).willReturn(Optional.of(testReview));
 
         // 기존 좋아요 없음
-        given(reviewLikeRepository.findByMemberIdAndReviewId(likerId, REVIEW_ID))
+        given(reviewLikeRepository.findByMemberIdAndReviewId(likerId, reviewId))
                 .willReturn(Optional.empty());
 
         // When
-        boolean isLiked = reviewService.toggleReviewLike(REVIEW_ID, likerId, BOOK_ID);
+        boolean isLiked = reviewService.toggleReviewLike(reviewId, likerId, bookId);
 
         // Then
         assertThat(isLiked).isTrue();
         verify(reviewLikeRepository).save(any(ReviewLike.class));
-        verify(reviewRepository).increaseLikeCount(REVIEW_ID);
+        verify(reviewRepository).increaseLikeCount(reviewId);
         verify(redisTemplate).delete(anyString()); // 락 해제 확인
     }
 
@@ -354,14 +370,14 @@ class ReviewServiceImplTest {
     @DisplayName("마이페이지 리뷰 목록: 삭제된 도서 처리 확인")
     void getMyReviewList_DeletedBook() {
         // Book이 null인 리뷰 생성
-        Review deletedBookReview = new Review(5, "Content", null, MEMBER_ID);
+        Review deletedBookReview = new Review(5, "Content", null, memberId);
         ReflectionTestUtils.setField(deletedBookReview, "id", 1L);
 
         Page<Review> page = new PageImpl<>(List.of(deletedBookReview));
-        given(reviewRepository.findByMemberId(eq(MEMBER_ID), any(Pageable.class))).willReturn(page);
+        given(reviewRepository.findByMemberId(eq(memberId), any(Pageable.class))).willReturn(page);
 
         // When
-        Page<MyPageReviewResponse> result = reviewService.getMyReviewList(MEMBER_ID, PageRequest.of(0, 10));
+        Page<MyPageReviewResponse> result = reviewService.getMyReviewList(memberId, PageRequest.of(0, 10));
 
         // Then
         assertThat(result.getContent().get(0).bookTitle()).isEqualTo("삭제된 도서");

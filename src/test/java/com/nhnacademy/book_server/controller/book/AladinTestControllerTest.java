@@ -8,16 +8,15 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -32,7 +31,7 @@ class AladinTestControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private AladinService aladinService;
 
     @Autowired
@@ -79,9 +78,6 @@ class AladinTestControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().is5xxServerError())
                 .andDo(print());
-
-        // 주의: 파라미터 검증 단계에서 실패하므로 Service는 호출되지 않아야 함을 검증할 수도 있습니다.
-        // verifyNoInteractions(aladinService);
     }
 
     // ==========================================
@@ -133,7 +129,7 @@ class AladinTestControllerTest {
         String queryType = "Title";
         List<AladinItem> mockList = List.of(createDummyItem("자바의 정석"));
 
-        given(aladinService.searchBooks(eq(query), eq(queryType))).willReturn(mockList);
+        given(aladinService.searchBooks(query, queryType)).willReturn(mockList);
 
         // When & Then
         mockMvc.perform(get("/api/test/aladin/search")

@@ -187,21 +187,6 @@ class BookServiceTest {
         verify(zSetOperations).incrementScore(anyString(), eq(String.valueOf(bookId)), eq(1.0));
     }
 
-//    @Test
-//    @DisplayName("도서 상세 조회 실패 - 존재하지 않는 ID 예외 발생")
-//    void findBookById_Fail_NotFound() {
-//        Long bookId = 999L;
-//
-//        // Redis Mock (조회수 증가 로직은 실행됨)
-//        given(redisTemplate.opsForValue()).willReturn(valueOperations);
-//        given(redisTemplate.opsForZSet()).willReturn(zSetOperations);
-//
-//        // DB Mock
-//        given(bookRepository.findById(bookId)).willReturn(Optional.empty());
-//
-//        assertThrows(RuntimeException.class, () -> bookService.findBookById(bookId));
-//    }
-
     @Test
     @DisplayName("신간 도서 조회 (getNewBooks)")
     void getNewBooks_Success() {

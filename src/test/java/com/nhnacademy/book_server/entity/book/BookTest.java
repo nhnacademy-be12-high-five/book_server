@@ -45,7 +45,7 @@ class BookTest {
         // 2. @Builder.Default로 설정된 기본값 검증
         assertThat(book.getReviewCount()).isZero();
         assertThat(book.getAverageRating()).isEqualTo(0.0);
-        assertThat(book.getSalesVolume()).isEqualTo(0L);
+        assertThat(book.getSalesVolume()).isZero();
 
         // 3. 리스트 초기화 검증 (@Builder.Default 있음)
         assertThat(book.getBookAuthors()).isNotNull().isEmpty();

@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -60,7 +59,7 @@ public class BookLikeService{
         // 2. BookLike -> BookResponse 변환
         return likePage.stream()
                 .map(bookLike -> BookResponse.from(bookLike.getBook()))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional(readOnly = true)

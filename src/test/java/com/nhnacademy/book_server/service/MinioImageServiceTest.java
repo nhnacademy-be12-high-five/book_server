@@ -33,15 +33,15 @@ class MinioImageServiceTest {
     @Mock
     private S3Client s3Client;
 
-    private final String BOOK_BUCKET = "book-bucket";
-    private final String REVIEW_BUCKET = "review-bucket";
-    private final String DEFAULT_IMG_URL = "http://minio/default.png";
+    private final String bookBucket = "book-bucket";
+    private final String reviewBucket = "review-bucket";
+    private final String defaultImgUrl = "http://minio/default.png";
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(minioImageService, "bookBucketName", BOOK_BUCKET);
-        ReflectionTestUtils.setField(minioImageService, "reviewBucketName", REVIEW_BUCKET);
-        ReflectionTestUtils.setField(minioImageService, "defaultImageUrl", DEFAULT_IMG_URL);
+        ReflectionTestUtils.setField(minioImageService, "bookBucketName", bookBucket);
+        ReflectionTestUtils.setField(minioImageService, "reviewBucketName", reviewBucket);
+        ReflectionTestUtils.setField(minioImageService, "defaultImageUrl", defaultImgUrl);
     }
 
     // --- 1. uploadImage (MultipartFile) Tests ---
@@ -60,12 +60,13 @@ class MinioImageServiceTest {
         String resultUrl = minioImageService.uploadImage(file);
 
         // then
-        assertThat(resultUrl).contains("hi-five-bucket-review");
-        assertThat(resultUrl).endsWith("test.jpg"); // UUID가 붙지만 endsWith로 확인 가능 (코드상 UUID_파일명)
+        assertThat(resultUrl)
+                .contains("hi-five-bucket-review")
+                .endsWith("test.jpg"); // UUID가 붙지만 endsWith로 확인 가능 (코드상 UUID_파일명)
 
         ArgumentCaptor<PutObjectRequest> captor = ArgumentCaptor.forClass(PutObjectRequest.class);
         verify(s3Client).putObject(captor.capture(), any(RequestBody.class));
-        assertThat(captor.getValue().bucket()).isEqualTo(REVIEW_BUCKET);
+        assertThat(captor.getValue().bucket()).isEqualTo(reviewBucket);
     }
 
     @Test
@@ -114,7 +115,7 @@ class MinioImageServiceTest {
     @DisplayName("URL 업로드 실패: 빈 URL 입력 시 기본 이미지 반환")
     void uploadImageFromUrl_EmptyUrl() {
         String result = minioImageService.uploadImageFromUrl("", "1234567890");
-        assertThat(result).isEqualTo(DEFAULT_IMG_URL);
+        assertThat(result).isEqualTo(defaultImgUrl);
     }
 
     @Test
@@ -124,7 +125,7 @@ class MinioImageServiceTest {
         String result = minioImageService.uploadImageFromUrl(invalidUrl, "1234567890");
 
         // validateImageUrl에서 예외 발생 -> catch 블록에서 defaultImageUrl 반환
-        assertThat(result).isEqualTo(DEFAULT_IMG_URL);
+        assertThat(result).isEqualTo(defaultImgUrl);
     }
 
     @Test
@@ -133,7 +134,7 @@ class MinioImageServiceTest {
         String localUrl = "http://localhost:8080/image.jpg";
         String result = minioImageService.uploadImageFromUrl(localUrl, "1234567890");
 
-        assertThat(result).isEqualTo(DEFAULT_IMG_URL);
+        assertThat(result).isEqualTo(defaultImgUrl);
     }
 
     @Test
@@ -142,7 +143,7 @@ class MinioImageServiceTest {
         String badUrl = "ht tp://broken-url";
         String result = minioImageService.uploadImageFromUrl(badUrl, "1234567890");
 
-        assertThat(result).isEqualTo(DEFAULT_IMG_URL);
+        assertThat(result).isEqualTo(defaultImgUrl);
     }
 
     // Note: uploadImageFromUrl의 "성공 케이스"는 실제 외부 네트워크 연결(HttpURLConnection)이 필요하므로,
@@ -216,14 +217,14 @@ class MinioImageServiceTest {
         ArgumentCaptor<DeleteObjectRequest> captor = ArgumentCaptor.forClass(DeleteObjectRequest.class);
         verify(s3Client).deleteObject(captor.capture());
 
-        assertThat(captor.getValue().bucket()).isEqualTo(BOOK_BUCKET);
+        assertThat(captor.getValue().bucket()).isEqualTo(bookBucket);
         assertThat(captor.getValue().key()).isEqualTo("book123.jpg");
     }
 
     @Test
     @DisplayName("책 이미지 삭제: 기본 이미지는 삭제하지 않음")
     void deleteBookImage_SkipDefault() {
-        minioImageService.deleteBookImage(DEFAULT_IMG_URL);
+        minioImageService.deleteBookImage(defaultImgUrl);
         verify(s3Client, never()).deleteObject(any(DeleteObjectRequest.class));
     }
 
@@ -285,14 +286,14 @@ class MinioImageServiceTest {
         // 1. 목록 조회 호출 확인 (리뷰 버킷)
         ArgumentCaptor<ListObjectsV2Request> listCaptor = ArgumentCaptor.forClass(ListObjectsV2Request.class);
         verify(s3Client).listObjectsV2(listCaptor.capture());
-        assertThat(listCaptor.getValue().bucket()).isEqualTo(REVIEW_BUCKET);
+        assertThat(listCaptor.getValue().bucket()).isEqualTo(reviewBucket);
 
         // 2. 삭제 요청 호출 확인
         ArgumentCaptor<DeleteObjectsRequest> deleteCaptor = ArgumentCaptor.forClass(DeleteObjectsRequest.class);
         verify(s3Client).deleteObjects(deleteCaptor.capture());
 
         // 삭제하려는 객체 목록이 맞는지 확인
-        assertThat(deleteCaptor.getValue().bucket()).isEqualTo(REVIEW_BUCKET);
+        assertThat(deleteCaptor.getValue().bucket()).isEqualTo(reviewBucket);
         assertThat(deleteCaptor.getValue().delete().objects()).hasSize(2);
     }
 
@@ -322,7 +323,7 @@ class MinioImageServiceTest {
                 .thenReturn(secondResponse);
 
         // when
-        minioImageService.deleteAllObjectsInBucket(BOOK_BUCKET);
+        minioImageService.deleteAllObjectsInBucket(bookBucket);
 
         // then
         // listObjectsV2가 총 2번 호출되어야 함

@@ -44,7 +44,7 @@ class RestPageTest {
 
         // Then
         assertThat(page.getContent()).containsExactly("item1", "item2"); // 내용 확인
-        assertThat(page.getNumber()).isEqualTo(0);  // 페이지 번호
+        assertThat(page.getNumber()).isZero();  // 페이지 번호
         assertThat(page.getSize()).isEqualTo(10);   // 페이지 크기
         assertThat(page.getTotalElements()).isEqualTo(2); // 전체 요소 수
         

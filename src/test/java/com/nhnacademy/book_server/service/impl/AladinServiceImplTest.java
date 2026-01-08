@@ -80,8 +80,9 @@ class AladinServiceImplTest {
         List<AladinItem> result = aladinService.searchBooks(query, queryType);
 
         // Then
-        assertThat(result).isNotNull();
-        assertThat(result).hasSize(1);
+        assertThat(result)
+                .isNotNull()
+                .hasSize(1);
         assertThat(result.get(0).getTitle()).isEqualTo("Effective Java");
 
         // 호출 검증도 getForObject로 변경
@@ -110,8 +111,9 @@ class AladinServiceImplTest {
         List<AladinItem> result = aladinService.searchBooks("UnknownBook", "Title");
 
         // Then
-        assertThat(result).isNotNull();
-        assertThat(result).isEmpty(); // 빈 리스트인지 확인
+        assertThat(result)
+                .isNotNull()
+                .isEmpty();
 
         // 호출 검증
         verify(restTemplate).getForObject(

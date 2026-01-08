@@ -146,8 +146,10 @@ class StockServiceImplTest {
         StockRequest req = new StockRequest(999L, 1);
         given(bookRepository.findAllById(anyList())).willReturn(Collections.emptyList());
 
+        List<StockRequest> requestList = List.of(req);
+
         // When & Then
-        assertThatThrownBy(() -> stockService.holdStockBatch(List.of(req), "key"))
+        assertThatThrownBy(() -> stockService.holdStockBatch(requestList, "key"))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.BOOK_NOT_FOUND);
     }

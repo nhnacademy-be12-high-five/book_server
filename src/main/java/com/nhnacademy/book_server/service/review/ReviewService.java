@@ -1,4 +1,4 @@
-package com.nhnacademy.book_server.service;
+package com.nhnacademy.book_server.service.review;
 
 import com.nhnacademy.book_server.dto.request.ReviewCreateRequest;
 import com.nhnacademy.book_server.dto.request.ReviewUpdateRequest;

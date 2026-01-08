@@ -1,6 +1,5 @@
 package com.nhnacademy.book_server.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nhnacademy.book_server.dto.BookInfoDto;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.request.BookUpdateRequest;
@@ -8,14 +7,12 @@ import com.nhnacademy.book_server.dto.response.GetBookResponse;
 import com.nhnacademy.book_server.entity.*;
 import com.nhnacademy.book_server.exception.BusinessException;
 import com.nhnacademy.book_server.exception.ErrorCode;
-import com.nhnacademy.book_server.feign.OrderFeignClient;
 import com.nhnacademy.book_server.mapper.CategoryMapper;
 import com.nhnacademy.book_server.repository.*;
 import com.nhnacademy.book_server.repository.review.ReviewRepository;
 import com.nhnacademy.book_server.service.search.ElasticService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
@@ -43,22 +40,20 @@ import java.util.stream.Collectors;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
 @Transactional
 public class BookService {
+
+    private static final String BEST_SELLER_KEY = "best_seller";
 
     private final BookRepository bookRepository;
     private final PublisherRepository publisherRepository;
     private final AuthorRepository authorRepository;
     private final BookAuthorRepository bookAuthorRepository;
     private final StringRedisTemplate redisTemplate;
-    private final ObjectMapper objectMapper;
     private final ReviewRepository reviewRepository;
     private final BookReviewAiRepository bookReviewAiRepository;
     private final ElasticService elasticService;
     private final BookLikeRepository bookLikeRepository;
-
-    private final OrderFeignClient orderFeignClient;
     private final CategoryRepository categoryRepository;
     private final BookCategoryRepository bookCategoryRepository;
 
@@ -67,9 +62,36 @@ public class BookService {
 
     private final JdbcTemplate jdbcTemplate;
 
-    @Lazy
+    private final BookService self;
+
     @Autowired
-    private BookService self;
+    public BookService(BookRepository bookRepository,
+                       PublisherRepository publisherRepository,
+                       AuthorRepository authorRepository,
+                       BookAuthorRepository bookAuthorRepository,
+                       StringRedisTemplate redisTemplate,
+                       ReviewRepository reviewRepository,
+                       BookReviewAiRepository bookReviewAiRepository,
+                       ElasticService elasticService,
+                       BookLikeRepository bookLikeRepository,
+                       CategoryRepository categoryRepository,
+                       BookCategoryRepository bookCategoryRepository,
+                       JdbcTemplate jdbcTemplate,
+                       @Lazy BookService self) {
+        this.bookRepository = bookRepository;
+        this.publisherRepository = publisherRepository;
+        this.authorRepository = authorRepository;
+        this.bookAuthorRepository = bookAuthorRepository;
+        this.redisTemplate = redisTemplate;
+        this.reviewRepository = reviewRepository;
+        this.bookReviewAiRepository = bookReviewAiRepository;
+        this.elasticService = elasticService;
+        this.bookLikeRepository = bookLikeRepository;
+        this.categoryRepository = categoryRepository;
+        this.bookCategoryRepository = bookCategoryRepository;
+        this.jdbcTemplate = jdbcTemplate;
+        this.self = self;
+    }
 
     public Book createBook(BookInfoDto dto) {
         if (bookRepository.existsByIsbn13(dto.getIsbn())) {
@@ -85,7 +107,6 @@ public class BookService {
                     ));
         }
 
-//        BookInfoDto createRequest= new BookInfoDto();
         Integer targetCategoryId = dto.getCategoryId();
         Category category = null;
 
@@ -142,7 +163,6 @@ public class BookService {
         }
 
         try {
-//            em.flush();
             em.refresh(savedBook);
             elasticService.saveAll(List.of(BookResponse.from(savedBook)));
             log.info("Elasticsearch 인덱싱 완료 (작가/카테고리 포함): {}", savedBook.getTitle());
@@ -205,14 +225,11 @@ public class BookService {
     public List<BookResponse> getNewBooks() {
         log.info("캐시 없음! 신간 목록 DB 조회");
 
-        LocalDate start = LocalDate.of(2020, 1, 1);
-        LocalDate end = LocalDate.of(2025, 12, 31);
-
         List<Book> books = bookRepository.findTop5ByOrderByIdDesc();
 
         return books.stream()
                 .map(BookResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // 책 업데이트
@@ -279,7 +296,7 @@ public class BookService {
                         book.getPrice(),
                         book.getImage()                // 이미지
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public void incrementViewCount(Long bookId) {
@@ -316,8 +333,6 @@ public class BookService {
     public List<BookResponse> getWeeklyPopularBooks(int limit) {
         String weeklyKey = "weekly_ranking";
 
-        String today = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
-
         List<String> recentKeys = new ArrayList<>();
         for (int i = 0; i < 7; i++) {
             String date = LocalDate.now().minusDays(i).format(DateTimeFormatter.BASIC_ISO_DATE);
@@ -340,7 +355,7 @@ public class BookService {
             redisTemplate.expire(weeklyKey, Duration.ofMinutes(10));
         }
 
-        Set<String> topBookIds = redisTemplate.opsForZSet().reverseRange(weeklyKey, 0, limit - 1);
+        Set<String> topBookIds = redisTemplate.opsForZSet().reverseRange(weeklyKey, 0, (long) limit - 1);
 
         if (topBookIds == null || topBookIds.isEmpty()) {
             return List.of();
@@ -348,7 +363,7 @@ public class BookService {
 
         List<Long> bookIds = topBookIds.stream()
                 .map(Long::valueOf)
-                .collect(Collectors.toList());
+                .toList();
 
         // 2. [수정됨] Redis가 알려준 ID로 DB 조회 (findAllById 사용)
         List<Book> books = bookRepository.findAllById(bookIds);
@@ -363,28 +378,27 @@ public class BookService {
                 .map(bookMap::get)
                 .filter(Objects::nonNull)
                 .map(BookResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
 
     @Transactional(readOnly = true)
     public List<BookResponse> getBestSeller(int limit) {
-        String cacheKey = "best_seller";
 
         //Redis의 ZSet은 기본적으로 점수가 낮은 순서(오름차순)로 정렬되어 저장되는데
         // zset의 순서를 바꿈
 
-        Set<String> BestBookIds = redisTemplate.opsForZSet().reverseRange("best_seller", 0, limit - 1);
+        Set<String> bestBookIds = redisTemplate.opsForZSet().reverseRange(BEST_SELLER_KEY, 0, (long) limit - 1);
 
-        log.info("Redis에서 가져온 베스트 셀러 ID들: {}", BestBookIds);
+        log.info("Redis에서 가져온 베스트 셀러 ID들: {}", bestBookIds);
 
-        if (BestBookIds == null || BestBookIds.isEmpty()) {
+        if (bestBookIds == null || bestBookIds.isEmpty()) {
             return List.of();
         }
 
-        List<Long> bookIds = BestBookIds.stream()
+        List<Long> bookIds = bestBookIds.stream()
                 .map(Long::valueOf)
-                .collect(Collectors.toList());
+                .toList();
 
         // 2. DB에서 책 정보 조회 (순서 보장 안됨)
         List<Book> books = bookRepository.findAllById(bookIds);
@@ -399,14 +413,13 @@ public class BookService {
                 .map(bookMap::get)
                 .filter(Objects::nonNull) // DB에 삭제된 책이 있을 경우 대비
                 .map(BookResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional
     public void incrementBestSellerScore(Long bookId, Integer quantity) {
-        String key = "best_seller";
         try {
-            redisTemplate.opsForZSet().incrementScore(key, String.valueOf(bookId), quantity.doubleValue());
+            redisTemplate.opsForZSet().incrementScore(BEST_SELLER_KEY, String.valueOf(bookId), quantity.doubleValue());
             log.info("베스트셀러 점수 갱신 완료: bookId={}, quantity={}", bookId, quantity);
         } catch (Exception e) {
             log.error("Redis 점수 갱신 실패 (주문은 계속 진행됨): bookId={}", bookId, e);
@@ -438,7 +451,7 @@ public class BookService {
     }
 
     public void unlike(Long bookId, Long memberId) {
-        if (memberId == null) throw new RuntimeException("회원 정보가 없습니다.");
+        if (memberId == null) throw new BusinessException(ErrorCode.MEMBER_INFO_NOT_FOUND);
 
         // 존재 여부 확인 후 삭제
         if (bookLikeRepository.existsByBook_IdAndMemberId(bookId, memberId)) {
@@ -446,7 +459,7 @@ public class BookService {
         }
 
         else {
-            throw new RuntimeException("삭제할 좋아요 기록이 없습니다.");
+            throw new BusinessException(ErrorCode.BOOK_LIKE_NOT_FOUND);
         }
     }
 
@@ -475,56 +488,74 @@ public class BookService {
                 break;
             }
 
-            List<Object[]> batchArgs = new ArrayList<>();
-            List<BookCategory> bookCategories=new ArrayList<>();
-
-            for (Book book : targetBooks) {
-                Integer matchedId = CategoryMapper.findCategoryId(book.getTitle());
-
-
-                if (matchedId != null && categoryMap.containsKey(matchedId)) {
-                    batchArgs.add(new Object[]{book.getId(), matchedId});
-                }
-
-                int parentId = CategoryMapper.getParentId(matchedId);
-
-                if (parentId != 0 && categoryMap.containsKey(parentId)) {
-                    batchArgs.add(new Object[]{book.getId(), parentId});
-                }
-
-//                Integer childId=categoryRepository.findByChildId(matchedId);
-
-                // [핵심] 다음 조회를 위해 마지막 ID를 기억합니다.
-                lastId = book.getId();
-            }
+            List<Object[]> batchArgs = createBatchArgs(targetBooks, categoryMap);
+            saveBatch(batchArgs, lastId, totalProcessed);
 
             // DB 저장 (트랜잭션 없이 JDBC 바로 실행 -> 자동 커밋됨)
             if (!batchArgs.isEmpty()) {
-                try {
-                    String sql = "INSERT INTO book_category (book_id, category_id) VALUES (?, ?)";
-                    jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
-                        @Override
-                        public void setValues(PreparedStatement ps, int i) throws SQLException {
-                            Object[] args = batchArgs.get(i);
-                            ps.setLong(1, (Long) args[0]);
-                            ps.setInt(2, (Integer) args[1]);
-                        }
-                        @Override
-                        public int getBatchSize() {
-                            return batchArgs.size();
-                        }
-                    });
-                    totalProcessed += batchArgs.size();
-                    log.info("▷ {}권 저장 성공! (마지막 ID: {}, 누적: {}권)", batchArgs.size(), lastId, totalProcessed);
-                } catch (Exception e) {
-                    log.error("❌ 저장 중 에러 발생 (계속 진행함): {}", e.getMessage());
-                }
-            } else {
-                // 매핑된 게 없어도 lastId가 갱신되었으므로 무한 루프에 빠지지 않습니다.
-                log.info("⚠️ 이번 배치({}권)에서는 매칭된 카테고리가 없습니다. (진행 중...)", targetBooks.size());
+                totalProcessed += batchArgs.size();
             }
+            lastId = targetBooks.get(targetBooks.size() - 1).getId();
         }
 
         log.info("============== [마이그레이션 정상 종료] ==============");
+    }
+
+    /**
+     * 조회된 책 목록을 배치 처리를 위한 인자 목록으로 변환합니다.
+     */
+    private List<Object[]> createBatchArgs(List<Book> books, Map<Integer, Integer> categoryMap) {
+        List<Object[]> batchArgs = new ArrayList<>();
+
+        for (Book book : books) {
+            addCategoryMapping(batchArgs, book, categoryMap);
+        }
+        return batchArgs;
+    }
+
+    /**
+     * 개별 책에 대한 카테고리 매핑 정보를 추출하여 리스트에 추가합니다.
+     */
+    private void addCategoryMapping(List<Object[]> batchArgs, Book book, Map<Integer, Integer> categoryMap) {
+        Integer matchedId = CategoryMapper.findCategoryId(book.getTitle());
+
+        if (matchedId != null && categoryMap.containsKey(matchedId)) {
+            batchArgs.add(new Object[]{book.getId(), matchedId});
+        }
+
+        int parentId = CategoryMapper.getParentId(matchedId);
+        if (parentId != 0 && categoryMap.containsKey(parentId)) {
+            batchArgs.add(new Object[]{book.getId(), parentId});
+        }
+    }
+
+    /**
+     * 생성된 배치 데이터를 DB에 저장합니다.
+     */
+    private void saveBatch(List<Object[]> batchArgs, Long lastId, int currentTotal) {
+        if (batchArgs.isEmpty()) {
+            log.info("⚠️ 이번 배치에서는 매칭된 카테고리가 없습니다. (진행 중...)");
+            return;
+        }
+
+        try {
+            String sql = "INSERT INTO book_category (book_id, category_id) VALUES (?, ?)";
+            jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
+                @Override
+                public void setValues(PreparedStatement ps, int i) throws SQLException {
+                    Object[] args = batchArgs.get(i);
+                    ps.setLong(1, (Long) args[0]);
+                    ps.setInt(2, (Integer) args[1]);
+                }
+
+                @Override
+                public int getBatchSize() {
+                    return batchArgs.size();
+                }
+            });
+            log.info("▷ {}권 저장 성공! (마지막 ID: {}, 누적: {}권)", batchArgs.size(), lastId, currentTotal + batchArgs.size());
+        } catch (Exception e) {
+            log.error("❌ 저장 중 에러 발생 (계속 진행함): {}", e.getMessage());
+        }
     }
 }

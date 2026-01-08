@@ -2,15 +2,14 @@ package com.nhnacademy.book_server.controller.book;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nhnacademy.book_server.controller.MemberBookUserTagController;
-import com.nhnacademy.book_server.dto.UserTagRequest;
 import com.nhnacademy.book_server.service.MemberBookUserTagService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
@@ -35,7 +34,7 @@ class MemberBookUserTagControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @MockitoBean
     private MemberBookUserTagService service;
 
     private static final String HEADER_MEMBER_ID = "X-MEMBER-ID";
@@ -71,9 +70,6 @@ class MemberBookUserTagControllerTest {
         Long bookId = 100L;
         String tagCode = "READING";
 
-        // UserTagRequest 객체 생성 (Lombok @Data 혹은 Setter가 있다고 가정)
-        // 만약 생성자가 없다면 리플렉션이나 필드 주입을 사용해야 할 수도 있음
-        UserTagRequest request = new UserTagRequest();
         // request.setTagCode(tagCode); // DTO 구조에 맞게 설정 필요 (여기서는 JSON 변환만 되면 됨)
         // 테스트 편의상 Map이나 직접 JSON String을 써도 되지만, 여기선 ObjectMapper 활용
         String requestBody = "{\"tagCode\": \"" + tagCode + "\"}";
@@ -107,21 +103,4 @@ class MemberBookUserTagControllerTest {
 
         then(service).should(times(1)).removeUserTag(eq(memberId), eq(bookId), eq(tagCode));
     }
-
-//    @Test
-//    @DisplayName("FAIL: 헤더(X-MEMBER-ID) 누락 시 400 Bad Request")
-//    void failWhenHeaderMissing() throws Exception {
-//        // given
-//        Long bookId = 100L;
-//
-//        // when & then
-//        mockMvc.perform(get("/api/books/{bookId}/user-tags", bookId)
-//                        .with(csrf())
-//                         .header(HEADER_MEMBER_ID,"member") // 헤더 누락
-//                        .accept(MediaType.APPLICATION_JSON))
-//                .andDo(print())
-//                .andExpect(status().isBadRequest()); // MissingRequestHeaderException 발생
-//
-//        then(service).shouldHaveNoInteractions();
-//    }
 }

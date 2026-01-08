@@ -57,7 +57,7 @@ class BookResponseTest {
 
         // Then
         assertThat(response.avgRating()).isEqualTo(0.0);
-        assertThat(response.reviewCount()).isEqualTo(0L);
+        assertThat(response.reviewCount()).isZero();
     }
 
     @Test

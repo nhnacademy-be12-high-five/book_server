@@ -62,7 +62,7 @@ class CategoryMappingServiceTest {
                 .willReturn(false);
 
         // When
-        categoryMappingService.CategoryAndMap(book, childCategoryId, categoryName);
+        categoryMappingService.categoryAndMap(book, childCategoryId, categoryName);
 
         // Then
         // 1. 카테고리가 없었으니 save(newCategory)가 1번 호출되어야 함
@@ -92,7 +92,7 @@ class CategoryMappingServiceTest {
                 .willReturn(true);
 
         // When
-        categoryMappingService.CategoryAndMap(book, categoryId, name);
+        categoryMappingService.categoryAndMap(book, categoryId, name);
 
         // Then
         // 매핑이 이미 존재하므로 save는 호출되지 않아야 함
