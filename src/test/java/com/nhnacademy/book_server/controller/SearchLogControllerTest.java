@@ -13,7 +13,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -36,7 +35,7 @@ class SearchLogControllerTest {
                 new SearchLogResponse("java", 100L),
                 new SearchLogResponse("spring", 80L)
         );
-        when(searchLogService.getPopularKeywords(eq(10))).thenReturn(body);
+        when(searchLogService.getPopularKeywords(10)).thenReturn(body);
 
         mockMvc.perform(get("/popular"))
                 .andExpect(status().isOk())
@@ -58,7 +57,7 @@ class SearchLogControllerTest {
                 new SearchLogResponse("k2", 2L),
                 new SearchLogResponse("k3", 1L)
         );
-        when(searchLogService.getPopularKeywords(eq(3))).thenReturn(body);
+        when(searchLogService.getPopularKeywords(3)).thenReturn(body);
 
         mockMvc.perform(get("/popular").param("limit", "3"))
                 .andExpect(status().isOk())
@@ -69,15 +68,5 @@ class SearchLogControllerTest {
 
         verify(searchLogService).getPopularKeywords(3);
     }
-
-//    @Test
-//    @DisplayName("GET /popular?limit=abc - 타입 변환 실패 -> GlobalExceptionHandler에 의해 500(C002) 반환")
-//    void getPopularKeywords_invalidLimit_returns500_withC002() throws Exception {
-//        mockMvc.perform(get("/popular").param("limit", "abc"))
-//                .andExpect(status().isInternalServerError())
-//                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-//                .andExpect(jsonPath("$.code").value("C002"))
-//                .andExpect(jsonPath("$.message").value("알 수 없는 서버 오류가 발생했습니다."));
-//    }
 
 }

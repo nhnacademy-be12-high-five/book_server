@@ -20,7 +20,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -62,7 +61,7 @@ class SearchControllerTest {
     void searchBooks_정상_200_페이지반환() throws Exception {
         Page<BookResponse> page = new PageImpl<>(List.of(), PageRequest.of(0, 20), 0);
 
-        when(bookSearchService.searchBooks(eq("유아"), eq(BookSortType.POPULAR), eq(0), eq(20)))
+        when(bookSearchService.searchBooks("유아", BookSortType.POPULAR, 0, 20))
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/search")
@@ -158,7 +157,7 @@ class SearchControllerTest {
     void ragSearch_정상_200_리스트반환() throws Exception {
         SearchResult<BookResponse> sr = new SearchResult<>(List.of(), 0L);
 
-        when(ragSearchable.searchByRag(eq("유아"), eq(0), eq(10)))
+        when(ragSearchable.searchByRag("유아", 0, 10))
                 .thenReturn(sr);
 
         mockMvc.perform(get("/api/search/rag-search")

@@ -451,7 +451,9 @@ class ElasticServiceTest {
                 null, null
         );
 
-        assertThatThrownBy(() -> service.saveAll(List.of(b1)))
+        List<BookResponse> booksToSave = List.of(b1);
+
+        assertThatThrownBy(() -> service.saveAll(booksToSave))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining(ErrorCode.EXTERNAL_SERVER_ERROR.getMessage());
     }

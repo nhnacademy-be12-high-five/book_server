@@ -65,8 +65,8 @@ public class RerankerService {
             // 4. 점수 매핑 및 재정렬
             List<BookWithScore> scoredBooks = new ArrayList<>();
             for (Map<String, Object> res : results) {
-                int index = res.get("index") instanceof Number ? ((Number) res.get("index")).intValue() : -1;
-                double score = res.get("score") instanceof Number ? ((Number) res.get("score")).doubleValue() : 0.0;
+                int index = res.get("index") instanceof Number number ? number.intValue() : -1;
+                double score = res.get("score") instanceof Number number? number.doubleValue() : 0.0;
 
                 if (index >= 0 && index < books.size()) {
                     scoredBooks.add(new BookWithScore(books.get(index), score));

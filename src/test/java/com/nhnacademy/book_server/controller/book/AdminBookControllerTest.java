@@ -13,12 +13,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
@@ -43,10 +43,10 @@ class AdminBookControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @MockitoBean
     private BookService bookService;
 
-    @MockBean
+    @MockitoBean
     private BookRegistrationService bookRegistrationService;
 
     // BookResponse 생성을 돕는 헬퍼 메서드 (Record에 빌더가 없으므로 사용)
@@ -75,10 +75,6 @@ class AdminBookControllerTest {
     @Test
     @DisplayName("도서 생성 성공")
     void createBook() throws Exception {
-        // given
-        BookCreateRequest request = new BookCreateRequest();
-        // 리플렉션 등으로 필드 주입 필요하다면 여기에 작성 (생략)
-
         BookInfoDto requestDto = BookInfoDto.builder()
                 .title("테스트 책")
                 .isbn("9791112345678") // DTO 필드명은 isbn

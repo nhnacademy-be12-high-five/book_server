@@ -1,7 +1,6 @@
 package com.nhnacademy.book_server.exception;
 
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 @Getter
 public class BusinessException extends RuntimeException{

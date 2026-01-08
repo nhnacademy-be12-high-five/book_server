@@ -6,7 +6,7 @@ import com.nhnacademy.book_server.dto.response.BookReviewResponse;
 import com.nhnacademy.book_server.dto.response.MyPageReviewResponse;
 import com.nhnacademy.book_server.dto.response.ReviewCreateResponse;
 import com.nhnacademy.book_server.dto.response.UpdateReviewResponse;
-import com.nhnacademy.book_server.service.ReviewService;
+import com.nhnacademy.book_server.service.review.ReviewService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;

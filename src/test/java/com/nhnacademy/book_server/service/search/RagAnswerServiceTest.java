@@ -109,21 +109,23 @@ class RagAnswerServiceTest {
         String prompt = promptCaptor.getValue();
 
         // ---- prompt 핵심 포함 여부 ----
-        assertThat(prompt).contains("사용자 질문: \"").contains(keyword);
+        assertThat(prompt)
+                .contains("사용자 질문: \"")
+                .contains(keyword)
 
-        // 1~5번 도서만 포함
-        assertThat(prompt).contains("1. 제목: A");
-        assertThat(prompt).contains("2. 제목: B");
-        assertThat(prompt).contains("3. 제목: C");
-        assertThat(prompt).contains("4. 제목: D");
-        assertThat(prompt).contains("5. 제목: E");
+                // 1~5번 도서만 포함
+                .contains("1. 제목: A")
+                .contains("2. 제목: B")
+                .contains("3. 제목: C")
+                .contains("4. 제목: D")
+                .contains("5. 제목: E")
 
-        // 6번 도서는 포함되면 안 됨
-        assertThat(prompt).doesNotContain("6. 제목: F");
+                // 6번 도서는 포함되면 안 됨
+                .doesNotContain("6. 제목: F")
 
-        // 저자/가격 형식 포함
-        assertThat(prompt).contains("저자: a1");
-        assertThat(prompt).contains("가격: 1000원");
+                // 저자/가격 형식 포함
+                .contains("저자: a1")
+                .contains("가격: 1000원");
     }
 
     @Test
@@ -177,7 +179,7 @@ class RagAnswerServiceTest {
         // truncate 결과: 200자 + "..."
         // "설명: " 이후에 200자 + ... 이 들어가야 함
         int idx = prompt.indexOf("설명: ");
-        assertThat(idx).isGreaterThanOrEqualTo(0);
+        assertThat(idx).isNotNegative();
 
         String after = prompt.substring(idx);
         // "설명: " + 200자 + "..." 포함 여부를 느슨하게 검증

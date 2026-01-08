@@ -7,7 +7,7 @@ import com.nhnacademy.book_server.dto.response.BookReviewResponse;
 import com.nhnacademy.book_server.dto.response.MyPageReviewResponse;
 import com.nhnacademy.book_server.dto.response.ReviewCreateResponse;
 import com.nhnacademy.book_server.dto.response.UpdateReviewResponse;
-import com.nhnacademy.book_server.service.ReviewService;
+import com.nhnacademy.book_server.service.review.ReviewService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,16 +54,16 @@ class ReviewControllerTest {
     @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
-    private final Long TEST_BOOK_ID = 1L;
-    private final Long TEST_MEMBER_ID = 100L;
-    private final Long TEST_REVIEW_ID = 10L;
+    private final Long testBookId = 1L;
+    private final Long testMemberId = 100L;
+    private final Long testReviewId = 10L;
 
     @Test
     @DisplayName("리뷰 작성 성공 (이미지 포함) - 201 Created")
     void createReviewWithImage() throws Exception {
         // given
         ReviewCreateRequest requestDto = new ReviewCreateRequest(5, "정말 좋은 책입니다! 추천해요.");
-        ReviewCreateResponse responseDto = new ReviewCreateResponse(TEST_REVIEW_ID, 5, "정말 좋은 책입니다! 추천해요.");
+        ReviewCreateResponse responseDto = new ReviewCreateResponse(testReviewId, 5, "정말 좋은 책입니다! 추천해요.");
 
         // JSON Request Part
         MockMultipartFile requestPart = new MockMultipartFile(
@@ -81,14 +81,14 @@ class ReviewControllerTest {
                 "image-data".getBytes()
         );
 
-        given(reviewService.saveReview(any(ReviewCreateRequest.class), eq(TEST_BOOK_ID), eq(TEST_MEMBER_ID), anyList()))
+        given(reviewService.saveReview(any(ReviewCreateRequest.class), eq(testBookId), eq(testMemberId), anyList()))
                 .willReturn(responseDto);
 
         // when
-        ResultActions result = mockMvc.perform(multipart("/api/books/{book-id}/reviews", TEST_BOOK_ID)
+        ResultActions result = mockMvc.perform(multipart("/api/books/{book-id}/reviews", testBookId)
                 .file(requestPart)
                 .file(imagePart)
-                .header("x-user-id", TEST_MEMBER_ID) // 헤더 필수
+                .header("x-user-id", testMemberId) // 헤더 필수
                 .contentType(MediaType.MULTIPART_FORM_DATA)
                 .accept(MediaType.APPLICATION_JSON));
 
@@ -114,13 +114,13 @@ class ReviewControllerTest {
         );
 
         // 이미지가 null일 때 서비스 호출 매칭 주의 (isNull())
-        given(reviewService.saveReview(any(ReviewCreateRequest.class), eq(TEST_BOOK_ID), eq(TEST_MEMBER_ID), isNull()))
+        given(reviewService.saveReview(any(ReviewCreateRequest.class), eq(testBookId), eq(testMemberId), isNull()))
                 .willReturn(responseDto);
 
         // when
-        ResultActions result = mockMvc.perform(multipart("/api/books/{book-id}/reviews", TEST_BOOK_ID)
+        ResultActions result = mockMvc.perform(multipart("/api/books/{book-id}/reviews", testBookId)
                 .file(requestPart)
-                .header("x-user-id", TEST_MEMBER_ID)
+                .header("x-user-id", testMemberId)
                 .contentType(MediaType.MULTIPART_FORM_DATA));
 
         // then
@@ -134,27 +134,27 @@ class ReviewControllerTest {
     void getReviews() throws Exception {
         // given
         BookReviewResponse reviewResponse = new BookReviewResponse(
-                TEST_REVIEW_ID, TEST_MEMBER_ID, "tester", "Content", 5,
+                testReviewId, testMemberId, "tester", "Content", 5,
                 Timestamp.valueOf(LocalDateTime.now()),
                 Collections.emptyList(), 0, false
         );
         Page<BookReviewResponse> pageResponse = new PageImpl<>(List.of(reviewResponse));
 
-        given(reviewService.getReviewList(eq(TEST_BOOK_ID), any(Pageable.class), eq(TEST_MEMBER_ID)))
+        given(reviewService.getReviewList(eq(testBookId), any(Pageable.class), eq(testMemberId)))
                 .willReturn(pageResponse);
 
         // when
-        ResultActions result = mockMvc.perform(get("/api/books/{book-id}/reviews", TEST_BOOK_ID)
-                .header("x-user-id", TEST_MEMBER_ID)
+        ResultActions result = mockMvc.perform(get("/api/books/{book-id}/reviews", testBookId)
+                .header("x-user-id", testMemberId)
                 .param("page", "0")
                 .param("size", "10"));
 
         // then
         result.andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].reviewId").value(TEST_REVIEW_ID))
+                .andExpect(jsonPath("$.content[0].reviewId").value(testReviewId))
                 .andDo(print());
 
-        verify(reviewService).getReviewList(eq(TEST_BOOK_ID), any(Pageable.class), eq(TEST_MEMBER_ID));
+        verify(reviewService).getReviewList(eq(testBookId), any(Pageable.class), eq(testMemberId));
     }
 
     @Test
@@ -162,16 +162,16 @@ class ReviewControllerTest {
     void getMyReviewFound() throws Exception {
         // given
         BookReviewResponse response = new BookReviewResponse(
-                TEST_REVIEW_ID, TEST_MEMBER_ID, "me", "My Review", 5,
+                testReviewId, testMemberId, "me", "My Review", 5,
                 Timestamp.valueOf(LocalDateTime.now()),
                 Collections.emptyList(), 0, null
         );
 
-        given(reviewService.getMyReview(TEST_BOOK_ID, TEST_MEMBER_ID)).willReturn(response);
+        given(reviewService.getMyReview(testBookId, testMemberId)).willReturn(response);
 
         // when
-        ResultActions result = mockMvc.perform(get("/api/books/{book-id}/reviews/me", TEST_BOOK_ID)
-                .header("x-user-id", TEST_MEMBER_ID));
+        ResultActions result = mockMvc.perform(get("/api/books/{book-id}/reviews/me", testBookId)
+                .header("x-user-id", testMemberId));
 
         // then
         result.andExpect(status().isOk())
@@ -183,11 +183,11 @@ class ReviewControllerTest {
     @DisplayName("나의 리뷰 단건 조회 (데이터 없음) - 204 No Content")
     void getMyReviewNotFound() throws Exception {
         // given
-        given(reviewService.getMyReview(TEST_BOOK_ID, TEST_MEMBER_ID)).willReturn(null);
+        given(reviewService.getMyReview(testBookId, testMemberId)).willReturn(null);
 
         // when
-        ResultActions result = mockMvc.perform(get("/api/books/{book-id}/reviews/me", TEST_BOOK_ID)
-                .header("x-user-id", TEST_MEMBER_ID));
+        ResultActions result = mockMvc.perform(get("/api/books/{book-id}/reviews/me", testBookId)
+                .header("x-user-id", testMemberId));
 
         // then
         result.andExpect(status().isNoContent())
@@ -199,15 +199,15 @@ class ReviewControllerTest {
     void getMyReviews() throws Exception {
         // given
         MyPageReviewResponse myPageResponse = new MyPageReviewResponse(
-                50L, TEST_BOOK_ID, "Book Title", Timestamp.valueOf(LocalDateTime.now())
+                50L, testBookId, "Book Title", Timestamp.valueOf(LocalDateTime.now())
         );
         Page<MyPageReviewResponse> page = new PageImpl<>(List.of(myPageResponse));
 
-        given(reviewService.getMyReviewList(eq(TEST_MEMBER_ID), any(Pageable.class))).willReturn(page);
+        given(reviewService.getMyReviewList(eq(testMemberId), any(Pageable.class))).willReturn(page);
 
         // when
         ResultActions result = mockMvc.perform(get("/api/books/members/me/reviews")
-                .header("x-user-id", TEST_MEMBER_ID));
+                .header("x-user-id", testMemberId));
 
         // then
         result.andExpect(status().isOk())
@@ -229,14 +229,14 @@ class ReviewControllerTest {
                 objectMapper.writeValueAsString(updateRequest).getBytes(StandardCharsets.UTF_8)
         );
 
-        given(reviewService.updateReview(any(ReviewUpdateRequest.class), eq(TEST_BOOK_ID), eq(TEST_REVIEW_ID), eq(TEST_MEMBER_ID), any()))
+        given(reviewService.updateReview(any(ReviewUpdateRequest.class), eq(testBookId), eq(testReviewId), eq(testMemberId), any()))
                 .willReturn(updateResponse);
 
         // when
         // POST 메서드로 멀티파트 요청 전송
-        ResultActions result = mockMvc.perform(multipart("/api/books/{book-id}/reviews/{review-id}", TEST_BOOK_ID, TEST_REVIEW_ID)
+        ResultActions result = mockMvc.perform(multipart("/api/books/{book-id}/reviews/{review-id}", testBookId, testReviewId)
                 .file(requestPart)
-                .header("x-user-id", TEST_MEMBER_ID)
+                .header("x-user-id", testMemberId)
                 .contentType(MediaType.MULTIPART_FORM_DATA));
 
         // then
@@ -249,11 +249,11 @@ class ReviewControllerTest {
     @DisplayName("리뷰 좋아요 토글 - 200 OK")
     void toggleLike() throws Exception {
         // given
-        given(reviewService.toggleReviewLike(TEST_REVIEW_ID, TEST_MEMBER_ID, TEST_BOOK_ID)).willReturn(true);
+        given(reviewService.toggleReviewLike(testReviewId, testMemberId, testBookId)).willReturn(true);
 
         // when
-        ResultActions result = mockMvc.perform(post("/api/books/{book-id}/reviews/{review-id}/like", TEST_BOOK_ID, TEST_REVIEW_ID)
-                .header("x-user-id", TEST_MEMBER_ID));
+        ResultActions result = mockMvc.perform(post("/api/books/{book-id}/reviews/{review-id}/like", testBookId, testReviewId)
+                .header("x-user-id", testMemberId));
 
         // then
         result.andExpect(status().isOk())
