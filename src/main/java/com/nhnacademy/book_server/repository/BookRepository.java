@@ -33,8 +33,6 @@ public interface BookRepository extends JpaRepository<Book, Long> {
     @EntityGraph(attributePaths = {"bookAuthors", "bookAuthors.author"})
     Optional<Book> findById(Long id);
 
-//    List<Book> findTop5ByPublishedDateBetweenOrderByPublishedDateDesc(String startDate, String endDate);
-
     List<Book> findTop5ByPublishedDateBetweenOrderByIdAsc(String start,String end);
 
     List<Book> findTop5ByOrderByIdDesc();
@@ -57,10 +55,6 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             "WHERE bc.category.categoryId = :categoryId",
             countQuery = "SELECT count(bc) FROM BookCategory bc WHERE bc.category.categoryId = :categoryId")
         Page<BookCategory> findBooksByCategory(@Param("categoryId") int categoryId, Pageable pageable);
-
-
-//    @Query("SELECT b FROM Book b WHERE b.bookCategories IS EMPTY")
-//    List<Book> findBooksWithNoCategories(PageRequest pageRequest);
 
 
     @Query("SELECT b FROM Book b " +

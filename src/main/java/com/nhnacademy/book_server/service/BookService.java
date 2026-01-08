@@ -15,7 +15,6 @@ import com.nhnacademy.book_server.repository.review.ReviewRepository;
 import com.nhnacademy.book_server.service.search.ElasticService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
@@ -43,9 +42,10 @@ import java.util.stream.Collectors;
 
 @Service
 @Slf4j
-@RequiredArgsConstructor
 @Transactional
 public class BookService {
+
+    private static final String BEST_SELLER_KEY = "best_seller";
 
     private final BookRepository bookRepository;
     private final PublisherRepository publisherRepository;
@@ -67,9 +67,40 @@ public class BookService {
 
     private final JdbcTemplate jdbcTemplate;
 
-    @Lazy
+    private final BookService self;
+
     @Autowired
-    private BookService self;
+    public BookService(BookRepository bookRepository,
+                       PublisherRepository publisherRepository,
+                       AuthorRepository authorRepository,
+                       BookAuthorRepository bookAuthorRepository,
+                       StringRedisTemplate redisTemplate,
+                       ObjectMapper objectMapper,
+                       ReviewRepository reviewRepository,
+                       BookReviewAiRepository bookReviewAiRepository,
+                       ElasticService elasticService,
+                       BookLikeRepository bookLikeRepository,
+                       OrderFeignClient orderFeignClient,
+                       CategoryRepository categoryRepository,
+                       BookCategoryRepository bookCategoryRepository,
+                       JdbcTemplate jdbcTemplate,
+                       @Lazy BookService self) {
+        this.bookRepository = bookRepository;
+        this.publisherRepository = publisherRepository;
+        this.authorRepository = authorRepository;
+        this.bookAuthorRepository = bookAuthorRepository;
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
+        this.reviewRepository = reviewRepository;
+        this.bookReviewAiRepository = bookReviewAiRepository;
+        this.elasticService = elasticService;
+        this.bookLikeRepository = bookLikeRepository;
+        this.orderFeignClient = orderFeignClient;
+        this.categoryRepository = categoryRepository;
+        this.bookCategoryRepository = bookCategoryRepository;
+        this.jdbcTemplate = jdbcTemplate;
+        this.self = self;
+    }
 
     public Book createBook(BookInfoDto dto) {
         if (bookRepository.existsByIsbn13(dto.getIsbn())) {
@@ -85,7 +116,6 @@ public class BookService {
                     ));
         }
 
-//        BookInfoDto createRequest= new BookInfoDto();
         Integer targetCategoryId = dto.getCategoryId();
         Category category = null;
 
@@ -142,7 +172,6 @@ public class BookService {
         }
 
         try {
-//            em.flush();
             em.refresh(savedBook);
             elasticService.saveAll(List.of(BookResponse.from(savedBook)));
             log.info("Elasticsearch 인덱싱 완료 (작가/카테고리 포함): {}", savedBook.getTitle());
@@ -205,14 +234,11 @@ public class BookService {
     public List<BookResponse> getNewBooks() {
         log.info("캐시 없음! 신간 목록 DB 조회");
 
-        LocalDate start = LocalDate.of(2020, 1, 1);
-        LocalDate end = LocalDate.of(2025, 12, 31);
-
         List<Book> books = bookRepository.findTop5ByOrderByIdDesc();
 
         return books.stream()
                 .map(BookResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // 책 업데이트
@@ -279,7 +305,7 @@ public class BookService {
                         book.getPrice(),
                         book.getImage()                // 이미지
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public void incrementViewCount(Long bookId) {
@@ -316,8 +342,6 @@ public class BookService {
     public List<BookResponse> getWeeklyPopularBooks(int limit) {
         String weeklyKey = "weekly_ranking";
 
-        String today = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE);
-
         List<String> recentKeys = new ArrayList<>();
         for (int i = 0; i < 7; i++) {
             String date = LocalDate.now().minusDays(i).format(DateTimeFormatter.BASIC_ISO_DATE);
@@ -340,7 +364,7 @@ public class BookService {
             redisTemplate.expire(weeklyKey, Duration.ofMinutes(10));
         }
 
-        Set<String> topBookIds = redisTemplate.opsForZSet().reverseRange(weeklyKey, 0, limit - 1);
+        Set<String> topBookIds = redisTemplate.opsForZSet().reverseRange(weeklyKey, 0, (long) limit - 1);
 
         if (topBookIds == null || topBookIds.isEmpty()) {
             return List.of();
@@ -348,7 +372,7 @@ public class BookService {
 
         List<Long> bookIds = topBookIds.stream()
                 .map(Long::valueOf)
-                .collect(Collectors.toList());
+                .toList();
 
         // 2. [수정됨] Redis가 알려준 ID로 DB 조회 (findAllById 사용)
         List<Book> books = bookRepository.findAllById(bookIds);
@@ -363,28 +387,27 @@ public class BookService {
                 .map(bookMap::get)
                 .filter(Objects::nonNull)
                 .map(BookResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
 
     @Transactional(readOnly = true)
     public List<BookResponse> getBestSeller(int limit) {
-        String cacheKey = "best_seller";
 
         //Redis의 ZSet은 기본적으로 점수가 낮은 순서(오름차순)로 정렬되어 저장되는데
         // zset의 순서를 바꿈
 
-        Set<String> BestBookIds = redisTemplate.opsForZSet().reverseRange("best_seller", 0, limit - 1);
+        Set<String> bestBookIds = redisTemplate.opsForZSet().reverseRange(BEST_SELLER_KEY, 0, (long) limit - 1);
 
-        log.info("Redis에서 가져온 베스트 셀러 ID들: {}", BestBookIds);
+        log.info("Redis에서 가져온 베스트 셀러 ID들: {}", bestBookIds);
 
-        if (BestBookIds == null || BestBookIds.isEmpty()) {
+        if (bestBookIds == null || bestBookIds.isEmpty()) {
             return List.of();
         }
 
-        List<Long> bookIds = BestBookIds.stream()
+        List<Long> bookIds = bestBookIds.stream()
                 .map(Long::valueOf)
-                .collect(Collectors.toList());
+                .toList();
 
         // 2. DB에서 책 정보 조회 (순서 보장 안됨)
         List<Book> books = bookRepository.findAllById(bookIds);
@@ -399,14 +422,13 @@ public class BookService {
                 .map(bookMap::get)
                 .filter(Objects::nonNull) // DB에 삭제된 책이 있을 경우 대비
                 .map(BookResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Transactional
     public void incrementBestSellerScore(Long bookId, Integer quantity) {
-        String key = "best_seller";
         try {
-            redisTemplate.opsForZSet().incrementScore(key, String.valueOf(bookId), quantity.doubleValue());
+            redisTemplate.opsForZSet().incrementScore(BEST_SELLER_KEY, String.valueOf(bookId), quantity.doubleValue());
             log.info("베스트셀러 점수 갱신 완료: bookId={}, quantity={}", bookId, quantity);
         } catch (Exception e) {
             log.error("Redis 점수 갱신 실패 (주문은 계속 진행됨): bookId={}", bookId, e);

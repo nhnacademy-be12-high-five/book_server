@@ -116,10 +116,16 @@ class ReviewServiceImplTest {
     @Test
     @DisplayName("작성 실패: 이미 작성한 리뷰 존재 (REVIEW_DUP)")
     void saveReview_Fail_Duplicate() {
+        // Given
+        // 1. 구매 권한 체크를 통과하도록 설정 (이 부분이 누락되어 REVIEW_WRITE_AUTHOR 발생)
+        given(orderFeignClient.hasPurchasedBook(anyLong(), anyLong())).willReturn(true);
+
+        // 2. 이미 작성한 리뷰가 있다고 설정
         given(reviewRepository.existsByBookIdAndMemberId(BOOK_ID, MEMBER_ID)).willReturn(true);
 
         ReviewCreateRequest request = new ReviewCreateRequest(5, "Content");
 
+        // When & Then
         assertThatThrownBy(() -> reviewService.saveReview(request, BOOK_ID, MEMBER_ID, null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.REVIEW_DUP);
@@ -128,7 +134,13 @@ class ReviewServiceImplTest {
     @Test
     @DisplayName("작성 실패: 이미지 개수 초과 (5개 초과)")
     void saveReview_Fail_ImageLimit() {
+        // Given
+        given(orderFeignClient.hasPurchasedBook(anyLong(), anyLong())).willReturn(true);
+
+        // 2. 중복 작성 아님 설정
         given(reviewRepository.existsByBookIdAndMemberId(BOOK_ID, MEMBER_ID)).willReturn(false);
+
+        // 3. 책 존재 설정
         given(bookRepository.findById(BOOK_ID)).willReturn(Optional.of(testBook));
 
         // 6개의 이미지 생성
@@ -138,6 +150,7 @@ class ReviewServiceImplTest {
         }
         ReviewCreateRequest request = new ReviewCreateRequest(5, "Content");
 
+        // When & Then
         assertThatThrownBy(() -> reviewService.saveReview(request, BOOK_ID, MEMBER_ID, images))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode").isEqualTo(ErrorCode.REVIEW_IMAGE_LIMIT_EXCEEDED);
@@ -149,6 +162,8 @@ class ReviewServiceImplTest {
         // Given
         ReviewCreateRequest request = new ReviewCreateRequest(5, "Great Book");
         List<MultipartFile> images = List.of(new MockMultipartFile("img", "test.jpg", "image/jpeg", "data".getBytes()));
+
+        given(orderFeignClient.hasPurchasedBook(anyLong(), anyLong())).willReturn(true);
 
         given(reviewRepository.existsByBookIdAndMemberId(BOOK_ID, MEMBER_ID)).willReturn(false);
         given(bookRepository.findById(BOOK_ID)).willReturn(Optional.of(testBook));
