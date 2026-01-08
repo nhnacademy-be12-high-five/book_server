@@ -17,6 +17,11 @@ public class CategoryMapper {
             10, 14, 13, 8, 9, 11, 12
     );
 
+    // 대분류 검색 순서 (1~7)
+    private static final List<Integer> GENERAL_ORDER = List.of(
+            1, 2, 3, 4, 5, 6, 7
+    );
+
     static {
 
         // 8. 소분류: 소설/시/희곡 (가장 구체적인 것부터 매칭)
@@ -113,37 +118,35 @@ public class CategoryMapper {
         // 2. 매칭 확률을 높이기 위해 소문자로 변환
         String searchTitle = title.toLowerCase();
 
-//        for (int i = 8; i <= 14; i++) {
-//            List<String> keywords = CATEGORY_RULES.get(i);
-//            if (keywords != null) {
-//                for (String keyword : keywords) {
-//                    if (searchTitle.contains(keyword)) {
-//                        return i;
-//                    }
-//                }
-//            }
-//        }
-
-        for (Integer id: SEARCH_ORDER){
-            List<String> keywords = CATEGORY_RULES.get(id);
-            if (keywords != null) {
-                for (String keyword : keywords) {
-                    if (searchTitle.contains(keyword)) return id;
-                }
-            }
+        // 3. 구체적인 소분류 우선 검색
+        Integer categoryId = findMatchingCategory(searchTitle, SEARCH_ORDER);
+        if (categoryId != null) {
+            return categoryId;
         }
 
-        for (int i = 1; i <= 7; i++) {
-            List<String> keywords = CATEGORY_RULES.get(i);
-            if (keywords != null) {
-                for (String keyword : keywords) {
-                    if (searchTitle.contains(keyword)) {
-                        return i;
-                    }
-                }
+        // 4. 대분류 검색 (1~7)
+        return findMatchingCategory(searchTitle, GENERAL_ORDER);
+    }
+
+    private static Integer findMatchingCategory(String searchTitle, List<Integer> categoryIds) {
+        for (Integer id : categoryIds) {
+            if (hasMatchingKeyword(searchTitle, id)) {
+                return id;
             }
         }
+        return null;
+    }
 
-        return null; // 매칭되는 카테고리 없음
+    private static boolean hasMatchingKeyword(String searchTitle, Integer id) {
+        List<String> keywords = CATEGORY_RULES.get(id);
+        if (keywords == null) {
+            return false;
+        }
+        for (String keyword : keywords) {
+            if (searchTitle.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -21,7 +21,6 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -62,7 +61,7 @@ public class ElasticService {
                     .map(Hit::source)
                     .filter(Objects::nonNull)
                     .map(this::mapToBookResponse)
-                    .collect(Collectors.toList());
+                    .toList();
 
             return new SearchResult<>(books, totalHits);
 

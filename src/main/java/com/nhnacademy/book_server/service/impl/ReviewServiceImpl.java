@@ -69,12 +69,11 @@ public class ReviewServiceImpl implements ReviewService {
                                            Long bookId,
                                            Long memberId,
                                            List<MultipartFile> images) {
-//        Boolean isPurchased = orderFeignClient.hasPurchasedBook(memberId, bookId);
+        Boolean isPurchased = orderFeignClient.hasPurchasedBook(memberId, bookId);
 
-        // 구매 안한 사람이 접근
-//        if (true) {
-//            throw new BusinessException(ErrorCode.REVIEW_WRITE_AUTHOR);
-//        }
+        if (!isPurchased) {
+            throw new BusinessException(ErrorCode.REVIEW_WRITE_AUTHOR);
+        }
 
         // 중복 작성
         if (reviewRepository.existsByBookIdAndMemberId(bookId, memberId)) {
@@ -96,8 +95,6 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         imageSave(images, review);
-
-
 
         // 리뷰 포인트 증가
         if (newImageCount > 0) {

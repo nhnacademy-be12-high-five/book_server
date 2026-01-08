@@ -9,7 +9,10 @@ import com.nhnacademy.book_server.service.search.GeminiTextClientService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
@@ -75,7 +78,7 @@ public class BookRegistrationService {
 
     private BookInfoDto searchKakao(String isbn) {
         // URL 생성
-        URI uri = UriComponentsBuilder.fromHttpUrl(KAKAO_BOOKS_API_URL)
+        URI uri = UriComponentsBuilder.fromUriString(KAKAO_BOOKS_API_URL)
                 .queryParam("target", "isbn")
                 .queryParam("query", isbn)
                 .build()
@@ -110,7 +113,7 @@ public class BookRegistrationService {
     }
 
     private BookInfoDto searchGoogle(String isbn) {
-        URI uri = UriComponentsBuilder.fromHttpUrl(GOOGLE_BOOKS_API_URL)
+        URI uri = UriComponentsBuilder.fromUriString(GOOGLE_BOOKS_API_URL)
                 .queryParam("q", "isbn:" + isbn)
                 .build()
                 .toUri();
