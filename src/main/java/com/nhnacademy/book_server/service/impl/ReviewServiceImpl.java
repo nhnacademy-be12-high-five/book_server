@@ -21,7 +21,6 @@ import com.nhnacademy.book_server.repository.review.ReviewLikeRepository;
 import com.nhnacademy.book_server.repository.review.ReviewRepository;
 import com.nhnacademy.book_server.service.MinioImageService;
 import com.nhnacademy.book_server.service.ReviewService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
@@ -41,7 +40,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class ReviewServiceImpl implements ReviewService {
 
@@ -56,11 +54,31 @@ public class ReviewServiceImpl implements ReviewService {
     private final StringRedisTemplate redisTemplate;
 
 
+    private final ReviewService self;
     private static final int MAX_IMAGE_COUNT = 5;
 
-    @Autowired
-    @Lazy // 순환 참조 방지 필수
-    private ReviewServiceImpl self;
+    @Autowired // 스프링 4.3+부터 단일 생성자라면 생략 가능하지만, 명시적으로 작성
+    public ReviewServiceImpl(ReviewRepository reviewRepository,
+                             ReviewImageRepository reviewImageRepository,
+                             MinioImageService imageUploadService,
+                             ApplicationEventPublisher eventPublisher,
+                             OrderFeignClient orderFeignClient,
+                             MemberFeignClient memberFeignClient,
+                             BookRepository bookRepository,
+                             ReviewLikeRepository reviewLikeRepository,
+                             StringRedisTemplate redisTemplate,
+                             @Lazy ReviewService self) { // Self Reference에 Lazy 적용
+        this.reviewRepository = reviewRepository;
+        this.reviewImageRepository = reviewImageRepository;
+        this.imageUploadService = imageUploadService;
+        this.eventPublisher = eventPublisher;
+        this.orderFeignClient = orderFeignClient;
+        this.memberFeignClient = memberFeignClient;
+        this.bookRepository = bookRepository;
+        this.reviewLikeRepository = reviewLikeRepository;
+        this.redisTemplate = redisTemplate;
+        this.self = self;
+    }
 
     // 리뷰 작성 기능
     @Override
@@ -69,7 +87,7 @@ public class ReviewServiceImpl implements ReviewService {
                                            Long bookId,
                                            Long memberId,
                                            List<MultipartFile> images) {
-        Boolean isPurchased = orderFeignClient.hasPurchasedBook(memberId, bookId);
+        boolean isPurchased = Boolean.TRUE.equals(orderFeignClient.hasPurchasedBook(memberId, bookId));
 
         if (!isPurchased) {
             throw new BusinessException(ErrorCode.REVIEW_WRITE_AUTHOR);
@@ -244,22 +262,6 @@ public class ReviewServiceImpl implements ReviewService {
             );
         });
     }
-
-//    // 특수한 경우 리뷰를 삭제하기 위해 구현
-//    @Override
-//    @Transactional
-//    public void removeReview(Long reviewId) {
-//        Review review = reviewRepository.findById(reviewId)
-//                .orElseThrow(() -> new BusinessException((ErrorCode.REVIEW_NOT_FOUND)));
-//
-//        List<String> imageUrls = review.getReviewImages().stream()
-//                .map(ReviewImage::getFileUrl)
-//                .toList();
-//
-//        imageUploadService.deleteReviewImages(imageUrls);
-//
-//        reviewRepository.delete(review);
-//    }
 
     // 리뷰 수정
     @Override

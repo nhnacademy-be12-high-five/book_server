@@ -3,6 +3,8 @@ package com.nhnacademy.book_server.service.Tag;
 import com.nhnacademy.book_server.dto.request.TagRequest;
 import com.nhnacademy.book_server.dto.response.TagResponse;
 import com.nhnacademy.book_server.entity.Tag;
+import com.nhnacademy.book_server.exception.BusinessException;
+import com.nhnacademy.book_server.exception.ErrorCode;
 import com.nhnacademy.book_server.repository.TagRepository;
 import com.nhnacademy.book_server.service.TagService;
 import org.junit.jupiter.api.DisplayName;
@@ -73,8 +75,9 @@ class TagServiceTest {
 
         // when & then
         assertThatThrownBy(() -> tagService.createTag(request))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessage("이미 존재하는 태그입니다: " + tagName);
+                .isInstanceOf(BusinessException.class) // 1. 예외 타입 검증
+                .extracting("errorCode")               // 2. BusinessException 내부의 errorCode 필드 추출
+                .isEqualTo(ErrorCode.TAG_ALREADY_EXISTS); // 3. 예상되는 에러 코드(Tag 이미 존재)와 비교
 
         // save 메서드는 호출되지 않아야 함
         verify(tagRepository, never()).save(any(Tag.class));
