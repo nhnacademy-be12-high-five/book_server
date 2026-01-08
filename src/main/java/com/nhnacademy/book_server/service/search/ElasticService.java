@@ -157,7 +157,7 @@ public class ElasticService {
                 case HIGH_PRICE -> s.sort(so -> so.field(f -> f.field(FIELD_PRICE).order(SortOrder.Desc)));
                 case REVIEW -> s.sort(so -> so.field(f -> f.field(FIELD_REVIEW_COUNT).order(SortOrder.Desc)));
                 case NEW -> s.sort(so -> so.field(f -> f.field(FIELD_PUBLISHED_DATE).order(SortOrder.Desc)));
-                default -> {}
+                default -> log.warn("Unsupported sort type for ElasticSearch: {}", sort);
             }
         }
     }
@@ -201,19 +201,19 @@ public class ElasticService {
 
     private Long parseLong(Object obj) {
         if (obj instanceof Number number) return number.longValue();
-        if (obj instanceof String str) try { return Long.parseLong(str); } catch (NumberFormatException e) {}
+        if (obj instanceof String str) try { return Long.parseLong(str); } catch (NumberFormatException e) {log.debug("Failed to parse Long from string: {}", str);}
         return 0L;
     }
 
     private Integer parseInt(Object obj) {
         if (obj instanceof Number number) return number.intValue();
-        if (obj instanceof String str) try { return Integer.parseInt(str); } catch (NumberFormatException e) {}
+        if (obj instanceof String str) try { return Integer.parseInt(str); } catch (NumberFormatException e) {log.debug("Failed to parse Integer from string: {}", str);}
         return 0;
     }
 
     private Double parseDouble(Object obj) {
         if (obj instanceof Number number) return number.doubleValue();
-        if (obj instanceof String str) try { return Double.parseDouble(str); } catch (NumberFormatException e) {}
+        if (obj instanceof String str) try { return Double.parseDouble(str); } catch (NumberFormatException e) {log.debug("Failed to parse Double from string: {}", str);}
         return 0.0;
     }
 

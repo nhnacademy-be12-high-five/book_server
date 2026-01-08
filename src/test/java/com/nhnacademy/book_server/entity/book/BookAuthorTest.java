@@ -69,7 +69,7 @@ class BookAuthorTest {
         // Then
         // 1. 같은 값을 가진 Pk 객체는 같아야 함 (Lombok @EqualsAndHashCode)
         assertThat(pk1).isEqualTo(pk2);
-        assertThat(pk1.hashCode()).isEqualTo(pk2.hashCode());
+        assertThat(pk1.hashCode()).hasSameHashCodeAs(pk2.hashCode());
 
         // 2. 값이 다르면 달라야 함
         assertThat(pk1).isNotEqualTo(pk3);

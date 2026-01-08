@@ -36,28 +36,12 @@ public class OllamaEmbeddingClientService implements EmbeddingClientService {
         int maxRetries = 3;
         for (int i = 0; i < maxRetries; i++) {
             try {
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
-
-                OllamaRequest request = new OllamaRequest("bge-m3", text);
-                HttpEntity<OllamaRequest> entity = new HttpEntity<>(request, headers);
-
-                OllamaResponse response = restTemplate.postForObject(
-                        OLLAMA_API_URL,
-                        entity,
-                        OllamaResponse.class
-                );
-
-                if (response != null && response.embedding() != null) {
-                    return response.embedding();
+                List<Float> result = fetchEmbedding(text);
+                if (!result.isEmpty()) {
+                    return result;
                 }
             } catch (Exception e) {
-                if (i == maxRetries - 1) {
-                    log.error("Ollama 임베딩 최종 실패 (text length={}): {}", text.length(), e.getMessage());
-                } else {
-                    log.warn("Ollama 응답 지연, 재시도 중... ({}/{})", i + 1, maxRetries);
-                    try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
-                }
+                handleException(i, maxRetries, text, e);
             }
         }
         return Collections.emptyList();
@@ -65,4 +49,40 @@ public class OllamaEmbeddingClientService implements EmbeddingClientService {
 
     private record OllamaRequest(String model, String prompt) {}
     private record OllamaResponse(@JsonProperty("embedding") List<Float> embedding) {}
+
+    // Helper Method: API 호출 수행
+    private List<Float> fetchEmbedding(String text) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        OllamaRequest request = new OllamaRequest("bge-m3", text);
+        HttpEntity<OllamaRequest> entity = new HttpEntity<>(request, headers);
+
+        OllamaResponse response = restTemplate.postForObject(
+                OLLAMA_API_URL,
+                entity,
+                OllamaResponse.class
+        );
+
+        if (response != null && response.embedding() != null) {
+            return response.embedding();
+        }
+        return Collections.emptyList();
+    }
+
+    // Helper Method: 예외 로깅 및 재시도 대기
+    private void handleException(int currentAttempt, int maxRetries, String text, Exception e) {
+        if (currentAttempt == maxRetries - 1) {
+            log.error("Ollama 임베딩 최종 실패 (text length={}): {}", text.length(), e.getMessage());
+        } else {
+            log.warn("Ollama 응답 지연, 재시도 중... ({}/{})", currentAttempt + 1, maxRetries);
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException ie) {
+                // [수정 3] InterruptedException 발생 시 인터럽트 상태 복구 및 로그 추가 (SonarQube 규칙 준수)
+                Thread.currentThread().interrupt();
+                log.warn("Ollama 재시도 대기 중 인터럽트 발생");
+            }
+        }
+    }
 }

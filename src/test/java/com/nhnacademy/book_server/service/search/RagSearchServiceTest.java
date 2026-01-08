@@ -59,7 +59,7 @@ class RagSearchServiceTest {
     void searchByRag_blank_returnsEmpty() {
         SearchResult<BookResponse> result = ragSearchService.searchByRag("   ", 0, 10);
 
-        assertThat(result.totalHits()).isEqualTo(0L);
+        assertThat(result.totalHits()).isZero();
         assertThat(result.content()).isEmpty();
 
         verifyNoInteractions(embeddingClientService);
@@ -72,14 +72,14 @@ class RagSearchServiceTest {
         when(embeddingClientService.embed("x")).thenReturn(null);
 
         SearchResult<BookResponse> r1 = ragSearchService.searchByRag("x", 0, 10);
-        assertThat(r1.totalHits()).isEqualTo(0L);
+        assertThat(r1.totalHits()).isZero();
         assertThat(r1.content()).isEmpty();
 
         reset(embeddingClientService); // 첫 호출/스텁 제거
         when(embeddingClientService.embed("x")).thenReturn(List.of());
 
         SearchResult<BookResponse> r2 = ragSearchService.searchByRag("x", 0, 10);
-        assertThat(r2.totalHits()).isEqualTo(0L);
+        assertThat(r2.totalHits()).isZero();
         assertThat(r2.content()).isEmpty();
 
         verify(embeddingClientService, times(1)).embed("x"); // reset 이후 1회
@@ -187,7 +187,7 @@ class RagSearchServiceTest {
 
         SearchResult<BookResponse> result = ragSearchService.searchByRag("x", 0, 10);
 
-        assertThat(result.totalHits()).isEqualTo(0L);
+        assertThat(result.totalHits()).isZero();
         assertThat(result.content()).isEmpty();
     }
 

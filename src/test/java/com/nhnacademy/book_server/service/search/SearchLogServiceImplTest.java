@@ -65,8 +65,7 @@ class SearchLogServiceImplTest {
         assertThat(saved.getKeyword()).isEqualTo(keyword);
         // increaseCount()가 호출되어야 하므로 0 -> 1이 되었을 가능성이 큼
         // 단, increaseCount() 구현이 다를 수 있으니 최소한 null 아님/0 이상만 보수적으로 체크
-        assertThat(saved.getSearchCount()).isNotNull();
-        assertThat(saved.getSearchCount()).isGreaterThanOrEqualTo(1L);
+        assertThat(saved.getSearchCount()).isPositive();
 
         verify(searchLogRepository, times(1)).findByKeyword(keyword);
     }

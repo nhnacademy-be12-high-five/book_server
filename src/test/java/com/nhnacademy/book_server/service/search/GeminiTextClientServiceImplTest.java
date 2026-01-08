@@ -71,10 +71,6 @@ class GeminiTextClientServiceImplTest {
     private static final String MSG_5XX =
             "AI 추천 기능 서버 오류가 발생했습니다. 잠시 후 다시 이용해 주세요.";
 
-    private static final String MSG_LAST =
-            "AI 추천 기능은 현재 제한으로 일시적으로 사용할 수 없습니다.";
-
-
     @BeforeEach
     void setUp() {
         // Redis opsForValue() 기본 스텁
@@ -191,7 +187,7 @@ class GeminiTextClientServiceImplTest {
         String result = service.generateAnswer("B");
 
         assertThat(result).isEqualTo(DEFAULT_EMPTY_MSG);
-        verify(valueOperations).set(eq("b"), eq(DEFAULT_EMPTY_MSG), eq(30L), eq(TimeUnit.SECONDS));
+        verify(valueOperations).set("b", DEFAULT_EMPTY_MSG, 30L, TimeUnit.SECONDS);
 
         server.verify();
     }
@@ -216,7 +212,7 @@ class GeminiTextClientServiceImplTest {
         String result = service.generateAnswer("C");
 
         assertThat(result).isEqualTo(DEFAULT_EMPTY_MSG);
-        verify(valueOperations).set(eq("c"), eq(DEFAULT_EMPTY_MSG), eq(30L), eq(TimeUnit.SECONDS));
+        verify(valueOperations).set("c", DEFAULT_EMPTY_MSG, 30L, TimeUnit.SECONDS);
 
         server.verify();
     }
@@ -237,7 +233,7 @@ class GeminiTextClientServiceImplTest {
         String result = service.generateAnswer("D");
 
         assertThat(result).isEqualTo(MSG_429);
-        verify(valueOperations).set(eq("d"), eq(MSG_429), eq(30L), eq(TimeUnit.SECONDS));
+        verify(valueOperations).set("d", MSG_429, 30L, TimeUnit.SECONDS);
 
         server.verify();
     }
@@ -254,7 +250,7 @@ class GeminiTextClientServiceImplTest {
         String result = service.generateAnswer("E");
 
         assertThat(result).isEqualTo(MSG_403);
-        verify(valueOperations).set(eq("e"), eq(MSG_403), eq(30L), eq(TimeUnit.SECONDS));
+        verify(valueOperations).set("e", MSG_403, 30L, TimeUnit.SECONDS);
 
         server.verify();
     }
@@ -271,7 +267,7 @@ class GeminiTextClientServiceImplTest {
         String result = service.generateAnswer("F");
 
         assertThat(result).isEqualTo(MSG_4XX);
-        verify(valueOperations).set(eq("f"), eq(MSG_4XX), eq(30L), eq(TimeUnit.SECONDS));
+        verify(valueOperations).set("f", MSG_4XX, 30L, TimeUnit.SECONDS);
 
         server.verify();
     }
@@ -288,7 +284,7 @@ class GeminiTextClientServiceImplTest {
         String result = service.generateAnswer("G");
 
         assertThat(result).isEqualTo(MSG_503);
-        verify(valueOperations).set(eq("g"), eq(MSG_503), eq(30L), eq(TimeUnit.SECONDS));
+        verify(valueOperations).set("g", MSG_503, 30L, TimeUnit.SECONDS);
 
         server.verify();
     }
@@ -305,28 +301,10 @@ class GeminiTextClientServiceImplTest {
         String result = service.generateAnswer("H");
 
         assertThat(result).isEqualTo(MSG_5XX);
-        verify(valueOperations).set(eq("h"), eq(MSG_5XX), eq(30L), eq(TimeUnit.SECONDS));
+        verify(valueOperations).set("h", MSG_5XX, 30L, TimeUnit.SECONDS);
 
         server.verify();
     }
-
-//    @Test
-//    @DisplayName("generateAnswer: 최후 Exception(예: RestTemplate 런타임 예외) -> MSG_LAST + 30초 캐시")
-//    void generateAnswer_lastException_cache30s() {
-//        when(valueOperations.get(anyString())).thenReturn(null);
-//
-//        // MockRestServiceServer로도 만들 수 있지만, 여기서는 RestTemplate을 직접 스파이해서 예외 발생시키는 방식으로 확실히 검증
-//        RestTemplate spy = spy(restTemplate);
-//        ReflectionTestUtils.setField(service, "restTemplate", spy);
-//
-//        when(spy.postForObject(eq(BASE_URL), any(), eq(GeminiTextClientServiceImpl.GeminiResponse.class)))
-//                .thenThrow(new RuntimeException("boom"));
-//
-//        String result = service.generateAnswer("I");
-//
-//        assertThat(result).isEqualTo(MSG_LAST);
-//        verify(valueOperations).set(eq("i"), eq(MSG_LAST), eq(30L), eq(TimeUnit.SECONDS));
-//    }
 
     // ------------------------
     // getReviewSummary()는 generateAnswer() 위임만 검증

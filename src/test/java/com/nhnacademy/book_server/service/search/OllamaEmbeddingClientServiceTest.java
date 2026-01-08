@@ -191,14 +191,14 @@ class OllamaEmbeddingClientServiceTest {
     /**
      * record 컴포넌트 값 읽기 (model/prompt 등)
      */
-    private Object getRecordComponentValue(Object record, String componentName) {
-        if (!record.getClass().isRecord()) {
-            throw new IllegalArgumentException("Not a record: " + record.getClass());
+    private Object getRecordComponentValue(Object recordObj, String componentName) {
+        if (!recordObj.getClass().isRecord()) {
+            throw new IllegalArgumentException("Not a record: " + recordObj.getClass());
         }
-        for (RecordComponent rc : record.getClass().getRecordComponents()) {
+        for (RecordComponent rc : recordObj.getClass().getRecordComponents()) {
             if (rc.getName().equals(componentName)) {
                 try {
-                    return rc.getAccessor().invoke(record);
+                    return rc.getAccessor().invoke(recordObj);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }

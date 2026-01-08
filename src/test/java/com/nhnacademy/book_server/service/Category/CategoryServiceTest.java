@@ -77,8 +77,6 @@ class CategoryServiceTest {
 
         // then
         assertThat(result).hasSize(1);
-//        assertThat(result.get(0).getCategoryId()).isEqualTo(1);
-//        assertThat(result.get(0).getCategoryName()).isEqualTo("국내도서");
 
         verify(categoryRepository).findByDepth(1);
     }

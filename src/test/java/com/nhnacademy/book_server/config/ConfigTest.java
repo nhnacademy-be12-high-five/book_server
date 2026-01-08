@@ -126,9 +126,7 @@ class ConfigTest {
                     assertThat(context).hasBean("restTemplate");
                     assertThat(context).hasBean("ollamaRestTemplate");
 
-                    // 3. (선택) @Primary가 잘 적용되었는지 확인 (타입으로 가져오면 restTemplate이어야 함)
-                    RestTemplate primaryBean = context.getBean(RestTemplate.class);
-                    // 여기서 primaryBean이 기본 설정(3초/5초)을 가진 녀석인지 검증 가능
+                    assertThat(context.getBean(RestTemplate.class)).isNotNull();
                 });
     }
 

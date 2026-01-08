@@ -8,9 +8,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
@@ -34,7 +34,7 @@ class StockControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @MockBean
+    @MockitoBean
     private StockService stockService;
 
     // 테스트용 헤더 및 키 상수
@@ -147,39 +147,4 @@ class StockControllerTest {
         then(stockService).should(times(1))
                 .restoreStock(anyList(), eq(TEST_IDEMPOTENCY_KEY));
     }
-
-//    @Test
-//    @DisplayName("FAIL: 필수 파라미터(quantity) 누락 시 400 Bad Request")
-//    void holdStock_Fail_MissingParam() throws Exception {
-//        // given
-//        Long bookId = 1L;
-//
-//        // when & then
-//        mockMvc.perform(post("/api/books/{bookId}/stock/hold", bookId)
-//                        .with(csrf())
-//                        // .param("quantity", "1") // 누락
-//                        .header(IDEMPOTENCY_KEY_HEADER, TEST_IDEMPOTENCY_KEY))
-//                .andDo(print())
-//                .andExpect(status().isBadRequest());
-//
-//        then(stockService).shouldHaveNoInteractions();
-//    }
-//
-//    @Test
-//    @DisplayName("FAIL: 필수 헤더(Idempotency-Key) 누락 시 400 Bad Request")
-//    void holdStock_Fail_MissingHeader() throws Exception {
-//        // given
-//        Long bookId = 1L;
-//        int quantity = 1;
-//
-//        // when & then
-//        mockMvc.perform(post("/api/books/{bookId}/stock/hold", bookId)
-//                        .with(csrf())
-//                        .param("quantity", String.valueOf(quantity)))
-//                // .header(IDEMPOTENCY_KEY_HEADER, TEST_IDEMPOTENCY_KEY) // 누락
-//                .andDo(print())
-//                .andExpect(status().isBadRequest());
-//
-//        then(stockService).shouldHaveNoInteractions();
-//    }
 }

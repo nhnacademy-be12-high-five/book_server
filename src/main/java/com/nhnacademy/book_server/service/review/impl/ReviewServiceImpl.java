@@ -1,4 +1,4 @@
-package com.nhnacademy.book_server.service.impl;
+package com.nhnacademy.book_server.service.review.impl;
 
 import com.nhnacademy.book_server.dto.common.RestPage;
 import com.nhnacademy.book_server.dto.event.ReviewCreatedEvent;
@@ -20,7 +20,7 @@ import com.nhnacademy.book_server.repository.review.ReviewImageRepository;
 import com.nhnacademy.book_server.repository.review.ReviewLikeRepository;
 import com.nhnacademy.book_server.repository.review.ReviewRepository;
 import com.nhnacademy.book_server.service.MinioImageService;
-import com.nhnacademy.book_server.service.ReviewService;
+import com.nhnacademy.book_server.service.review.ReviewService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;

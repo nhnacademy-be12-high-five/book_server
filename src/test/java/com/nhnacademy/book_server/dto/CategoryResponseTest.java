@@ -34,7 +34,7 @@ class CategoryResponseTest {
         // Then
         // 1. 내용이 같으면 같은 객체로 취급 (record 특성)
         assertThat(response1).isEqualTo(response2);
-        assertThat(response1.hashCode()).isEqualTo(response2.hashCode());
+        assertThat(response1.hashCode()).hasSameHashCodeAs(response2.hashCode());
 
         // 2. 내용이 다르면 다른 객체
         assertThat(response1).isNotEqualTo(response3);
