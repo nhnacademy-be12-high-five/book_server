@@ -15,6 +15,8 @@ import com.nhnacademy.book_server.dto.CategoryResponse;
 import com.nhnacademy.book_server.dto.SearchResult;
 import com.nhnacademy.book_server.dto.response.TagResponse;
 import com.nhnacademy.book_server.entity.SearchFieldType;
+import com.nhnacademy.book_server.exception.BusinessException;
+import com.nhnacademy.book_server.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,6 +30,12 @@ import java.util.*;
 public class ElasticService {
 
     private static final String INDEX = "high-five";
+
+    private static final String FIELD_REVIEW_COUNT = "reviewCount";
+    private static final String FIELD_PRICE = "price";
+    private static final String FIELD_PUBLISHED_DATE = "publishedDate";
+    private static final String FIELD_AVG_RATING = "avgRating";
+
     private final ElasticsearchClient client;
 
     public SearchResult<BookResponse> search(String keyword, BookSortType sort, int page, int size) {
@@ -67,7 +75,7 @@ public class ElasticService {
 
         } catch (IOException e) {
             log.error("Elasticsearch 검색 오류: {}", e.getMessage(), e);
-            throw new RuntimeException("검색 중 오류가 발생했습니다.", e);
+            throw new BusinessException(ErrorCode.EXTERNAL_SERVER_ERROR);
         }
     }
 
@@ -131,24 +139,25 @@ public class ElasticService {
         // RATING (평점순 - 리뷰 100개 이상만) -> *이것만 결과 개수가 적게 나옵니다 (정상)*
         else if (sort == BookSortType.RATING) {
             Query reviewFilter = Query.of(q -> q.range(r -> r
-                    .number(n -> n.field("reviewCount").gte(100.0))
+                    .number(n -> n.field(FIELD_REVIEW_COUNT).gte(100.0))
             ));
 
             s.query(q -> q.bool(b -> b
                     .must(baseQuery)
                     .filter(reviewFilter)
             ));
-            s.sort(so -> so.field(f -> f.field("avgRating").order(SortOrder.Desc)));
+            s.sort(so -> so.field(f -> f.field(FIELD_AVG_RATING).order(SortOrder.Desc)));
         }
         // 기타 정렬 (신간, 가격, 리뷰순)
         else {
             s.query(baseQuery); // 인기순과 동일한 baseQuery 사용 -> 결과 개수 동일 보장
 
             switch (sort) {
-                case LOW_PRICE -> s.sort(so -> so.field(f -> f.field("price").order(SortOrder.Asc)));
-                case HIGH_PRICE -> s.sort(so -> so.field(f -> f.field("price").order(SortOrder.Desc)));
-                case REVIEW -> s.sort(so -> so.field(f -> f.field("reviewCount").order(SortOrder.Desc)));
-                case NEW -> s.sort(so -> so.field(f -> f.field("publishedDate").order(SortOrder.Desc)));
+                case LOW_PRICE -> s.sort(so -> so.field(f -> f.field(FIELD_PRICE).order(SortOrder.Asc)));
+                case HIGH_PRICE -> s.sort(so -> so.field(f -> f.field(FIELD_PRICE).order(SortOrder.Desc)));
+                case REVIEW -> s.sort(so -> so.field(f -> f.field(FIELD_REVIEW_COUNT).order(SortOrder.Desc)));
+                case NEW -> s.sort(so -> so.field(f -> f.field(FIELD_PUBLISHED_DATE).order(SortOrder.Desc)));
+                default -> {}
             }
         }
     }
@@ -161,13 +170,13 @@ public class ElasticService {
         String title = (String) source.get("title");
         String author = (String) source.get("author");
         String isbn = (String) source.getOrDefault("isbn13", source.get("isbn"));
-        Integer price = parseInt(source.get("price"));
+        Integer price = parseInt(source.get(FIELD_PRICE));
         String image = (String) source.getOrDefault("imageUrl", source.get("image"));
         String content = (String) source.get("content");
         String publisher = (String) source.get("publisher");
-        String publishedDate = source.get("publishedDate") != null ? source.get("publishedDate").toString() : null;
-        Double avgRating = parseDouble(source.get("avgRating"));
-        Long reviewCount = parseLong(source.get("reviewCount"));
+        String publishedDate = source.get(FIELD_PUBLISHED_DATE) != null ? source.get(FIELD_PUBLISHED_DATE).toString() : null;
+        Double avgRating = parseDouble(source.get(FIELD_AVG_RATING));
+        Long reviewCount = parseLong(source.get(FIELD_REVIEW_COUNT));
         String aiSummary = (String) source.get("aiSummary");
 
         List<CategoryResponse> categoryList = new ArrayList<>();
@@ -191,20 +200,20 @@ public class ElasticService {
     }
 
     private Long parseLong(Object obj) {
-        if (obj instanceof Number) return ((Number) obj).longValue();
-        if (obj instanceof String) try { return Long.parseLong((String) obj); } catch (Exception e) {}
+        if (obj instanceof Number number) return number.longValue();
+        if (obj instanceof String str) try { return Long.parseLong(str); } catch (NumberFormatException e) {}
         return 0L;
     }
 
     private Integer parseInt(Object obj) {
-        if (obj instanceof Number) return ((Number) obj).intValue();
-        if (obj instanceof String) try { return Integer.parseInt((String) obj); } catch (Exception e) {}
+        if (obj instanceof Number number) return number.intValue();
+        if (obj instanceof String str) try { return Integer.parseInt(str); } catch (NumberFormatException e) {}
         return 0;
     }
 
     private Double parseDouble(Object obj) {
-        if (obj instanceof Number) return ((Number) obj).doubleValue();
-        if (obj instanceof String) try { return Double.parseDouble((String) obj); } catch (Exception e) {}
+        if (obj instanceof Number number) return number.doubleValue();
+        if (obj instanceof String str) try { return Double.parseDouble(str); } catch (NumberFormatException e) {}
         return 0.0;
     }
 
@@ -218,8 +227,14 @@ public class ElasticService {
                 bulkBuilder.operations(op -> op.index(idx -> idx.index(INDEX).id(book.bookId().toString()).document(book)));
             }
             BulkResponse response = client.bulk(bulkBuilder.build());
-            if (response.errors()) throw new RuntimeException("ES bulk indexing failed");
-        } catch (IOException e) { throw new RuntimeException(e); }
+            if (response.errors()) {
+                log.error("Elasticsearch Bulk Indexing failed with errors.");
+                throw new BusinessException(ErrorCode.EXTERNAL_SERVER_ERROR);
+            }
+        } catch (IOException e) {
+            log.error("Elasticsearch Bulk Indexing IO Error: {}", e.getMessage(), e);
+            throw new BusinessException(ErrorCode.EXTERNAL_SERVER_ERROR);
+        }
     }
 
     public void increaseReviewCount(Long bookId) {
@@ -236,6 +251,9 @@ public class ElasticService {
         try {
             client.update(u -> u.index(INDEX).id(bookId.toString())
                     .script(sc -> sc.lang("painless").source(scriptSource)), Void.class);
-        } catch (Exception e) { throw new RuntimeException("Review count update failed", e); }
+        } catch (Exception e) {
+            log.error("Review count update failed", e);
+            throw new BusinessException(ErrorCode.EXTERNAL_SERVER_ERROR);
+        }
     }
 }

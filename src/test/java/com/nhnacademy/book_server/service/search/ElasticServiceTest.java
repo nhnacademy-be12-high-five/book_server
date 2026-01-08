@@ -16,6 +16,8 @@ import co.elastic.clients.util.ObjectBuilder;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.BookSortType;
 import com.nhnacademy.book_server.dto.SearchResult;
+import com.nhnacademy.book_server.exception.BusinessException;
+import com.nhnacademy.book_server.exception.ErrorCode;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -154,18 +156,18 @@ class ElasticServiceTest {
     }
 
     @Test
-    @DisplayName("search: IOException 발생 시 RuntimeException 래핑")
+    @DisplayName("search: IOException 발생 시 BusinessException 래핑")
     void search_ioException_wrapsRuntimeException() throws Exception {
         doThrow(new IOException("io"))
                 .when(client)
                 .search(
                         ArgumentMatchers.<Function<SearchRequest.Builder, ObjectBuilder<SearchRequest>>>any(),
-                        eq(Map.class) // ✅ 여기 반드시 Map.class
+                        eq(Map.class)
                 );
 
         assertThatThrownBy(() -> service.search("키워드", BookSortType.POPULAR, 0, 10))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("검색 중 오류");
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.EXTERNAL_SERVER_ERROR.getMessage());
     }
 
     // =======================
@@ -436,7 +438,7 @@ class ElasticServiceTest {
     }
 
     @Test
-    @DisplayName("saveAll: bulk errors=true면 RuntimeException")
+    @DisplayName("saveAll: bulk errors=true면 BusinessException")
     void saveAll_bulkErrors_throws() throws Exception {
         BulkResponse br = mock(BulkResponse.class);
         when(br.errors()).thenReturn(true);
@@ -450,8 +452,8 @@ class ElasticServiceTest {
         );
 
         assertThatThrownBy(() -> service.saveAll(List.of(b1)))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("ES bulk indexing failed");
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.EXTERNAL_SERVER_ERROR.getMessage());
     }
 
     // =======================
@@ -491,14 +493,14 @@ class ElasticServiceTest {
     }
 
     @Test
-    @DisplayName("updateReviewCount: update 예외 발생 시 RuntimeException 래핑")
+    @DisplayName("updateReviewCount: update 예외 발생 시 BusinessException 래핑")
     void updateReviewCount_exception_wrapped() throws Exception {
         doThrow(new RuntimeException("boom")).when(client)
                 .update(ArgumentMatchers.<Function<UpdateRequest.Builder<Void, Void>, ObjectBuilder<UpdateRequest<Void, Void>>>>any(),
                         eq(Void.class));
 
         assertThatThrownBy(() -> service.increaseReviewCount(1L))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Review count update failed");
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining(ErrorCode.EXTERNAL_SERVER_ERROR.getMessage());
     }
 }

@@ -128,7 +128,7 @@ class GeminiTextClientServiceImplTest {
         ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<String> valCaptor = ArgumentCaptor.forClass(String.class);
 
-        verify(valueOperations).set(keyCaptor.capture(), valCaptor.capture(), eq(6L), eq(TimeUnit.HOURS));
+        verify(valueOperations).set(keyCaptor.capture(), valCaptor.capture(), eq(21600L), eq(TimeUnit.SECONDS));
 
         // normalizeKey 적용 확인(소문자/공백 정리)
         assertThat(keyCaptor.getValue()).isEqualTo("some prompt");
@@ -149,7 +149,7 @@ class GeminiTextClientServiceImplTest {
         String result = service.generateAnswer("PROMPT");
 
         assertThat(result).isEqualTo(DEFAULT_EMPTY_MSG);
-        verify(valueOperations).set(eq("prompt"), eq(DEFAULT_EMPTY_MSG), eq(6L), eq(TimeUnit.HOURS));
+        verify(valueOperations).set(eq("prompt"), eq(DEFAULT_EMPTY_MSG), eq(21600L), eq(TimeUnit.SECONDS));
 
         server.verify();
     }
@@ -355,7 +355,7 @@ class GeminiTextClientServiceImplTest {
         server.verify();
 
         // 캐시 set 호출 6시간(성공)
-        verify(valueOperations).set(anyString(), eq("SUMMARY"), eq(6L), eq(TimeUnit.HOURS));
+        verify(valueOperations).set(anyString(), anyString(), eq(21600L), eq(TimeUnit.SECONDS));
     }
 
     // ------------------------
