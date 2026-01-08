@@ -19,7 +19,7 @@ public class CategoryMappingService {
     private final BookCategoryRepository bookCategoryRepository;
 
     @Transactional
-    public void CategoryAndMap(Book book, Integer categoryId, String categoryName) {
+    public void categoryAndMap(Book book, Integer categoryId, String categoryName) {
         // 1. 요청된 카테고리(주로 소분류) 가져오기 또는 생성
         Category mainCategory = getOrCreateCategory(categoryId, categoryName);
 

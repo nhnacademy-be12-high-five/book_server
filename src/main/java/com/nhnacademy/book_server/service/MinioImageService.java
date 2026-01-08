@@ -1,5 +1,7 @@
 package com.nhnacademy.book_server.service;
 
+import com.nhnacademy.book_server.exception.BusinessException;
+import com.nhnacademy.book_server.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +15,7 @@ import software.amazon.awssdk.services.s3.model.*;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
@@ -56,7 +59,7 @@ public class MinioImageService {
             validateImageUrl(imageUrl);
 
             // [수정 1] URL 객체 생성은 여기서 수행 (path 파싱을 위해 필요)
-            URL url = new URL(imageUrl);
+            URL url = URI.create(imageUrl).toURL();
 
             // [수정 2] 연결 생성 부분만 별도 메서드 호출 (Mocking 포인트)
             HttpURLConnection connection = getConnection(url);
@@ -198,8 +201,6 @@ public class MinioImageService {
 
         } catch (Exception e) {
             log.error("책 이미지 삭제 실패: {}", fileUrl, e);
-            // 필요 시 예외를 던져서 상위 서비스가 알게 함
-            // throw new RuntimeException("책 이미지 삭제 실패", e);
         }
     }
 
@@ -228,13 +229,13 @@ public class MinioImageService {
 
         } catch (Exception e) {
             log.error("키 추출 실패: {}", fileUrl, e);
-            throw new RuntimeException("URL 파싱 오류", e);
+            throw new BusinessException(ErrorCode.URL_PARSING_ERROR);
         }
     }
 
     // 보안성 업
     private void validateImageUrl(String urlString) throws IOException {
-        URL url = new URL(urlString);
+        URL url = URI.create(urlString).toURL();
 
         String protocol = url.getProtocol();
         if (!"http".equalsIgnoreCase(protocol) && !"https".equalsIgnoreCase(protocol)) {
@@ -275,7 +276,7 @@ public class MinioImageService {
 
             DeleteObjectsRequest deleteReq = DeleteObjectsRequest.builder()
                     .bucket(bucketName)
-                    .delete(Delete.builder().objects(objectsToDelete).build())
+                    .delete(d -> d.objects(objectsToDelete))
                     .build();
 
             s3Client.deleteObjects(deleteReq);

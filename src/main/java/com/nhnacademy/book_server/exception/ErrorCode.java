@@ -24,6 +24,7 @@ public enum ErrorCode {
 
     // Auth
     CART_ACCESS_DENIED(HttpStatus.FORBIDDEN, "A001", "해당 장바구니에 대한 접근 권한이 없습니다."),
+    MEMBER_INFO_NOT_FOUND(HttpStatus.BAD_REQUEST, "A002", "회원 정보가 존재하지 않습니다."),
 
     // Book Errors (B)
     BOOK_NOT_FOUND(HttpStatus.NOT_FOUND, "B001", "존재하지 않는 책입니다."),
@@ -37,9 +38,17 @@ public enum ErrorCode {
 
     // External (외부 서비스 관련)
     EXTERNAL_SERVER_ERROR(HttpStatus.SERVICE_UNAVAILABLE, "EXT001", "외부 서비스 통신 중 오류가 발생했습니다."),
-    BOOK_NOT_FOUND_IN_SERVER(HttpStatus.NOT_FOUND, "EXT002", "도서 서비스에서 해당 책을 찾을 수 없습니다.");
+    BOOK_NOT_FOUND_IN_SERVER(HttpStatus.NOT_FOUND, "EXT002", "도서 서비스에서 해당 책을 찾을 수 없습니다."),
 
+    // Book Like Errors
+    BOOK_LIKE_NOT_FOUND(HttpStatus.NOT_FOUND, "L001", "삭제할 좋아요 기록이 존재하지 않습니다."),
 
+    //image
+    URL_PARSING_ERROR(HttpStatus.BAD_REQUEST, "img001", "URL 파싱 중 오류가 발생했습니다."),
+    INVALID_URL_PROTOCOL(HttpStatus.BAD_REQUEST, "img002", "지원하지 않는 프로토콜입니다. (HTTP/HTTPS만 가능)"),
+
+    // Tag Errors (T)
+    TAG_ALREADY_EXISTS(HttpStatus.CONFLICT, "T001", "이미 존재하는 태그입니다.");
 
     private final HttpStatus status;
     private final String code;

@@ -3,6 +3,8 @@ package com.nhnacademy.book_server.service;
 import com.nhnacademy.book_server.dto.request.TagRequest;
 import com.nhnacademy.book_server.dto.response.TagResponse;
 import com.nhnacademy.book_server.entity.Tag;
+import com.nhnacademy.book_server.exception.BusinessException;
+import com.nhnacademy.book_server.exception.ErrorCode;
 import com.nhnacademy.book_server.repository.TagRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,7 +24,7 @@ public class TagService {
     public TagResponse createTag(TagRequest tagRequest) {
 
         if (repository.existsByName(tagRequest.name())) {
-            throw new RuntimeException("이미 존재하는 태그입니다: " + tagRequest.name());
+            throw new BusinessException(ErrorCode.TAG_ALREADY_EXISTS);
         }
 
         Tag tag = Tag.builder()
