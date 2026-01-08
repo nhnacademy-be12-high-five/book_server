@@ -201,8 +201,9 @@ class RerankerServiceTest {
         HttpHeaders headers = entity.getHeaders();
 
         assertThat(headers.getContentType()).isEqualTo(MediaType.APPLICATION_JSON);
-        assertThat(body).containsKeys("query", "texts");
-        assertThat(body.get("query")).isEqualTo("myQuery");
+        assertThat(body)
+                .containsKeys("query", "texts")
+                .containsEntry("query", "myQuery");
 
         @SuppressWarnings("unchecked")
         List<String> texts = (List<String>) body.get("texts");

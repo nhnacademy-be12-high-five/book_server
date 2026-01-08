@@ -2,7 +2,6 @@ package com.nhnacademy.book_server.controller.book;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nhnacademy.book_server.controller.MemberBookUserTagController;
-import com.nhnacademy.book_server.dto.UserTagRequest;
 import com.nhnacademy.book_server.service.MemberBookUserTagService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
