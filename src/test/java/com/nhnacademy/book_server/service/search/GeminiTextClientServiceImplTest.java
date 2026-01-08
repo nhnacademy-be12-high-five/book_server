@@ -145,7 +145,7 @@ class GeminiTextClientServiceImplTest {
         String result = service.generateAnswer("PROMPT");
 
         assertThat(result).isEqualTo(DEFAULT_EMPTY_MSG);
-        verify(valueOperations).set(eq("prompt"), eq(DEFAULT_EMPTY_MSG), eq(21600L), eq(TimeUnit.SECONDS));
+        verify(valueOperations).set("prompt", DEFAULT_EMPTY_MSG, 21600L, TimeUnit.SECONDS);
 
         server.verify();
     }
@@ -168,7 +168,7 @@ class GeminiTextClientServiceImplTest {
 
         // 이 경우: candidates==null -> DEFAULT_EMPTY_MSG + 30초 캐시
         assertThat(result).isEqualTo(DEFAULT_EMPTY_MSG);
-        verify(valueOperations).set(eq("a"), eq(DEFAULT_EMPTY_MSG), eq(30L), eq(TimeUnit.SECONDS));
+        verify(valueOperations).set("a", DEFAULT_EMPTY_MSG, 30L, TimeUnit.SECONDS);
 
         server.verify();
     }

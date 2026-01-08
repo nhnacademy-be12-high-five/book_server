@@ -19,8 +19,8 @@ class CategoryMapperTest {
     @Test
     @DisplayName("getParentId: 대분류 ID(1~7)를 넣으면 0을 반환해야 한다")
     void getParentId_Parent_ReturnsZero() {
-        assertThat(CategoryMapper.getParentId(1)).isEqualTo(0);
-        assertThat(CategoryMapper.getParentId(7)).isEqualTo(0);
+        assertThat(CategoryMapper.getParentId(1)).isZero();
+        assertThat(CategoryMapper.getParentId(7)).isZero();
     }
 //
     @Test

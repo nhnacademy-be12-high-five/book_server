@@ -23,7 +23,7 @@ class ReviewEntitiesTest {
             assertThat(review.getReviewContent()).isEqualTo("Great Book");
             assertThat(review.getBook()).isEqualTo(book);
             assertThat(review.getMemberId()).isEqualTo(1L);
-            assertThat(review.getLikeCount()).isEqualTo(0); // 기본값 0
+            assertThat(review.getLikeCount()).isZero(); // 기본값 0
             assertThat(review.getReviewImages()).isEmpty();
         }
 
@@ -55,12 +55,12 @@ class ReviewEntitiesTest {
             Review review = new Review();
             // 0 -> 0
             review.decreaseLikeCount();
-            assertThat(review.getLikeCount()).isEqualTo(0);
+            assertThat(review.getLikeCount()).isZero();
 
             // 1 -> 0
             review.increaseLikeCount();
             review.decreaseLikeCount();
-            assertThat(review.getLikeCount()).isEqualTo(0);
+            assertThat(review.getLikeCount()).isZero();
         }
     }
 
