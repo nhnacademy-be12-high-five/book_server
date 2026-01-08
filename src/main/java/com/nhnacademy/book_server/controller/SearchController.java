@@ -19,16 +19,15 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/search")
 @RequiredArgsConstructor
-public class  SearchController implements SearchSwagger {
+public class SearchController implements SearchSwagger {
 
     private final BookSearchService bookSearchService;
     private final BookReindexService bookReindexService;
     private final RagSearchable ragSearchable;
-    private final GeminiTextClientService geminiTextClientService;
     private final RagAnswerService ragAnswerService;
 
     /**
-     *  로컬/시연 환경에서 RAG reindex 폭주 방지 토글
+     * 로컬/시연 환경에서 RAG reindex 폭주 방지 토글
      * - 기본값 false
      * - application-local.yml에서 rag.reindex.enabled=true 로 켜면 동작
      */
@@ -120,13 +119,8 @@ public class  SearchController implements SearchSwagger {
     @GetMapping("/rag-answer")
     public ResponseEntity<String> ragAnswer(@RequestParam String keyword) {
         log.info("RAG Answer 요청: keyword=[{}]", keyword);
-        try {
-            // 서비스가 (검색 -> 재순위화 -> 요약) 모든 과정을 처리하고 결과만 줍니다.
-            String answer = ragAnswerService.answer(keyword);
-            return ResponseEntity.ok(answer);
-        } catch (Exception e) {
-            log.error("RAG Answer 생성 중 오류", e);
-            return ResponseEntity.ok("현재 AI 추천 서비스를 이용할 수 없습니다. (잠시 후 다시 시도해주세요)");
-        }
+        // 서비스가 (검색 -> 재순위화 -> 요약) 모든 과정을 처리하고 결과만 줍니다.
+        String answer = ragAnswerService.answer(keyword);
+        return ResponseEntity.ok(answer);
     }
 }

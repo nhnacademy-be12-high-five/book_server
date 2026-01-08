@@ -184,17 +184,4 @@ class SearchControllerTest {
 
         verify(ragAnswerService).answer("유아");
     }
-
-    @Test
-    @DisplayName("GET /api/search/rag-answer - 예외 시에도 200(fallback 문구 반환)")
-    void ragAnswer_예외_200_대체문구반환() throws Exception {
-        when(ragAnswerService.answer("유아")).thenThrow(new RuntimeException("down"));
-
-        mockMvc.perform(get("/api/search/rag-answer")
-                        .param("keyword", "유아"))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("현재 AI 추천 서비스를 이용할 수 없습니다")));
-
-        verify(ragAnswerService).answer("유아");
-    }
 }
