@@ -62,4 +62,6 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             "AND NOT EXISTS (SELECT bc FROM BookCategory bc WHERE bc.book = b) " +
             "ORDER BY b.id ASC")
     List<Book> findNextBatch(@Param("lastId") Long lastId, Pageable pageable);
+
+    List<Book> findByOrderBySalesVolumeDesc(Pageable pageable);
 }
