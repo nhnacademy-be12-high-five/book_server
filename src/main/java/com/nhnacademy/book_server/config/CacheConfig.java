@@ -1,6 +1,11 @@
 package com.nhnacademy.book_server.config;
 
+import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
+import org.springframework.cache.Cache;
+import org.springframework.cache.annotation.CachingConfigurer;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
@@ -16,7 +21,8 @@ import java.util.Map;
 
 @Configuration
 @EnableCaching
-public class CacheConfig {
+@Slf4j
+public class CacheConfig implements CachingConfigurer {
 
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory connectionFactory) {
@@ -35,5 +41,32 @@ public class CacheConfig {
                 .cacheDefaults(defaultConfig)
                 .withInitialCacheConfigurations(customConfigs)
                 .build();
+    }
+
+    @Override
+    public CacheErrorHandler errorHandler() {
+        return new CacheErrorHandler() {
+            @Override
+            public void handleCacheGetError(@NonNull RuntimeException exception, @NonNull Cache cache, @NonNull Object key) {
+                // 캐시 조회(Get) 실패 시 로그만 찍고 예외를 던지지 않음 -> DB 조회로 넘어감
+                log.warn("Redis Cache Miss due to exception - key: {}, error: {}", key, exception.getMessage());
+            }
+
+            @Override
+            public void handleCachePutError(@NonNull RuntimeException exception, @NonNull Cache cache, @NonNull Object key, Object value) {
+                // 캐시 저장(Put) 실패 시 로그만 찍고 진행
+                log.warn("Unable to put into cache - key: {}, error: {}", key, exception.getMessage());
+            }
+
+            @Override
+            public void handleCacheEvictError(@NonNull RuntimeException exception, @NonNull Cache cache, @NonNull Object key) {
+                log.warn("Unable to evict from cache - key: {}, error: {}", key, exception.getMessage());
+            }
+
+            @Override
+            public void handleCacheClearError(@NonNull RuntimeException exception, @NonNull Cache cache) {
+                log.warn("Unable to clear cache - error: {}", exception.getMessage());
+            }
+        };
     }
 }

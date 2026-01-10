@@ -14,6 +14,7 @@ import com.nhnacademy.book_server.service.search.ElasticService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.context.annotation.Lazy;
@@ -220,7 +221,7 @@ public class BookService {
     // 2. 신간 추천 (리팩토링)
     // ----------------------------------------------------------------
     // key를 단순 문자열 'default'로 고정하여 하나의 리스트만 캐싱
-    @Cacheable(value = "newBooks", key = "'default'")
+    @Cacheable(value = "newBooks", key = "'default_v2'")
     @Transactional(readOnly = true)
     public List<BookResponse> getNewBooks() {
         log.info("캐시 없음! 신간 목록 DB 조회");
@@ -246,7 +247,7 @@ public class BookService {
         if (StringUtils.hasText(request.getDescription())) book.setContent(request.getDescription()); // description -> content 매핑 주의
         if (request.getPrice() != null) book.setPrice(request.getPrice());
         if (StringUtils.hasText(request.getImage())) book.setImage(request.getImage());
-        if (request.getPublishedDate() != null) book.setPublishedDate(request.getPublishedDate().toString());
+        if (request.getPublishedDate() != null) book.setPublishedDate(request.getPublishedDate());
 
         if (StringUtils.hasText(request.getPublisher())) {
             Publisher publisher = publisherRepository.findByName(request.getPublisher())
@@ -342,7 +343,7 @@ public class BookService {
 
         if (!recentKeys.isEmpty()) {
             // 첫 번째 키를 기준으로 나머지 키들과 합산
-            String firstKey = recentKeys.get(0);
+            String firstKey = recentKeys.getFirst();
             List<String> otherKeys = recentKeys.subList(1, recentKeys.size());
 
             if (otherKeys.isEmpty()) {
@@ -495,7 +496,7 @@ public class BookService {
             if (!batchArgs.isEmpty()) {
                 totalProcessed += batchArgs.size();
             }
-            lastId = targetBooks.get(targetBooks.size() - 1).getId();
+            lastId = targetBooks.getLast().getId();
         }
 
         log.info("============== [마이그레이션 정상 종료] ==============");
@@ -542,7 +543,7 @@ public class BookService {
             String sql = "INSERT INTO book_category (book_id, category_id) VALUES (?, ?)";
             jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
                 @Override
-                public void setValues(PreparedStatement ps, int i) throws SQLException {
+                public void setValues(@NonNull PreparedStatement ps, int i) throws SQLException {
                     Object[] args = batchArgs.get(i);
                     ps.setLong(1, (Long) args[0]);
                     ps.setInt(2, (Integer) args[1]);

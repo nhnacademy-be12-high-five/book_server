@@ -22,19 +22,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationException(MethodArgumentNotValidException e){
-        String errorMessage = e.getBindingResult().getAllErrors().get(0).getDefaultMessage();
+        String errorMessage = e.getBindingResult().getAllErrors().getFirst().getDefaultMessage();
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse("C001", errorMessage));
-    }
-
-    // 나머지 알 수 없는 에러들 처리
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleException(Exception e) {
-        log.error("알수 없는 Exception", e);
-        return ResponseEntity
-                .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(new ErrorResponse("C002", "알 수 없는 서버 오류가 발생했습니다."));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
@@ -53,11 +44,22 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse("C003", e.getMessage()));
     }
 
-    public record ErrorResponse(String code, String message){}
-
     @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<String> handleRuntimeException(RuntimeException e) {
-        // 로그를 남기거나, 공통된 에러 형식을 반환할 수 있습니다.
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+    public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException e) {
+        log.error("서버 런타임 오류 발생", e);
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ErrorResponse("SERVER_ERROR", "서버 내부 오류가 발생했습니다: " + e.getMessage()));
     }
+
+    // 나머지 알 수 없는 에러들 처리
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleException(Exception e) {
+        log.error("알수 없는 Exception", e);
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new ErrorResponse("C002", "알 수 없는 서버 오류가 발생했습니다."));
+    }
+
+    public record ErrorResponse(String code, String message){}
 }
