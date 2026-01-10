@@ -37,7 +37,6 @@ import java.time.LocalDate;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -196,7 +195,7 @@ class BookServiceTest {
         List<BookResponse> result = bookService.getNewBooks();
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).title()).isEqualTo("신간");
+        assertThat(result.getFirst().title()).isEqualTo("신간");
     }
 
     @Test
@@ -216,7 +215,7 @@ class BookServiceTest {
         List<BookResponse> result = bookService.getWeeklyPopularBooks(limit);
 
         assertThat(result).hasSize(2);
-        assertThat(result.get(0).bookId()).isEqualTo(10L);
+        assertThat(result.getFirst().bookId()).isEqualTo(10L);
     }
 
     @Test
@@ -254,7 +253,7 @@ class BookServiceTest {
         Page<BookResponse> result = bookService.getBooksByCategory(10, pageable);
 
         assertThat(result.getContent()).hasSize(1);
-        assertThat(result.getContent().get(0).title()).isEqualTo("카테고리 도서");
+        assertThat(result.getContent().getFirst().title()).isEqualTo("카테고리 도서");
     }
 
     @Test
