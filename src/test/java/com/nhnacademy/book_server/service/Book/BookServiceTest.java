@@ -349,14 +349,6 @@ class BookServiceTest {
     }
 
     @Test
-    @DisplayName("베스트셀러 점수 증가")
-    void incrementBestSellerScore_Success() {
-        given(redisTemplate.opsForZSet()).willReturn(zSetOperations);
-        assertDoesNotThrow(() -> bookService.incrementBestSellerScore(1L, 5));
-        verify(zSetOperations).incrementScore("best_seller", "1", 5.0);
-    }
-
-    @Test
     @DisplayName("도서-카테고리 수동 연결")
     void saveBookWithCategory_Success() {
         Long bookId = 1L;

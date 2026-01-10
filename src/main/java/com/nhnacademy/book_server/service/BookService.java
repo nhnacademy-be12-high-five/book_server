@@ -24,6 +24,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -391,10 +392,12 @@ public class BookService {
 
         Set<String> bestBookIds = redisTemplate.opsForZSet().reverseRange(BEST_SELLER_KEY, 0, (long) limit - 1);
 
-        log.info("Redis에서 가져온 베스트 셀러 ID들: {}", bestBookIds);
-
         if (bestBookIds == null || bestBookIds.isEmpty()) {
-            return List.of();
+            log.warn("Redis 베스트셀러 캐시가 비어있습니다. DB에서 즉시 조회합니다.");
+            return bookRepository.findByOrderBySalesVolumeDesc(PageRequest.of(0, limit))
+                    .stream()
+                    .map(BookResponse::from)
+                    .toList();
         }
 
         List<Long> bookIds = bestBookIds.stream()
@@ -419,12 +422,10 @@ public class BookService {
 
     @Transactional
     public void incrementBestSellerScore(Long bookId, Integer quantity) {
-        try {
-            redisTemplate.opsForZSet().incrementScore(BEST_SELLER_KEY, String.valueOf(bookId), quantity.doubleValue());
-            log.info("베스트셀러 점수 갱신 완료: bookId={}, quantity={}", bookId, quantity);
-        } catch (Exception e) {
-            log.error("Redis 점수 갱신 실패 (주문은 계속 진행됨): bookId={}", bookId, e);
-        }
+        Book book = bookRepository.findById(bookId)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.BOOK_NOT_FOUND));
+        book.setSalesVolume(book.getSalesVolume() + quantity);
+        log.info("베스트셀러 점수 갱신 완료: bookId={}, quantity={}", bookId, quantity);
     }
 
     @Transactional(readOnly = true)
@@ -558,5 +559,24 @@ public class BookService {
         } catch (Exception e) {
             log.error("❌ 저장 중 에러 발생 (계속 진행함): {}", e.getMessage());
         }
+    }
+
+    @Scheduled(cron = "0 0 0 * * *")
+    public void updateBestSellerCache(){
+        log.info("베스트셀러 집계 시작 (매일 자정)");
+        List<Book> bestSellers = bookRepository.findByOrderBySalesVolumeDesc(PageRequest.of(0, 10));
+
+        if (bestSellers.isEmpty()) {
+            log.info("판매된 도서가 없어 베스트셀러를 갱신하지 않습니다.");
+            return;
+        }
+
+        redisTemplate.delete(BEST_SELLER_KEY);
+
+        for (Book book : bestSellers) {
+            redisTemplate.opsForZSet().add(BEST_SELLER_KEY,String.valueOf(book.getId()), book.getSalesVolume().doubleValue());
+        }
+
+        log.info("베스트셀러 집계 및 Redis 갱신 완료. 총 {}권", bestSellers.size());
     }
 }
