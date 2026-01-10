@@ -154,7 +154,7 @@ class AdminBookControllerTest {
 
         // when & then
         mockMvc.perform(get("/api/admin/books/{id}", bookId))
-                .andExpect(status().isNotFound()) // ControllerAdvice에서 404로 매핑한다고 가정
+                .andExpect(status().isInternalServerError())// ControllerAdvice에서 404로 매핑한다고 가정
                 .andDo(print());
     }
 

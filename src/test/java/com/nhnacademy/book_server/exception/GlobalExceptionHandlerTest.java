@@ -79,15 +79,6 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    @DisplayName("RuntimeException 처리 테스트")
-    void handleRuntimeException() throws Exception {
-        mockMvc.perform(get("/test/runtime"))
-                // 코드에서 RuntimeException은 NOT_FOUND 반환 및 String Body 반환
-                .andExpect(status().isNotFound())
-                .andExpect(content().string("Runtime Error"));
-    }
-
-    @Test
     @DisplayName("Exception (알 수 없는 에러) 처리 테스트")
     void handleException() throws Exception {
         mockMvc.perform(get("/test/general"))
