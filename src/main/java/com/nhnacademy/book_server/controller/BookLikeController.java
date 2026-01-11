@@ -40,11 +40,7 @@ public class BookLikeController implements UserBookLikeSwagger {
     // 상세페이지에서 좋아요를 기억하기 위한 메서드
     @GetMapping("/books/{bookId}/likes")
     public ResponseEntity<Boolean> getLikeStatus(@PathVariable("bookId") Long bookId,
-                                                 @RequestHeader(value = "X-USER-ID", required = false) Long memberId) {
-
-        if (memberId == null){
-            return ResponseEntity.ok(false);
-        }
+                                                 @RequestHeader(value = "X-USER-ID", required = true) Long memberId) {
 
         boolean isLiked = bookLikeService.isLiked(bookId, memberId);
         return ResponseEntity.ok(isLiked);

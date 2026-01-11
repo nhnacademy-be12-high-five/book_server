@@ -141,20 +141,20 @@ class BookLikeControllerTest {
     }
 
     @Test
-    @DisplayName("[Status] 비로그인 상태(헤더 없음) - 서비스 호출 없이 false 반환")
+    @DisplayName("[Status] 비로그인 상태(헤더 누락/오타) - 400 Bad Request 발생 및 서비스 호출 안됨")
     void getLikeStatus_Guest() throws Exception {
         // given
         Long bookId = 1L;
-        // 헤더 없음
 
         // when & then
         mockMvc.perform(get("/api/books/{bookId}/likes", bookId)
+
                         .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(content().string("false")) // Controller 로직상 false
+
+                .andExpect(status().is5xxServerError())
                 .andDo(print());
 
-        // verify: 서비스가 절대 호출되면 안 됨
+        // verify: 헤더 체크 단계에서 막혔으므로, 서비스 로직은 실행되지 않았음을 검증
         verify(bookLikeService, never()).isLiked(any(), any());
     }
 
