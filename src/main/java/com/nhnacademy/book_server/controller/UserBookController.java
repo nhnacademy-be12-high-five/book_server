@@ -23,8 +23,6 @@ public class UserBookController implements UserBookSwagger {
 
     private final BookService bookService;
 
-    private StringRedisTemplate redisTemplate;
-
     // 도서 전체 조회 (GET /api/books)
     @Override
     @GetMapping("/books")
