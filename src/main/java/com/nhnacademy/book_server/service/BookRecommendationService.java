@@ -7,6 +7,7 @@ import com.nhnacademy.book_server.service.search.GeminiTextClientService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -20,10 +21,12 @@ public class BookRecommendationService {
     private final GeminiTextClientService geminiService; // 기존 AI 서비스 재사용
     private final BookRepository bookRepository; // 책 정보 조회용
 
+    @Transactional(readOnly = true)
     public List<BookResponse> getRecommendBooksByCart(List<String> cartBookTitles) {
         if (cartBookTitles == null || cartBookTitles.isEmpty()) {
             return Collections.emptyList();
         }
+        System.out.println("들어오나요?");
 
         // 1. 프롬프트 작성 (AI에게 역할을 부여하고 결과 포맷을 강제함)
         String prompt = String.format(
