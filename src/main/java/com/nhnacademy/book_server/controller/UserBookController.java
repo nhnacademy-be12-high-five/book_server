@@ -3,6 +3,7 @@ package com.nhnacademy.book_server.controller;
 import com.nhnacademy.book_server.controller.swagger.UserBookSwagger;
 import com.nhnacademy.book_server.dto.BookResponse;
 import com.nhnacademy.book_server.dto.response.GetBookResponse;
+import com.nhnacademy.book_server.service.BookRecommendationService;
 import com.nhnacademy.book_server.service.BookService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ import java.util.List;
 public class UserBookController implements UserBookSwagger {
 
     private final BookService bookService;
+    private final BookRecommendationService bookRecommendationService;
 
     // 도서 전체 조회 (GET /api/books)
     @Override
@@ -78,5 +80,11 @@ public class UserBookController implements UserBookSwagger {
     public ResponseEntity<Void> mapCategory(@PathVariable("bookId") Long bookId, @PathVariable("categoryId") Integer categoryId) {
         bookService.saveBookWithCategory(bookId,categoryId);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/books/recommendations")
+    public ResponseEntity<List<BookResponse>> getAiRecommendations(@RequestBody List<String> cartBookTitles) {
+        List<BookResponse> recommendations = bookRecommendationService.getRecommendBooksByCart(cartBookTitles);
+        return ResponseEntity.ok(recommendations);
     }
 }

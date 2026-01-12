@@ -46,7 +46,8 @@ public interface BookRepository extends JpaRepository<Book, Long> {
             "WHERE b.id = :bookId")
     void updateBookReviewStats(@Param("bookId") Long bookId);
     List<Book> findTop200ByIdGreaterThanOrderByIdAsc(Long id);
-    List<Book> findByIdIn(List<Long> ids); //카테고리-> 북리스트 후 정렬
+
+    List<Book> findByTitleIn(List<String> recommendTitles);
 
 
     @Query(value = "SELECT bc FROM BookCategory bc " +
