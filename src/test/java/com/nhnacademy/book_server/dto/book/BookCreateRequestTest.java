@@ -82,7 +82,7 @@ class BookCreateRequestTest {
                     "isbn": "978-3-16-148410-0",
                     "title": "Test Book",
                     "price": 10000,
-                    "pubDate": "2023-12-25",
+                    "publishedDate": "2023-12-25",
                     "imageUrl": "http://example.com/image.jpg"
                 }
                 """;
