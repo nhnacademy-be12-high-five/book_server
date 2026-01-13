@@ -6,7 +6,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -63,5 +66,80 @@ public class RagAnswerService {
     private String truncate(String text, int length) {
         if (text == null) return "";
         return text.length() > length ? text.substring(0, length) + "..." : text;
+    }
+
+    public List<BookResponse> getRecommendations(String keyword) {
+        // 1. 검색 (후보군 확보)
+        SearchResult<BookResponse> searchResult = ragSearchService.searchByRag(keyword, 0, 20);
+        List<BookResponse> candidates = searchResult.content();
+
+        if (candidates.isEmpty()) {
+            return List.of();
+        }
+
+        // 2. 재순위화 (정확도 향상)
+        List<BookResponse> rerankedBooks = rerankerService.rerank(candidates, keyword);
+
+        // 3. 상위 5개 선택
+        List<BookResponse> topDocs = rerankedBooks.stream()
+                .limit(5)
+                .toList();
+
+        // 4. Gemini를 통해 추천 사유 생성 (책 소개가 아닌 연관성 위주)
+        String prompt = buildRecommendationPrompt(keyword, topDocs);
+        String aiResponse = geminiTextClientService.generateAnswer(prompt);
+
+        // 5. 생성된 사유를 파싱하여 BookResponse의 aiSummary 교체
+        return mapReasonsToBooks(topDocs, aiResponse);
+    }
+
+    private String buildRecommendationPrompt(String userInterest, List<BookResponse> books) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("당신은 전문 도서 큐레이터입니다. 사용자가 장바구니에 담은 책들('").append(userInterest).append("')을 기반으로 아래 도서들을 추천하려고 합니다.\n");
+        sb.append("각 추천 도서에 대해, **책 줄거리 요약이 아닌, 왜 이 책을 추천했는지에 대한 이유**를 1문장으로 간결하게 작성해주세요.\n");
+        sb.append("사용자의 관심사(장르, 주제, 작가 등)와 추천 도서의 연결고리를 강조해야 합니다.\n");
+        sb.append("응답 형식은 반드시 다음과 같이 작성하세요:\n");
+        sb.append("[책ID]: 추천사유\n\n");
+        sb.append("추천 도서 목록:\n");
+
+        for (BookResponse book : books) {
+            sb.append("ID: ").append(book.bookId()).append(", 제목: ").append(book.title())
+                    .append(", 설명: ").append(truncate(book.content(), 100)).append("\n");
+        }
+
+        return sb.toString();
+    }
+
+    private List<BookResponse> mapReasonsToBooks(List<BookResponse> books, String aiResponse) {
+        // AI 응답 파싱 (ID: 사유 형태)
+        Map<Long, String> reasonMap = aiResponse.lines()
+                .filter(line -> line.contains(":"))
+                .map(line -> line.split(":", 2))
+                .filter(parts -> isNumeric(parts[0].trim()))
+                .collect(Collectors.toMap(
+                        parts -> Long.parseLong(parts[0].trim()),
+                        parts -> parts[1].trim(),
+                        (existing, replacement) -> existing // 중복 시 기존 값 유지
+                ));
+
+        List<BookResponse> result = new ArrayList<>();
+        for (BookResponse book : books) {
+            String newReason = reasonMap.getOrDefault(book.bookId(), book.aiSummary()); // 생성 실패 시 기존 요약 사용
+
+            // Record는 불변이므로 생성자를 통해 새 객체 생성 (필드가 많으므로 주의)
+            result.add(new BookResponse(
+                    book.bookId(), book.title(), book.author(), book.isbn(), book.price(),
+                    book.image(), book.categories(), book.tags(), book.content(),
+                    book.publisher(), book.publishedDate(), book.avgRating(), book.reviewCount(),
+                    newReason, // [교체] AI가 생성한 추천 사유
+                    book.aiReviewSummary(), book.categoryId(), book.parentId()
+            ));
+        }
+        return result;
+    }
+
+    private boolean isNumeric(String str) {
+        if (str == null) return false;
+        return str.chars().allMatch(Character::isDigit);
     }
 }

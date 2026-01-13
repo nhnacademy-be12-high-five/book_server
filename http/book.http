@@ -86,3 +86,7 @@ GET http://localhost:9002/api/books/category
 ###
 POST http://localhost:9002/api/search/reindex-rag
 
+###
+GET http://localhost:9002/api/admin/books/search-api?isbn=9791127880293
+Content-Type: application/json
+X-USER-ID: 1

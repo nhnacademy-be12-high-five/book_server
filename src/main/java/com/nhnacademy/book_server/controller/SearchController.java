@@ -126,4 +126,15 @@ public class SearchController implements SearchSwagger {
         String answer = ragAnswerService.answer(keyword);
         return ResponseEntity.ok(answer);
     }
+
+    /**
+     * 장바구니 기반 AI 추천 (추천 사유 생성 포함)
+     * GET /api/search/recommendations?keyword=책제목1,책제목2
+     */
+    @GetMapping("/recommendations")
+    public ResponseEntity<List<BookResponse>> getRecommendations(@RequestParam String keyword) {
+        log.info("AI 추천 도서 요청 (Reasoning 포함): keyword=[{}]", keyword);
+        List<BookResponse> recommendations = ragAnswerService.getRecommendations(keyword);
+        return ResponseEntity.ok(recommendations);
+    }
 }

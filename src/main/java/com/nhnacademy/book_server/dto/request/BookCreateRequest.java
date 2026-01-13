@@ -23,7 +23,6 @@ public class BookCreateRequest {
     private Integer price;
 
     private String publisher;
-    @JsonProperty("pubDate")
     private String publishedDate;
     private String description;
     @JsonProperty("imageUrl")
